@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tricks Bees 207 | Maine Apiary Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body id="top">
+<header><div class="brand"><img src="assets/tricks-bees-207-logo.png" alt="Tricks Bees 207" class="site-logo"></span></div><button class="mobile-menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Open navigation menu">☰ <span>Menu</span></button><nav id="site-nav"><a href="#live">Live Cam</a><a href="#dashboard">Hive Data</a><a href="#now">Weather</a><a href="#apiary-now">Apiary Now</a><a href="#forage">Forage</a><a href="#varroa">Varroa</a><a href="#research">Research</a><a href="https://www.facebook.com/TricksBees207" target="_blank" rel="noopener noreferrer">Facebook</a><a href="https://www.youtube.com/@TricksBeesApiary" target="_blank" rel="noopener noreferrer">YouTube</a></nav></header>
+<section class="brand-hero" aria-label="Tricks Bees 207"><img src="assets/tricks-bees-207-hero.png" alt="Tricks Bees 207 - Real Bees. Real Hives. Real Time."></section>
+<div class="beekeeper-credential">
+  <span class="credential-name">Trick Hall</span>
+  <span class="credential-dot">•</span>
+  <a class="credential-link" href="about-trick.html">Master Beekeeper</a>
+  <span class="credential-dot">•</span>
+  <span>Ellsworth, Maine</span>
+</div>
+<main>
+<div class="hero"><div><div class="eyebrow">LIVE FROM MAINE</div><h1>A window into the hive.</h1><p>Watch the bees, follow hive conditions, and learn what is happening in a Maine apiary through the seasons.</p></div><div class="hero-bee">🐝</div></div>
+
+<section id="live" class="dark live-cameras">
+  <div class="eyebrow">LIVE HIVE CAMERAS</div>
+  <h2 id="camera-title">Tricks Bees Apiary</h2>
+  <p class="camera-intro">Choose a camera to watch live from the apiary. Only the selected camera loads, keeping the page quick and bandwidth-friendly.</p>
+
+  <div class="camera-tabs" role="tablist" aria-label="Live apiary cameras">
+    <button class="camera-tab active" type="button" role="tab" aria-selected="true" data-camera-name="Tricks Bees Apiary" data-video-id="t17Vj3SQJXQ">Tricks Bees Apiary</button>
+    <button class="camera-tab" type="button" role="tab" aria-selected="false" data-camera-name="Hive Cam 1" data-video-id="">Hive Cam 1</button>
+    <button class="camera-tab" type="button" role="tab" aria-selected="false" data-camera-name="Hive Cam 2" data-video-id="">Hive Cam 2</button>
+    <button class="camera-tab" type="button" role="tab" aria-selected="false" data-camera-name="Hive Cam 3" data-video-id="">Hive Cam 3</button>
+    <button class="camera-tab" type="button" role="tab" aria-selected="false" data-camera-name="Hive Cam 4" data-video-id="">Hive Cam 4</button>
+  </div>
+
+  <div class="video camera-player" id="camera-player">
+    <iframe id="live-camera-frame" src="https://www.youtube.com/embed/t17Vj3SQJXQ?autoplay=1&mute=1" title="Tricks Bees Apiary Live Camera" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>
+    <div class="camera-offline" id="camera-offline" hidden>
+      <span>📹</span>
+      <strong id="camera-offline-name">Hive Cam</strong>
+      <p>This camera slot is ready. Its live feed will appear here when its YouTube broadcast is connected.</p>
+    </div>
+  </div>
+  <p class="camera-note">Live video is delivered through YouTube. Camera availability may vary during maintenance or connection interruptions.</p>
+</section>
+
+<section id="dashboard">
+  <div class="eyebrow">APIARY DASHBOARD</div>
+  <h2>Inside the hive</h2>
+  <p class="broodminder-intro">BroodMinder hive monitoring. Select a hive to open its detailed sensor data and historical graphs.</p>
+  <div class="toolbar">
+    <div class="tabs hive-tabs">
+      <a class="hive" href="https://mybroodminder.com/share/hives/f8e7fb6331aa4edf8e135aa05697ea7b" target="_blank" rel="noopener noreferrer">Hive 1</a>
+      <a class="hive" href="https://mybroodminder.com/share/hives/4bb858bd3be44ec686ee6a333bf48222" target="_blank" rel="noopener noreferrer">Hive 2</a>
+      <a class="hive" href="https://mybroodminder.com/share/hives/d9967224e4c844a9a70f1b6b7dac32cf" target="_blank" rel="noopener noreferrer">Hive 3</a>
+      <a class="hive" href="https://mybroodminder.com/share/hives/1fbe78b3881a43588c835fe490be02fc" target="_blank" rel="noopener noreferrer">Hive 4</a>
+      <a class="hive" href="https://mybroodminder.com/share/hives/9d7abf7770a6446fbd0a69a21c077453" target="_blank" rel="noopener noreferrer">Hive 5</a>
+      <span class="hive hive-disabled" aria-disabled="true" title="Hive 6 BroodMinder data coming soon">Hive 6</span>
+    </div>
+  </div>
+</section>
+
+<section id="now">
+<div class="eyebrow">ELLSWORTH, MAINE</div><h2>Apiary weather</h2>
+<div id="weather-status" class="weather-status">Loading live weather…</div>
+<div class="weather-grid">
+  <article class="panel weather-current">
+    <div class="eyebrow">CURRENT CONDITIONS</div>
+    <div class="weather-big"><span id="wx-icon">🌤️</span><strong id="wx-temp">--°F</strong></div>
+    <h3 id="wx-condition">Loading…</h3>
+    <div class="weather-details">
+      <div><b>Feels like</b><span id="wx-feels">--°F</span></div>
+      <div><b>Humidity</b><span id="wx-humidity">--%</span></div>
+      <div><b>Wind</b><span id="wx-wind">-- mph</span></div>
+      <div><b>Precipitation</b><span id="wx-precip">-- in</span></div>
+    </div>
+  </article>
+  <article class="panel flight-card">
+    <div class="eyebrow">BEE FLIGHT CONDITIONS</div>
+    <div id="flight-badge" class="flight-badge limited">🟡 LIMITED</div>
+    <h3 id="flight-title">Checking conditions…</h3>
+    <p id="flight-reason">Temperature, wind and precipitation are being checked.</p>
+    <small>This is a weather-based guide, not a measurement of actual bee activity.</small>
+  </article>
+</div>
+<div class="forecast-panel">
+  <div class="eyebrow">NEXT 5 DAYS</div>
+  <div id="forecast" class="forecast-grid"></div>
+  <p class="weather-credit">Weather data: U.S. National Weather Service. Location shown publicly as Ellsworth, Maine.</p>
+</div>
+</section>
+
+
+<section id="apiary-now" class="season-section">
+  <div class="eyebrow" id="apiary-now-eyebrow">LATE SEPTEMBER IN MAINE</div>
+  <h2>What's happening now</h2>
+  <p class="section-intro" id="apiary-now-intro"></p>
+  <p class="apiary-updated" id="apiary-now-updated"></p>
+  <div class="season-grid" id="apiary-now-cards"></div>
+  <div class="watch-strip" id="apiary-now-watch"></div>
+</section>
+
+<section id="forage">
+  <div class="eyebrow">FORAGE WATCH</div>
+  <h2>What's blooming near Ellsworth?</h2>
+  <p class="section-intro">Recent flowering observations reported to iNaturalist within about 25 km of Ellsworth, Maine. These are community observations from the surrounding area, not a claim that each plant is blooming at the Tricks Bees apiary.</p>
+  <div class="forage-live-head">
+    <span id="forage-status" class="forage-live-status">Checking recent flowering observations…</span>
+    <a class="forage-source-link" href="https://www.inaturalist.org/observations?taxon_id=47126&lat=44.5434&lng=-68.4195&radius=25&term_id=12&term_value_id=13" target="_blank" rel="noopener noreferrer">View nearby observations ↗</a>
+  </div>
+  <div class="grid3" id="forage-cards">
+    <article class="panel forage-card forage-loading"><div class="flower">🌼</div><h3>Loading local bloom data</h3><p>Looking for recent plant observations specifically marked with flowers.</p></article>
+  </div>
+  <p class="forage-note" id="forage-note">Source: iNaturalist community observations. Flowering status uses the iNaturalist Flowers and Fruits annotation set to Flowers. Results depend on what people have recently observed and reported nearby.</p>
+</section>
+
+
+<section id="varroa" class="varroa-section">
+  <div class="eyebrow">VARROA WATCH</div>
+  <h2>Know the mite load.</h2>
+  <p class="section-intro">Varroa monitoring is one of the most important pieces of colony health management. The chart below is built for ongoing alcohol-wash results from the apiary. As samples are added, it will show how mite pressure changes by hive over time.</p>
+  <div class="varroa-grid">
+    <article class="panel"><div class="big-icon">🧪</div><h3>Alcohol wash</h3><p>A measured sample of adult bees can be washed to estimate the percentage of bees carrying Varroa mites.</p></article>
+    <article class="panel"><div class="big-icon">📊</div><h3>Track the trend</h3><p>A single count is useful, but repeated sampling shows whether mite pressure is rising, falling, or responding to management.</p></article>
+    <article class="panel"><div class="big-icon">🛡️</div><h3>Protect winter bees</h3><p>Late-season mite pressure matters because healthy winter bees are central to colony survival through Maine's long winter.</p></article>
+  </div>
+  <div class="mite-chart-card">
+    <div class="mite-chart-head">
+      <div><span class="mite-chart-label">LIVE APIARY MITE DATA</span><h3>Mite load by hive</h3></div>
+      <span class="mite-chart-note">Alcohol wash • % infestation</span>
+    </div>
+    <div class="mite-chart-wrap" aria-label="Demo Varroa mite load history with four alcohol washes per hive">
+      <div class="mite-y-title">Mite load (%)</div>
+      <div class="mite-chart-area multi-mite-chart">
+        <div class="mite-gridline g3"><span>3%</span></div>
+        <div class="mite-gridline g2"><span>2%</span></div>
+        <div class="mite-gridline g1"><span>1%</span></div>
+        <div class="mite-gridline g0"><span>0%</span></div>
+        <div class="multi-bars">
+          <div class="multi-hive"><div class="bar-set"><i class="wash w1" style="height:33%" title="Jun 15: 1.0%"></i><i class="wash w2" style="height:47%" title="Jul 15: 1.4%"></i><i class="wash w3" style="height:67%" title="Aug 15: 2.0%"></i><i class="wash w4" style="height:27%" title="Sep 15: 0.8%"></i></div><span>Hive 1</span></div>
+          <div class="multi-hive"><div class="bar-set"><i class="wash w1" style="height:43%" title="Jun 15: 1.3%"></i><i class="wash w2" style="height:63%" title="Jul 15: 1.9%"></i><i class="wash w3" style="height:90%" title="Aug 15: 2.7%"></i><i class="wash w4" style="height:37%" title="Sep 15: 1.1%"></i></div><span>Hive 2</span></div>
+          <div class="multi-hive"><div class="bar-set"><i class="wash w1" style="height:23%" title="Jun 15: 0.7%"></i><i class="wash w2" style="height:33%" title="Jul 15: 1.0%"></i><i class="wash w3" style="height:40%" title="Aug 15: 1.2%"></i><i class="wash w4" style="height:30%" title="Sep 15: 0.9%"></i></div><span>Hive 3</span></div>
+          <div class="multi-hive"><div class="bar-set"><i class="wash w1" style="height:50%" title="Jun 15: 1.5%"></i><i class="wash w2" style="height:73%" title="Jul 15: 2.2%"></i><i class="wash w3" style="height:97%" title="Aug 15: 2.9%"></i><i class="wash w4" style="height:40%" title="Sep 15: 1.2%"></i></div><span>Hive 4</span></div>
+          <div class="multi-hive"><div class="bar-set"><i class="wash w1" style="height:17%" title="Jun 15: 0.5%"></i><i class="wash w2" style="height:27%" title="Jul 15: 0.8%"></i><i class="wash w3" style="height:43%" title="Aug 15: 1.3%"></i><i class="wash w4" style="height:20%" title="Sep 15: 0.6%"></i></div><span>Hive 5</span></div>
+          <div class="multi-hive"><div class="bar-set"><i class="wash w1" style="height:27%" title="Jun 15: 0.8%"></i><i class="wash w2" style="height:40%" title="Jul 15: 1.2%"></i><i class="wash w3" style="height:57%" title="Aug 15: 1.7%"></i><i class="wash w4" style="height:33%" title="Sep 15: 1.0%"></i></div><span>Hive 6</span></div>
+        </div>
+      </div>
+      <div class="wash-legend"><span><i class="key w1"></i>Jun 15</span><span><i class="key w2"></i>Jul 15</span><span><i class="key w3"></i>Aug 15</span><span><i class="key w4"></i>Sep 15</span></div>
+      <div class="mite-x-title">Four sample alcohol washes per hive • demo history</div>
+    </div>
+    <div class="sample-banner">DEMO DATA — for layout preview only</div>
+    <div class="treatment-grid">
+      <article><strong>Hive 1</strong><span>1.0 → 1.4 → 2.0 → <b>0.8%</b></span><b>Treatment: Formic Pro after Aug wash</b><small>Latest wash shows lower mite load</small></article>
+      <article><strong>Hive 2</strong><span>1.3 → 1.9 → 2.7 → <b>1.1%</b></span><b>Treatment: VarroxSan after Aug wash</b><small>Follow-up wash shows decline</small></article>
+      <article><strong>Hive 3</strong><span>0.7 → 1.0 → 1.2 → <b>0.9%</b></span><b>Treatment: None</b><small>Continued monitoring</small></article>
+      <article><strong>Hive 4</strong><span>1.5 → 2.2 → 2.9 → <b>1.2%</b></span><b>Treatment: Formic Pro after Aug wash</b><small>Follow-up wash shows decline</small></article>
+      <article><strong>Hive 5</strong><span>0.5 → 0.8 → 1.3 → <b>0.6%</b></span><b>Treatment: None</b><small>Latest wash remains low</small></article>
+      <article><strong>Hive 6</strong><span>0.8 → 1.2 → 1.7 → <b>1.0%</b></span><b>Treatment: VarroxSan after Aug wash</b><small>Follow-up wash shows decline</small></article>
+    </div>
+  </div>
+</section>
+
+<section id="research" class="research">
+  <div class="eyebrow">RESEARCH AT THE APIARY</div>
+  <div class="research-home-card">
+    <div>
+      <span class="research-label">2026 FIELD STUDY</span>
+      <h2>VarroxSan Strip Placement Study</h2>
+      <p>Patrick Hall and Doug Dunlap compared labeled placement between brood frames, horizontal placement on top of brood frames, and untreated controls across 24 colonies at two apiaries.</p>
+      <div class="research-home-stats"><span><b>24</b> colonies</span><span><b>2</b> apiaries</span><span><b>42</b> days</span></div>
+    </div>
+    <a class="study-button" href="research/varroxsan-study.html">View the Study →</a>
+  </div>
+</section>
+
+</main>
+<footer class="site-footer">
+  <div class="footer-brand">
+    <strong>Tricks Bees LLC</strong>
+    <span>Tricks Bees 207</span>
+  </div>
+  <div class="footer-location">Ellsworth, Maine</div>
+  <div class="footer-links">
+    <a href="https://www.facebook.com/TricksBees207" target="_blank" rel="noopener noreferrer">Facebook</a>
+    <a href="https://www.youtube.com/@TricksBeesApiary" target="_blank" rel="noopener noreferrer">YouTube</a>
+    <a href="#top" class="back-top">Back to Top ↑</a>
+  </div>
+  <div class="footer-copy">© 2026 Tricks Bees LLC</div>
+</footer>
+<script>
+(function(){
+  const button=document.querySelector('.mobile-menu-toggle');
+  const nav=document.getElementById('site-nav');
+  if(!button||!nav) return;
+  button.addEventListener('click',function(){
+    const open=nav.classList.toggle('mobile-open');
+    button.setAttribute('aria-expanded',String(open));
+    button.setAttribute('aria-label',open?'Close navigation menu':'Open navigation menu');
+    button.firstChild.nodeValue=open?'✕ ': '☰ ';
+  });
+  nav.querySelectorAll('a').forEach(function(link){
+    link.addEventListener('click',function(){
+      nav.classList.remove('mobile-open');
+      button.setAttribute('aria-expanded','false');
+      button.setAttribute('aria-label','Open navigation menu');
+      button.firstChild.nodeValue='☰ ';
+    });
+  });
+})();
+</script>
+<script src="js/camera-selector.js"></script>
+
+<script src="js/weather.js"></script>
+<script src="js/apiary-now.js"></script>
+<script src="js/forage-watch.js"></script>
+
+</body></html>
