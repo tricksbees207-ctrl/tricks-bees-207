@@ -7,10 +7,10 @@ const placeholderTitle = document.getElementById("broodminder-placeholder-title"
 
 const broodminderLinks = {
   h1: "https://mybroodminder.com/share/hives/6cdd68c9964540638728250b8caaa66c",
-  h2: "https://mybroodminder.com/share/hives/4bb858bd3be44ec686ee6a333bf48222",
-  h3: "https://mybroodminder.com/share/hives/d9967224e4c844a9a70f1b6b7dac32cf",
-  h4: "https://mybroodminder.com/share/hives/1fbe78b3881a43588c835fe490be02fc",
-  h5: "https://mybroodminder.com/share/hives/9d7abf7770a6446fbd0a69a21c077453"
+  h2: "https://mybroodminder.com/share/hives/e91b8845fd414c468aa0dcbc8a03ddb9",
+  h3: "https://mybroodminder.com/share/hives/93ae44c834574c0984f47eae23fa59ad",
+  h4: "https://mybroodminder.com/share/hives/0879884755144152a5c9f7a43f512192",
+  h5: "https://mybroodminder.com/share/hives/ac354eed3b374582b40d827123ab3afc"
 };
 
 hiveButtons.forEach((button) => {
