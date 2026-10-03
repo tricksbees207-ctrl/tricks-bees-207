@@ -1,6 +1,6 @@
 const API_HEADERS={headers:{"Accept":"application/geo+json"}};
 const POINTS_URL="https:"+"//"+"api.weather.gov"+"/points/44.5434,-68.4195";
-const OPEN_METEO_URL="https:"+"//"+"api.open-meteo.com/v1/forecast?latitude=44.5434&longitude=-68.4195&current=temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,weather_code,wind_speed_10m,wind_direction_10m&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&timezone=America%2FNew_York";
+const OPEN_METEO_URL="https:"+"//"+"api.open-meteo.com/v1/forecast?latitude=44.5434&longitude=-68.4195&current=temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,weather_code,wind_speed_10m,wind_direction_10m&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&daily=sunrise,sunset&forecast_days=2&timezone=America%2FNew_York";
 
 function iconFor(text){
   text=(text||"").toLowerCase();
@@ -91,6 +91,14 @@ async function loadWeather(){
 
   const periods=forecast.properties.periods||[];
   const c=live.current||{};
+  const sunrise=live.daily?.sunrise?.[0];
+  const sunset=live.daily?.sunset?.[0];
+  const now=new Date();
+  const sunriseTime=sunrise ? new Date(sunrise) : null;
+  const sunsetTime=sunset ? new Date(sunset) : null;
+  const isDark=(sunriseTime && sunsetTime)
+    ? (now < sunriseTime || now >= sunsetTime)
+    : false;
 
   const temp=c.temperature_2m;
   const feels=c.apparent_temperature;
@@ -121,16 +129,25 @@ async function loadWeather(){
     pop==null?"Unavailable":Math.round(pop)+"% chance";
 
   const f=flight(temp,wind,cond),badge=document.getElementById("flight-badge");
-  badge.className="flight-badge "+f.state;
-  badge.textContent=f.state==="good"?"🟢 GOOD":f.state==="limited"?"🟡 LIMITED":"🔴 POOR";
 
-  document.getElementById("flight-title").textContent=
-    f.state==="good"?"Weather supports bee flight":
-    f.state==="limited"?"Flight may be reduced":
-    "Weather is unfavorable for flight";
+  if(isDark){
+    badge.className="flight-badge poor";
+    badge.textContent="🌙 NO FLIGHT";
+    document.getElementById("flight-title").textContent="After sunset";
+    document.getElementById("flight-reason").textContent=
+      "Bees are normally not flying after dark. Weather conditions will be evaluated again during daylight.";
+  } else {
+    badge.className="flight-badge "+f.state;
+    badge.textContent=f.state==="good"?"🟢 GOOD":f.state==="limited"?"🟡 LIMITED":"🔴 POOR";
 
-  document.getElementById("flight-reason").textContent=
-    "Based on "+f.reasons.join(", ")+".";
+    document.getElementById("flight-title").textContent=
+      f.state==="good"?"Weather supports bee flight":
+      f.state==="limited"?"Flight may be reduced":
+      "Weather is unfavorable for flight";
+
+    document.getElementById("flight-reason").textContent=
+      "Based on "+f.reasons.join(", ")+".";
+  }
 
   const fc=document.getElementById("forecast");
   fc.innerHTML="";
