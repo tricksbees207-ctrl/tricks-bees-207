@@ -447,3 +447,70 @@ html{scroll-behavior:smooth}.big-icon{font-size:32px}.varroa-section{background:
   font-size:11px;
   font-weight:700;
 }
+
+/* Research study header */
+.study-header{
+  position:relative;
+}
+
+.study-title-block{
+  max-width:1200px;
+  margin:0 auto;
+  text-align:center;
+}
+
+.study-title-block .eyebrow{
+  color:#e8bd3f;
+  text-align:center;
+  margin:0 0 18px;
+}
+
+.study-title-block h1{
+  max-width:1200px;
+  margin:0 auto;
+  text-align:center;
+}
+
+.study-title-block .study-authors{
+  color:#e8bd3f;
+  font-size:16px;
+  font-weight:700;
+  text-align:center;
+  margin:20px 0 0;
+}
+
+/* Improve research results change-number contrast */
+.results-table .down{
+  color:#287a45;
+  font-weight:700;
+}
+
+.results-table .up{
+  color:#b33a32;
+  font-weight:700;
+}
+
+/* Improve Plain-English Takeaway readability */
+.research-takeaway .research-label,
+.research-takeaway h3{
+  color:#e8bd3f;
+}
+
+.research-takeaway h3{
+  font-weight:700;
+}
+
+/* Brighten supporting text in the research takeaway */
+.research-takeaway > p{
+  color:#f2f4ef;
+}
+
+/* Improve study limitations readability */
+.research-caution{
+  color:#4b5d50;
+}
+
+.research-caution strong{
+  color:#263a2a;
+  font-weight:700;
+}
