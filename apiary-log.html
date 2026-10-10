@@ -192,6 +192,7 @@
       "https://mkypanucvttinkjggxzv.supabase.co",
       "sb_publishable_-mN1hBm5z7YCjBzg_LDU4g_5C3N8ejJ"
     );
+    let selectedHiveId = null;
 
     const login = document.getElementById("login");
     const dashboard =
@@ -242,6 +243,7 @@ for (const hive of data || []) {
     item.style.cursor = "pointer";
 
     item.addEventListener("click", () => {
+      selectedHiveId = hive.id;
   document.getElementById("inspectionTitle").textContent =
     `Hive ${hive.hive_number}: ${hive.hive_name || "Unnamed"} Inspection`;
 
@@ -256,7 +258,44 @@ for (const hive of data || []) {
 document.getElementById("saveInspection")
   .addEventListener("click", async () => {
     const message = document.getElementById("inspectionMessage");
-    message.textContent = "Preparing to save inspection...";
+    const value = (id) => document.getElementById(id).value;
+
+    if (selectedHiveId === null) {
+      message.textContent = "Please select a hive first.";
+      return;
+    }
+
+    if (!value("inspectionDate")) {
+      message.textContent = "Please enter an inspection date.";
+      return;
+    }
+
+    const yesNo = (id) => {
+      const answer = value(id).toLowerCase();
+      return answer === "yes" ? true :
+             answer === "no" ? false : null;
+    };
+
+    message.textContent = "Saving inspection...";
+
+    const { error } = await supabase
+      .from("Hive_Inspections")
+      .insert({
+        hive_id: selectedHiveId,
+        inspection_date: value("inspectionDate"),
+        queen_seen: yesNo("queenSeen"),
+        eggs_seen: yesNo("eggsSeen"),
+        brood_pattern: value("broodPattern"),
+        temperament: value("temperament"),
+        honey_stores: value("honeyStores"),
+        pollen_stores: value("pollenStores"),
+        colony_strength: value("colonyStrength"),
+        inspection_notes: value("inspectionNotes")
+      });
+
+    message.textContent = error
+      ? "Save failed: " + error.message
+      : "Inspection saved successfully!";
   });
 
 
