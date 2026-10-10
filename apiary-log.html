@@ -70,6 +70,19 @@
 #inspectionPanel textarea {
   min-height: 120px;
 }
+    .summary-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(145px,1fr)); gap:12px; margin:16px 0; }
+    .summary-tile { padding:15px; background:#fff6da; border:1px solid #e8dcbf; border-radius:10px; }
+    .summary-tile strong { display:block; font-size:1.6rem; }
+    .reminder { padding:12px; margin:10px 0; border:1px solid #e8dcbf; border-left:5px solid #b88b25; border-radius:7px; background:#fff; }
+    .reminder.overdue { border-left-color:#b12b2b; }
+    .reminder.soon { border-left-color:#c47b09; }
+    .reminder small { display:block; margin-top:5px; color:#686052; }
+    .toolbar { display:flex; gap:10px; flex-wrap:wrap; margin:12px 0; }
+    .toolbar button { width:auto; flex:1; min-width:150px; }
+    .secondary { background:#eee5cf; }
+    .status { min-height:1.4em; }
+    button:disabled { opacity:.6; cursor:wait; }
+    @media (max-width:540px) { main { margin:12px auto; padding:10px; } .panel { padding:16px; } }
   </style>
 </head>
 <body>
@@ -97,11 +110,21 @@
       <div class="panel">
         <h2>Apiary Dashboard</h2>
         <p class="muted">Your registered hives</p>
+        <div class="summary-grid" id="apiarySummary" aria-live="polite"></div>
+        <section aria-labelledby="reminderHeading">
+          <h3 id="reminderHeading">Treatment Follow-Up Dashboard</h3>
+          <p class="muted">Dates from saved inspections across your hives. Follow-ups remain listed until their dates are changed or their inspections are updated.</p>
+          <div class="toolbar"><button type="button" id="refreshReminders" class="secondary">Refresh Dashboard</button><button type="button" id="exportInspections" class="secondary">Export Inspections (CSV)</button></div>
+          <p id="dashboardMessage" class="status" role="status"></p>
+          <div id="treatmentReminders">Loading treatment follow-ups...</div>
+        </section>
+        <h3>Select a Hive</h3>
         <div id="hiveList">Loading hives...</div>
         
 <div id="inspectionPanel" style="display:none; margin-top:25px;">
   <h2 id="inspectionTitle">Hive Inspection</h2>
   <p>Record an inspection for the selected hive.</p>
+  <p class="muted">A treatment follow-up date is a recordkeeping reminder, not a product-specific dosing recommendation. Follow the approved treatment label.</p>
   
 <label for="inspectionDate">Inspection Date</label>
 <input type="date" id="inspectionDate" required>
@@ -219,223 +242,193 @@
   </main>
 
   <script type="module">
-    import { createClient } from
-      "https://esm.sh/@supabase/supabase-js@2";
-
-    const supabase = createClient(
-      "https://mkypanucvttinkjggxzv.supabase.co",
-      "sb_publishable_-mN1hBm5z7YCjBzg_LDU4g_5C3N8ejJ"
-    );
+    import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+    const supabase = createClient("https://mkypanucvttinkjggxzv.supabase.co", "sb_publishable_-mN1hBm5z7YCjBzg_LDU4g_5C3N8ejJ");
+    const $ = id => document.getElementById(id);
+    const value = id => $(id).value;
+    const inspectionFields = [
+      ["Queen Seen", "queen_seen"], ["Eggs Seen", "eggs_seen"],
+      ["Brood Pattern", "brood_pattern"], ["Temperament", "temperament"],
+      ["Honey Stores", "honey_stores"], ["Pollen Stores", "pollen_stores"],
+      ["Colony Strength", "colony_strength"], ["Varroa Mite Count", "mite_count"],
+      ["Mite Testing Method", "mite_test_method"], ["Feeding Details", "feeding_details"],
+      ["Treatment Applied", "treatment_applied"],
+      ["Treatment Follow-Up Date", "treatment_follow_up_date"],
+      ["Notes", "inspection_notes"]
+    ];
     let selectedHiveId = null;
+    let hives = [];
+    let allInspections = [];
+    let dashboardRequest = 0;
+    let historyRequest = 0;
 
-    const login = document.getElementById("login");
-    const dashboard =
-      document.getElementById("dashboard");
-    const message =
-      document.getElementById("loginMessage");
-
+    function localToday() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    }
+    function dayDifference(dateString) {
+      const [y,m,d] = dateString.split("-").map(Number);
+      const target = Date.UTC(y,m-1,d);
+      const today = localToday().split("-").map(Number);
+      return Math.round((target-Date.UTC(today[0],today[1]-1,today[2]))/86400000);
+    }
+    function formatDate(dateString) {
+      if (!dateString) return "Not recorded";
+      const [y,m,d] = dateString.split("-").map(Number);
+      return new Date(y,m-1,d).toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"});
+    }
+    function make(tag, text, className) {
+      const el=document.createElement(tag);
+      if (text !== undefined) el.textContent=String(text);
+      if (className) el.className=className;
+      return el;
+    }
+    function tile(label, number) {
+      const el=make("div",undefined,"summary-tile");
+      el.append(make("strong",number),make("span",label));
+      return el;
+    }
+    function clearSelectedHive() {
+      selectedHiveId=null;
+      $("inspectionPanel").style.display="none";
+      $("inspectionHistory").replaceChildren();
+    }
+    async function loadDashboardData() {
+      const request=++dashboardRequest;
+      $("dashboardMessage").textContent="Updating dashboard...";
+      const {data,error}=await supabase.from("Hive_Inspections")
+        .select("*").order("inspection_date",{ascending:false});
+      if (request!==dashboardRequest) return;
+      if (error) {
+        $("dashboardMessage").textContent="Could not load dashboard: "+error.message;
+        $("treatmentReminders").textContent="Treatment reminders unavailable.";
+        return;
+      }
+      allInspections=data||[];
+      const reminders=allInspections.filter(r=>r.treatment_follow_up_date);
+      const overdue=reminders.filter(r=>dayDifference(r.treatment_follow_up_date)<0);
+      const soon=reminders.filter(r=>{const n=dayDifference(r.treatment_follow_up_date);return n>=0&&n<=7;});
+      const summary=$("apiarySummary");
+      summary.replaceChildren(tile("Registered hives",hives.length),tile("Inspections",allInspections.length),tile("Overdue follow-ups",overdue.length),tile("Due within 7 days",soon.length));
+      const list=$("treatmentReminders"); list.replaceChildren();
+      if (!reminders.length) list.append(make("p","No treatment follow-up dates recorded."));
+      const names=new Map(hives.map(h=>[String(h.id),`Hive ${h.hive_number}: ${h.hive_name||"Unnamed"}`]));
+      reminders.sort((a,b)=>a.treatment_follow_up_date.localeCompare(b.treatment_follow_up_date));
+      for (const r of reminders) {
+        const days=dayDifference(r.treatment_follow_up_date);
+        const state=days<0?"overdue":days<=7?"soon":"";
+        const status=days<0?`${Math.abs(days)} day(s) overdue`:days===0?"Due today":`Due in ${days} day(s)`;
+        const card=make("div",undefined,"reminder "+state);
+        card.append(make("strong",`${names.get(String(r.hive_id))||"Hive #"+r.hive_id} | ${formatDate(r.treatment_follow_up_date)} | ${status}`));
+        card.append(make("small",`Inspection: ${formatDate(r.inspection_date)} | Treatment: ${r.treatment_applied||"Not specified"}`));
+        list.append(card);
+      }
+      $("dashboardMessage").textContent=`Updated ${new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}. Dates are reminders, not confirmation that treatment remains active.`;
+    }
     async function showDashboard(session) {
       if (!session) {
-        login.classList.remove("hidden");
-        dashboard.classList.add("hidden");
+        dashboardRequest++;historyRequest++;
+        hives=[];allInspections=[];clearSelectedHive();
+        $("login").classList.remove("hidden");$("dashboard").classList.add("hidden");
         return;
       }
-
-      login.classList.add("hidden");
-      dashboard.classList.remove("hidden");
-
-      const list = document.getElementById("hiveList");
-      list.textContent = "Loading hives...";
-
-      const { data, error } = await supabase
-        .from("Hives")
-        .select("id,hive_number,hive_name,hive_location")
-        .order("hive_number");
-
-      if (error) {
-        list.textContent = error.message;
-        return;
+      $("login").classList.add("hidden");$("dashboard").classList.remove("hidden");
+      const list=$("hiveList");list.textContent="Loading hives...";
+      const {data,error}=await supabase.from("Hives")
+        .select("id,hive_number,hive_name,hive_location").order("hive_number");
+      if (error) {list.textContent="Unable to load hives: "+error.message;return;}
+      hives=data||[];list.replaceChildren();
+      if (!hives.length) list.textContent="No hives registered.";
+      for (const hive of hives) {
+        const button=make("button",`Hive ${hive.hive_number}: ${hive.hive_name||"Unnamed"} (${hive.hive_location||"No location"})`);
+        button.type="button";button.style.textAlign="left";
+        button.addEventListener("click",()=>{
+          selectedHiveId=hive.id;
+          $("inspectionTitle").textContent=`Hive ${hive.hive_number}: ${hive.hive_name||"Unnamed"} Inspection`;
+          $("inspectionPanel").style.display="block";
+          $("inspectionMessage").textContent="";
+          // Reset fields so details from a previously selected hive cannot carry over.
+          for(const id of ["queenSeen","eggsSeen","broodPattern","temperament","honeyStores","pollenStores","colonyStrength","miteCount","miteTestMethod","feedingDetails","treatmentApplied","treatmentFollowUpDate","inspectionNotes"]) $(id).value="";
+          $("inspectionDate").value=localToday();
+          loadInspectionHistory(hive.id);
+        });
+        list.append(button);
       }
-
-      list.replaceChildren();
-
-      
-for (const hive of data || []) {
-    const item = document.createElement("button");
-
-    item.type = "button";
-    item.textContent =
-        `Hive ${hive.hive_number}: ` +
-        `${hive.hive_name || "Unnamed"} ` +
-        `(${hive.hive_location || "No location"})`;
-
-    item.style.display = "block";
-    item.style.width = "100%";
-    item.style.padding = "12px";
-    item.style.marginBottom = "10px";
-    item.style.textAlign = "left";
-    item.style.cursor = "pointer";
-
-    item.addEventListener("click", () => {
-      selectedHiveId = hive.id;
-      loadInspectionHistory(selectedHiveId);
-  document.getElementById("inspectionTitle").textContent =
-    `Hive ${hive.hive_number}: ${hive.hive_name || "Unnamed"} Inspection`;
-
-  document.getElementById("inspectionPanel").style.display = "block";
-});
-
-    list.appendChild(item);
-}
-
+      await loadDashboardData();
     }
-
     async function loadInspectionHistory(hiveId) {
-  const history = document.getElementById("inspectionHistory");
-  history.textContent = "Loading inspection history...";
-
-  const { data, error } = await supabase
-    .from("Hive_Inspections")
-    .select("*")
-    .eq("hive_id", hiveId)
-    .order("inspection_date", { ascending: false })
-.order("id", { ascending: false });
-
-  if (selectedHiveId !== hiveId) return;
-
-  if (error) {
-    history.textContent = "Unable to load history: " + error.message;
-    return;
-  }
-
-  if (!data || data.length === 0) {
-    history.textContent = "No previous inspections for this hive.";
-    return;
-  }
-
-  history.replaceChildren();
-
-  for (const inspection of data) {
-    const entry = document.createElement("div");
-    entry.style.padding = "12px";
-    entry.style.marginBottom = "12px";
-    entry.style.border = "1px solid #ccc";
-    entry.style.borderRadius = "6px";
-
-    const heading = document.createElement("strong");
-    heading.textContent = `Inspection: ${inspection.inspection_date}`;
-    entry.appendChild(heading);
-
-    const fields = [
-      ["Queen Seen", inspection.queen_seen],
-      ["Eggs Seen", inspection.eggs_seen],
-      ["Brood Pattern", inspection.brood_pattern],
-      ["Temperament", inspection.temperament],
-      ["Honey Stores", inspection.honey_stores],
-      ["Pollen Stores", inspection.pollen_stores],
-      ["Colony Strength", inspection.colony_strength],
-      ["Varroa Mite Count", inspection.mite_count],
-      ["Mite Testing Method", inspection.mite_test_method],
-      ["Feeding Details", inspection.feeding_details],
-["Treatment Applied", inspection.treatment_applied],
-      ["Treatment Follow-Up Date", inspection.treatment_follow_up_date],
-      ["Notes", inspection.inspection_notes]
-    ];
-
-    for (const [label, value] of fields) {
-      if (value === null || value === undefined || value === "") {
-        continue;
+      const request=++historyRequest;
+      const history=$("inspectionHistory");history.textContent="Loading inspection history...";
+      const {data,error}=await supabase.from("Hive_Inspections")
+        .select("*").eq("hive_id",hiveId)
+        .order("inspection_date",{ascending:false}).order("id",{ascending:false});
+      if (request!==historyRequest||String(selectedHiveId)!==String(hiveId)) return;
+      if(error){history.textContent="Unable to load history: "+error.message;return;}
+      if(!data?.length){history.textContent="No previous inspections for this hive.";return;}
+      history.replaceChildren();
+      for(const inspection of data){
+        const entry=make("div",undefined,"reminder");
+        entry.append(make("strong",`Inspection: ${formatDate(inspection.inspection_date)}`));
+        for(const [label,key] of inspectionFields){
+          const v=inspection[key];
+          if(v===null||v===undefined||v==="") continue;
+          const display=typeof v==="boolean"?(v?"Yes":"No"):
+            key==="treatment_follow_up_date"?formatDate(v):v;
+          entry.append(make("p",`${label}: ${display}`));
+        }
+        history.append(entry);
       }
-
-      const line = document.createElement("p");
-      const displayValue =
-        typeof value === "boolean" ? (value ? "Yes" : "No") : value;
-
-      line.textContent = `${label}: ${displayValue}`;
-      entry.appendChild(line);
     }
-
-    history.appendChild(entry);
-  }
-}
-document.getElementById("saveInspection")
-  .addEventListener("click", async () => {
-    const message = document.getElementById("inspectionMessage");
-    const value = (id) => document.getElementById(id).value;
-
-    if (selectedHiveId === null) {
-      message.textContent = "Please select a hive first.";
-      return;
-    }
-
-    if (!value("inspectionDate")) {
-      message.textContent = "Please enter an inspection date.";
-      return;
-    }
-
-    const yesNo = (id) => {
-      const answer = value(id).toLowerCase();
-      return answer === "yes" ? true :
-             answer === "no" ? false : null;
-    };
-
-    message.textContent = "Saving inspection...";
-
-    const { error } = await supabase
-      .from("Hive_Inspections")
-      .insert({
-        hive_id: selectedHiveId,
-        inspection_date: value("inspectionDate"),
-        queen_seen: yesNo("queenSeen"),
-        eggs_seen: yesNo("eggsSeen"),
-        brood_pattern: value("broodPattern"),
-        temperament: value("temperament"),
-        honey_stores: value("honeyStores"),
-        pollen_stores: value("pollenStores"),
-        colony_strength: value("colonyStrength"),
-        mite_count: value("miteCount") === "" ? null : Number(value("miteCount")),
-mite_test_method: value("miteTestMethod") || null,
-        feeding_details: value("feedingDetails") || null,
-treatment_applied: value("treatmentApplied") || null,
-        treatment_follow_up_date: value("treatmentFollowUpDate") || null,
-        inspection_notes: value("inspectionNotes")
-      });
-
-    message.textContent = error
-      ? "Save failed: " + error.message
-      : "Inspection saved successfully!";
-    if (!error) {
-  await loadInspectionHistory(selectedHiveId);
-}
-  });
-
-
-    
-    document.getElementById("loginForm")
-      .addEventListener("submit", async (event) => {
-        event.preventDefault();
-        message.textContent = "";
-
-        const { error } =
-          await supabase.auth.signInWithPassword({
-            email: document.getElementById("email").value,
-            password:
-              document.getElementById("password").value
-          });
-
-        if (error) message.textContent = error.message;
-      });
-
-    document.getElementById("logout")
-      .addEventListener("click", async () => {
-        await supabase.auth.signOut();
-      });
-
-    supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setTimeout(() => showDashboard(session), 0);
-      }
-    );
+    $("saveInspection").addEventListener("click",async()=>{
+      const message=$("inspectionMessage");
+      if(selectedHiveId===null){message.textContent="Please select a hive first.";return;}
+      if(!value("inspectionDate")){message.textContent="Please enter an inspection date.";return;}
+      const yesNo=id=>value(id)==="true"?true:value(id)==="false"?false:null;
+      const hiveId=selectedHiveId;
+      const button=$("saveInspection");button.disabled=true;
+      message.textContent="Saving inspection...";
+      try {
+        const {error}=await supabase.from("Hive_Inspections").insert({
+          hive_id:hiveId,inspection_date:value("inspectionDate"),
+          queen_seen:yesNo("queenSeen"),eggs_seen:yesNo("eggsSeen"),
+          brood_pattern:value("broodPattern")||null,temperament:value("temperament")||null,
+          honey_stores:value("honeyStores")||null,pollen_stores:value("pollenStores")||null,
+          colony_strength:value("colonyStrength")||null,
+          mite_count:value("miteCount")===""?null:Number(value("miteCount")),
+          mite_test_method:value("miteTestMethod")||null,
+          feeding_details:value("feedingDetails")||null,
+          treatment_applied:value("treatmentApplied")||null,
+          treatment_follow_up_date:value("treatmentFollowUpDate")||null,
+          inspection_notes:value("inspectionNotes")||null
+        });
+        if(error) throw error;
+        message.textContent="Inspection saved successfully!";
+        if(String(selectedHiveId)===String(hiveId)) await loadInspectionHistory(hiveId);
+        await loadDashboardData();
+      }catch(error){message.textContent="Save failed: "+error.message;}
+      finally{button.disabled=false;}
+    });
+    $("refreshReminders").addEventListener("click",loadDashboardData);
+    function csvEscape(v){return '"'+String(v??"").replaceAll('"','""')+'"';}
+    $("exportInspections").addEventListener("click",()=>{
+      if(!allInspections.length){$("dashboardMessage").textContent="No loaded inspections to export. Refresh the dashboard first.";return;}
+      const headers=["hive_id","inspection_date",...inspectionFields.map(([,key])=>key)];
+      const csv=[headers.map(csvEscape).join(","),...allInspections.map(r=>headers.map(k=>csvEscape(r[k])).join(","))].join("\r\n");
+      const blob=new Blob(["\ufeff",csv],{type:"text/csv;charset=utf-8"});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement("a");a.href=url;a.download=`tricks-bees-inspections-${localToday()}.csv`;
+      document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    });
+    $("loginForm").addEventListener("submit",async event=>{
+      event.preventDefault();$("loginMessage").textContent="Signing in...";
+      const {error}=await supabase.auth.signInWithPassword({email:value("email"),password:value("password")});
+      $("loginMessage").textContent=error?error.message:"";
+    });
+    $("logout").addEventListener("click",async()=>{
+      const {error}=await supabase.auth.signOut();
+      if(error) $("dashboardMessage").textContent="Sign-out failed: "+error.message;
+    });
+    supabase.auth.onAuthStateChange((_event,session)=>{setTimeout(()=>showDashboard(session),0);});
   </script>
 </body>
 </html>
