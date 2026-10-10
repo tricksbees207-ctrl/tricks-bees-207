@@ -269,7 +269,8 @@ for (const hive of data || []) {
     .from("Hive_Inspections")
     .select("*")
     .eq("hive_id", hiveId)
-    .order("inspection_date", { ascending: false });
+    .order("inspection_date", { ascending: false })
+.order("id", { ascending: false });
 
   if (selectedHiveId !== hiveId) return;
 
