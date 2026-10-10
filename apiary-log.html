@@ -194,6 +194,8 @@
   rows="3"
   placeholder="Record treatment name, dosage, application date, and details"
 ></textarea>
+  <label for="treatmentFollowUpDate">Treatment Follow-Up Date</label>
+<input type="date" id="treatmentFollowUpDate">
 <label for="inspectionNotes">Inspection Notes</label>
 <textarea id="inspectionNotes" rows="5"
   placeholder="Record observations, concerns, and work needed..."></textarea>
@@ -336,6 +338,7 @@ for (const hive of data || []) {
       ["Mite Testing Method", inspection.mite_test_method],
       ["Feeding Details", inspection.feeding_details],
 ["Treatment Applied", inspection.treatment_applied],
+      ["Treatment Follow-Up Date", inspection.treatment_follow_up_date],
       ["Notes", inspection.inspection_notes]
     ];
 
@@ -394,6 +397,7 @@ document.getElementById("saveInspection")
 mite_test_method: value("miteTestMethod") || null,
         feeding_details: value("feedingDetails") || null,
 treatment_applied: value("treatmentApplied") || null,
+        treatment_follow_up_date: value("treatmentFollowUpDate") || null,
         inspection_notes: value("inspectionNotes")
       });
 
