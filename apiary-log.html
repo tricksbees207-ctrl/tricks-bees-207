@@ -219,11 +219,11 @@ for (const hive of data || []) {
     item.style.cursor = "pointer";
 
     item.addEventListener("click", () => {
-        alert(
-            `Selected Hive ${hive.hive_number}: ` +
-            `${hive.hive_name || "Unnamed"}`
-        );
-    });
+  document.getElementById("inspectionTitle").textContent =
+    `Hive ${hive.hive_number}: ${hive.hive_name || "Unnamed"} Inspection`;
+
+  document.getElementById("inspectionPanel").style.display = "block";
+});
 
     list.appendChild(item);
 }
