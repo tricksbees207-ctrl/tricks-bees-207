@@ -83,6 +83,11 @@
     button:disabled { opacity:.6; cursor:wait; }
     @media (max-width:540px) { main { margin:12px auto; padding:10px; } .panel { padding:16px; } }
 
+    .quick-nav {display:flex; flex-wrap:wrap; gap:8px; margin:16px 0; position:sticky; top:0; background:#fffaf0; padding:10px; z-index:2; border:1px solid #e8dcbf; border-radius:8px}
+    .quick-nav a {display:inline-block; padding:8px 11px; background:#f3e6c8; border-radius:6px; color:#423517; font-weight:600; text-decoration:none}
+    .quick-nav a:focus-visible {outline:3px solid #226c59}
+    .profile-overview {padding:14px; background:#f8f3e8; border:1px solid #e8dcbf; border-radius:8px; margin:12px 0}
+    .profile-overview p {margin:6px 0; overflow-wrap:anywhere}
     .management { margin-top:24px; padding-top:18px; border-top:1px solid #e8dcbf; }
     .management h3 { margin-bottom:6px; }
     .management label { display:block; font-weight:bold; margin:12px 0 5px; }
@@ -135,7 +140,11 @@
         
 <div id="inspectionPanel" style="display:none; margin-top:25px;">
   <h2 id="inspectionTitle">Hive Inspection</h2>
-  <p>Record an inspection for the selected hive.</p>
+  <nav class="quick-nav" aria-label="Selected hive sections">
+    <a href="#inspectionEntry">Inspection</a><a href="#hiveManagement">Profile</a><a href="#feedingSection">Feeding</a><a href="#treatmentSection">Treatments</a><a href="#harvestSection">Harvests</a>
+  </nav>
+  <div id="currentHiveProfile" class="profile-overview" aria-live="polite">Loading hive profile...</div>
+  <p id="inspectionEntry">Record an inspection for the selected hive.</p>
   <p class="muted">A treatment follow-up date is a recordkeeping reminder, not a product-specific dosing recommendation. Follow the approved treatment label.</p>
   
 <label for="inspectionDate">Inspection Date</label>
@@ -260,7 +269,7 @@
   <label for="hiveProfileNotes">Hive / Queen Notes</label><textarea id="hiveProfileNotes" maxlength="3000" placeholder="Queen replacement, splits, swarm notes, overwintering, etc."></textarea>
   <button type="button" id="saveHiveProfile">Save Hive Profile</button><p id="hiveProfileMessage" class="section-status" role="status"></p>
 </div>
-<div class="management">
+<div class="management" id="feedingSection">
   <h3>Feeding Log</h3>
   <div class="two-col">
     <div><label for="feedDate">Date Fed</label><input type="date" id="feedDate"></div>
@@ -272,7 +281,7 @@
   <button type="button" id="saveFeed">Save Feeding Record</button><p id="feedMessage" class="section-status" role="status"></p>
   <h4>Feeding History</h4><div id="feedHistory">Select a hive.</div>
 </div>
-<div class="management">
+<div class="management" id="treatmentSection">
   <h3>Treatment Log</h3>
   <p class="muted">Record what was actually applied. Follow the product's approved label for dosage, timing, and honey-super restrictions.</p>
   <div class="two-col">
@@ -285,7 +294,7 @@
   <button type="button" id="saveTreatment">Save Treatment Record</button><p id="treatMessage" class="section-status" role="status"></p>
   <h4>Treatment History</h4><div id="treatHistory">Select a hive.</div>
 </div>
-<div class="management">
+<div class="management" id="harvestSection">
   <h3>Honey Harvest Log</h3>
   <div class="two-col">
     <div><label for="harvestDate">Harvest Date</label><input type="date" id="harvestDate"></div>
@@ -293,6 +302,7 @@
   </div>
   <label for="harvestNotes">Harvest Notes</label><textarea id="harvestNotes" placeholder="Supers, extraction, batch, moisture, etc."></textarea>
   <button type="button" id="saveHarvest">Save Honey Harvest</button><p id="harvestMessage" class="section-status" role="status"></p>
+  <div id="harvestTotals" class="profile-overview" aria-live="polite">Loading honey totals...</div>
   <h4>Harvest History</h4><div id="harvestHistory">Select a hive.</div>
 </div>
 
@@ -498,6 +508,8 @@
       for(const id of ["feedDate","treatDate","harvestDate"]) $(id).value=localToday();
       for(const id of ["hiveProfileMessage","feedMessage","treatMessage","harvestMessage"]) $(id).textContent="";
       for(const id of ["feedHistory","treatHistory","harvestHistory"]) $(id).textContent="Loading...";
+      $("currentHiveProfile").textContent="Loading hive profile...";
+      $("harvestTotals").textContent="Loading honey totals...";
     }
     function showRecords(elementId, records, fields) {
       const list=$(elementId);list.replaceChildren();
@@ -517,8 +529,22 @@
       const results=await Promise.all(tables.map(t=>supabase.from(t).select("*").eq("hive_id",hiveId)));
       if(request!==managementRequest||String(selectedHiveId)!==String(hiveId))return;
       const [profile,feed,treat,harvest]=results;
-      if(profile.error) $("hiveProfileMessage").textContent="Profile unavailable: "+profile.error.message;
-      else if(profile.data?.[0]) {
+      const overview=$("currentHiveProfile"); overview.replaceChildren();
+      if(profile.error) {
+        $("hiveProfileMessage").textContent="Profile unavailable: "+profile.error.message;
+        overview.textContent="Unable to load hive profile.";
+      } else if (!profile.data?.length) {
+        overview.textContent="No saved hive profile yet. Complete the Hive Management section below to create one.";
+      } else {
+        const p=profile.data[0];
+        overview.append(make("strong","Current Hive Profile"));
+        for (const [label,key] of [["Status","status"],["Queen origin","queen_origin"],["Queen introduced","queen_introduced"],["Queen mark","queen_mark_color"],["Equipment","equipment"],["Notes","notes"]]) {
+          if(p[key]!==null && p[key]!==undefined && p[key]!=="") {
+            overview.append(make("p",`${label}: ${key==="queen_introduced"?formatDate(p[key]):p[key]}`));
+          }
+        }
+      }
+      if(!profile.error && profile.data?.[0]) {
         const p=profile.data[0];
         for(const [id,key] of [["hiveStatus","status"],["queenOrigin","queen_origin"],["queenIntroduced","queen_introduced"],["queenMarked","queen_mark_color"],["hiveEquipment","equipment"],["hiveProfileNotes","notes"]]) $(id).value=p[key]??(id==="hiveStatus"?"Active":"");
       }
@@ -526,8 +552,27 @@
       else showRecords("feedHistory",feed.data?.sort((a,b)=>b.feed_date.localeCompare(a.feed_date)),[["Date","feed_date"],["Type","feed_type"],["Quantity","quantity"],["Unit","unit"],["Notes","notes"]]);
       if(treat.error) $("treatHistory").textContent="Treatments unavailable: "+treat.error.message;
       else showRecords("treatHistory",treat.data?.sort((a,b)=>b.treatment_date.localeCompare(a.treatment_date)),[["Date","treatment_date"],["Product","product"],["Application","application_details"],["Follow-up","follow_up_date"],["Notes","notes"]]);
-      if(harvest.error) $("harvestHistory").textContent="Harvests unavailable: "+harvest.error.message;
-      else showRecords("harvestHistory",harvest.data?.sort((a,b)=>b.harvest_date.localeCompare(a.harvest_date)),[["Date","harvest_date"],["Honey (lb)","pounds"],["Notes","notes"]]);
+      if(harvest.error) {
+        $("harvestHistory").textContent="Harvests unavailable: "+harvest.error.message;
+        $("harvestTotals").textContent="Honey totals unavailable: "+harvest.error.message;
+      } else {
+        const records=harvest.data||[];
+        showRecords("harvestHistory",records.sort((a,b)=>b.harvest_date.localeCompare(a.harvest_date)),[["Date","harvest_date"],["Honey (lb)","pounds"],["Notes","notes"]]);
+        const totals=new Map();
+        for(const r of records) {
+          const year=String(r.harvest_date||"").slice(0,4);
+          const pounds=Number(r.pounds);
+          if(/^\d{4}$/.test(year) && Number.isFinite(pounds)) totals.set(year,(totals.get(year)||0)+pounds);
+        }
+        const panel=$("harvestTotals");panel.replaceChildren();
+        panel.append(make("strong","Honey Production for This Hive"));
+        if(!totals.size) panel.append(make("p","No honey harvests recorded yet."));
+        for(const [year,pounds] of [...totals].sort((a,b)=>b[0].localeCompare(a[0]))) {
+          panel.append(make("p",`${year}: ${Number(pounds.toFixed(3)).toLocaleString()} lb`));
+        }
+        const lifetime=[...totals.values()].reduce((a,b)=>a+b,0);
+        if(totals.size) panel.append(make("p",`All recorded years: ${Number(lifetime.toFixed(3)).toLocaleString()} lb`));
+      }
     }
     async function saveManagement(buttonId,table,record,messageId,required) {
       const msg=$(messageId);
