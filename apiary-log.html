@@ -75,6 +75,87 @@
         <h2>Apiary Dashboard</h2>
         <p class="muted">Your registered hives</p>
         <div id="hiveList">Loading hives...</div>
+        
+<div id="inspectionPanel" style="display:none; margin-top:25px;">
+  <h2 id="inspectionTitle">Hive Inspection</h2>
+  <p>Record an inspection for the selected hive.</p>
+  
+<label for="inspectionDate">Inspection Date</label>
+<input type="date" id="inspectionDate" required>
+  
+<label for="queenSeen">Queen Seen?</label>
+<select id="queenSeen">
+  <option value="">Not recorded</option>
+  <option value="true">Yes</option>
+  <option value="false">No</option>
+</select>
+
+<label for="eggsSeen">Eggs Seen?</label>
+<select id="eggsSeen">
+  <option value="">Not recorded</option>
+  <option value="true">Yes</option>
+  <option value="false">No</option>
+</select>
+
+<label for="broodPattern">Brood Pattern</label>
+<select id="broodPattern">
+  <option value="">Not recorded</option>
+  <option value="Solid">Solid / Excellent</option>
+  <option value="Good">Good</option>
+  <option value="Spotty">Spotty / Poor</option>
+  <option value="No brood">No brood present</option>
+</select>
+
+
+<label for="temperament">Hive Temperament</label>
+<select id="temperament">
+  <option value="">Not recorded</option>
+  <option value="Calm">Calm / Gentle</option>
+  <option value="Normal">Normal</option>
+  <option value="Defensive">Defensive</option>
+  <option value="Aggressive">Aggressive</option>
+</select>
+
+<label for="honeyStores">Honey Stores</label>
+<select id="honeyStores">
+  <option value="">Not recorded</option>
+  <option value="Abundant">Abundant</option>
+  <option value="Adequate">Adequate</option>
+  <option value="Low">Low</option>
+  <option value="None">None</option>
+</select>
+
+<label for="pollenStores">Pollen Stores</label>
+<select id="pollenStores">
+  <option value="">Not recorded</option>
+  <option value="Abundant">Abundant</option>
+  <option value="Adequate">Adequate</option>
+  <option value="Low">Low</option>
+  <option value="None">None</option>
+</select>
+
+<label for="colonyStrength">Colony Strength</label>
+<select id="colonyStrength">
+  <option value="">Not recorded</option>
+  <option value="Very Strong">Very Strong</option>
+  <option value="Strong">Strong</option>
+  <option value="Moderate">Moderate</option>
+  <option value="Weak">Weak</option>
+  <option value="Very Weak">Very Weak</option>
+</select>
+
+<label for="inspectionNotes">Inspection Notes</label>
+<textarea id="inspectionNotes" rows="5"
+  placeholder="Record observations, concerns, and work needed..."></textarea>
+
+<button type="button" id="saveInspection">
+  Save Inspection
+</button>
+
+<p id="inspectionMessage"></p>
+
+</div>
+
         <button id="logout">Sign Out</button>
       </div>
     </section>
@@ -149,6 +230,14 @@ for (const hive of data || []) {
 
     }
 
+document.getElementById("saveInspection")
+  .addEventListener("click", async () => {
+    const message = document.getElementById("inspectionMessage");
+    message.textContent = "Preparing to save inspection...";
+  });
+
+
+    
     document.getElementById("loginForm")
       .addEventListener("submit", async (event) => {
         event.preventDefault();
