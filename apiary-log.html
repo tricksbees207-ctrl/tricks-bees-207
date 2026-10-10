@@ -110,7 +110,7 @@
 
       const { data, error } = await supabase
         .from("Hives")
-        .select("hive_number,hive_name,hive_location")
+        .select("id,hive_number,hive_name,hive_location")
         .order("hive_number");
 
       if (error) {
