@@ -176,6 +176,11 @@
 </button>
 
 <p id="inspectionMessage"></p>
+  <hr>
+<h3>Inspection History</h3>
+<div id="inspectionHistory">
+  <p>Select a hive to view its previous inspections.</p>
+</div>
 
 </div>
 
@@ -244,6 +249,7 @@ for (const hive of data || []) {
 
     item.addEventListener("click", () => {
       selectedHiveId = hive.id;
+      loadInspectionHistory(selectedHiveId);
   document.getElementById("inspectionTitle").textContent =
     `Hive ${hive.hive_number}: ${hive.hive_name || "Unnamed"} Inspection`;
 
@@ -255,6 +261,68 @@ for (const hive of data || []) {
 
     }
 
+    async function loadInspectionHistory(hiveId) {
+  const history = document.getElementById("inspectionHistory");
+  history.textContent = "Loading inspection history...";
+
+  const { data, error } = await supabase
+    .from("Hive_Inspections")
+    .select("*")
+    .eq("hive_id", hiveId)
+    .order("inspection_date", { ascending: false });
+
+  if (selectedHiveId !== hiveId) return;
+
+  if (error) {
+    history.textContent = "Unable to load history: " + error.message;
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    history.textContent = "No previous inspections for this hive.";
+    return;
+  }
+
+  history.replaceChildren();
+
+  for (const inspection of data) {
+    const entry = document.createElement("div");
+    entry.style.padding = "12px";
+    entry.style.marginBottom = "12px";
+    entry.style.border = "1px solid #ccc";
+    entry.style.borderRadius = "6px";
+
+    const heading = document.createElement("strong");
+    heading.textContent = `Inspection: ${inspection.inspection_date}`;
+    entry.appendChild(heading);
+
+    const fields = [
+      ["Queen Seen", inspection.queen_seen],
+      ["Eggs Seen", inspection.eggs_seen],
+      ["Brood Pattern", inspection.brood_pattern],
+      ["Temperament", inspection.temperament],
+      ["Honey Stores", inspection.honey_stores],
+      ["Pollen Stores", inspection.pollen_stores],
+      ["Colony Strength", inspection.colony_strength],
+      ["Notes", inspection.inspection_notes]
+    ];
+
+    for (const [label, value] of fields) {
+      if (value === null || value === undefined || value === "") {
+        continue;
+      }
+
+      const line = document.createElement("p");
+      const displayValue =
+        typeof value === "boolean" ? (value ? "Yes" : "No") : value;
+
+      line.textContent = `${label}: ${displayValue}`;
+      entry.appendChild(line);
+    }
+
+    history.appendChild(entry);
+  }
+}
 document.getElementById("saveInspection")
   .addEventListener("click", async () => {
     const message = document.getElementById("inspectionMessage");
