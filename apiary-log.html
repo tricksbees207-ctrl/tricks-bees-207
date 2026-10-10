@@ -120,14 +120,33 @@
 
       list.replaceChildren();
 
-      for (const hive of data || []) {
-        const item = document.createElement("p");
-        item.textContent =
-          `Hive ${hive.hive_number}: ` +
-          `${hive.hive_name || "Unnamed"} ` +
-          `(${hive.hive_location || "No location"})`;
-        list.appendChild(item);
-      }
+      
+for (const hive of data || []) {
+    const item = document.createElement("button");
+
+    item.type = "button";
+    item.textContent =
+        `Hive ${hive.hive_number}: ` +
+        `${hive.hive_name || "Unnamed"} ` +
+        `(${hive.hive_location || "No location"})`;
+
+    item.style.display = "block";
+    item.style.width = "100%";
+    item.style.padding = "12px";
+    item.style.marginBottom = "10px";
+    item.style.textAlign = "left";
+    item.style.cursor = "pointer";
+
+    item.addEventListener("click", () => {
+        alert(
+            `Selected Hive ${hive.hive_number}: ` +
+            `${hive.hive_name || "Unnamed"}`
+        );
+    });
+
+    list.appendChild(item);
+}
+
     }
 
     document.getElementById("loginForm")
