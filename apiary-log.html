@@ -364,6 +364,9 @@ document.getElementById("saveInspection")
     message.textContent = error
       ? "Save failed: " + error.message
       : "Inspection saved successfully!";
+    if (!error) {
+  await loadInspectionHistory(selectedHiveId);
+}
   });
 
 
