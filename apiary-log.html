@@ -166,7 +166,22 @@
   <option value="Weak">Weak</option>
   <option value="Very Weak">Very Weak</option>
 </select>
-
+<label for="miteCount">Varroa Mite Count</label>
+<input
+  type="number"
+  id="miteCount"
+  min="0"
+  step="1"
+  placeholder="Enter number of mites counted"
+>
+  <label for="miteTestMethod">Mite Testing Method</label>
+<select id="miteTestMethod">
+  <option value="">Not recorded</option>
+  <option value="Alcohol Wash">Alcohol Wash</option>
+  <option value="Sugar Roll">Sugar Roll</option>
+  <option value="Sticky Board">Sticky Board</option>
+  <option value="Other">Other</option>
+</select>
 <label for="inspectionNotes">Inspection Notes</label>
 <textarea id="inspectionNotes" rows="5"
   placeholder="Record observations, concerns, and work needed..."></textarea>
@@ -359,6 +374,8 @@ document.getElementById("saveInspection")
         honey_stores: value("honeyStores"),
         pollen_stores: value("pollenStores"),
         colony_strength: value("colonyStrength"),
+        mite_count: value("miteCount") === "" ? null : Number(value("miteCount")),
+mite_test_method: value("miteTestMethod") || null,
         inspection_notes: value("inspectionNotes")
       });
 
