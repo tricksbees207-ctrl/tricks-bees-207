@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -83,6 +82,19 @@
     .status { min-height:1.4em; }
     button:disabled { opacity:.6; cursor:wait; }
     @media (max-width:540px) { main { margin:12px auto; padding:10px; } .panel { padding:16px; } }
+
+    .management { margin-top:24px; padding-top:18px; border-top:1px solid #e8dcbf; }
+    .management h3 { margin-bottom:6px; }
+    .management label { display:block; font-weight:bold; margin:12px 0 5px; }
+    .management input,.management select,.management textarea { display:block; width:100%; box-sizing:border-box; padding:11px; border:1px solid #aaa; border-radius:6px; font:inherit; }
+    .management textarea { min-height:75px; }
+    .management .two-col { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; }
+    .management .two-col > div { min-width:0; }
+    .management .record { padding:10px 12px; border:1px solid #e8dcbf; border-radius:7px; margin:8px 0; overflow-wrap:anywhere; }
+    .management .record small { display:block; color:#686052; margin-top:5px; }
+    .management .section-status { min-height:1.3em; }
+    .management details { margin:12px 0; }
+    .management summary { cursor:pointer; font-weight:bold; padding:8px 0; }
   </style>
 </head>
 <body>
@@ -234,6 +246,56 @@
   <p>Select a hive to view its previous inspections.</p>
 </div>
 
+
+<div class="management" id="hiveManagement">
+  <h3>Hive Management</h3>
+  <p class="muted">Manage the selected hive's queen, equipment, and colony status. This updates its profile without changing inspection history.</p>
+  <div class="two-col">
+    <div><label for="hiveStatus">Hive Status</label><select id="hiveStatus"><option value="Active">Active</option><option value="Nucleus">Nucleus / Nuc</option><option value="Queenless">Queenless</option><option value="Inactive">Inactive</option><option value="Lost">Lost</option></select></div>
+    <div><label for="queenOrigin">Queen Origin / Source</label><input id="queenOrigin" maxlength="200" placeholder="Breeder, raised here, swarm, etc."></div>
+    <div><label for="queenIntroduced">Queen Introduced / Hatched</label><input type="date" id="queenIntroduced"></div>
+    <div><label for="queenMarked">Queen Mark Color</label><select id="queenMarked"><option value="">Not recorded</option><option>White</option><option>Yellow</option><option>Red</option><option>Green</option><option>Blue</option><option>Unmarked</option></select></div>
+  </div>
+  <label for="hiveEquipment">Hive Equipment</label><textarea id="hiveEquipment" maxlength="2000" placeholder="Boxes, frames, feeder, bottom board, etc."></textarea>
+  <label for="hiveProfileNotes">Hive / Queen Notes</label><textarea id="hiveProfileNotes" maxlength="3000" placeholder="Queen replacement, splits, swarm notes, overwintering, etc."></textarea>
+  <button type="button" id="saveHiveProfile">Save Hive Profile</button><p id="hiveProfileMessage" class="section-status" role="status"></p>
+</div>
+<div class="management">
+  <h3>Feeding Log</h3>
+  <div class="two-col">
+    <div><label for="feedDate">Date Fed</label><input type="date" id="feedDate"></div>
+    <div><label for="feedType">Feed Type</label><select id="feedType"><option value="">Select feed type</option><option>Sugar syrup 1:1</option><option>Sugar syrup 2:1</option><option>Sugar syrup 4:1</option><option>Pollen patty / substitute</option><option>Fondant / sugar brick</option><option>Honey</option><option>Other</option></select></div>
+    <div><label for="feedQuantity">Quantity</label><input id="feedQuantity" type="number" min="0.01" step="any" placeholder="e.g. 1"></div>
+    <div><label for="feedUnit">Unit</label><select id="feedUnit"><option>gallon</option><option>quart</option><option>liter</option><option>pound</option><option>ounce</option><option>kilogram</option><option>piece</option><option>other</option></select></div>
+  </div>
+  <label for="feedNotes">Feeding Notes</label><textarea id="feedNotes" placeholder="Feeder, recipe, amount remaining, etc."></textarea>
+  <button type="button" id="saveFeed">Save Feeding Record</button><p id="feedMessage" class="section-status" role="status"></p>
+  <h4>Feeding History</h4><div id="feedHistory">Select a hive.</div>
+</div>
+<div class="management">
+  <h3>Treatment Log</h3>
+  <p class="muted">Record what was actually applied. Follow the product's approved label for dosage, timing, and honey-super restrictions.</p>
+  <div class="two-col">
+    <div><label for="treatDate">Treatment Date</label><input type="date" id="treatDate"></div>
+    <div><label for="treatProduct">Product / Treatment</label><select id="treatProduct"><option value="">Select treatment</option><option>Apivar</option><option>Formic Pro</option><option>Oxalic acid</option><option>HopGuard</option><option>Thymol-based treatment</option><option>Norroa (verify product label)</option><option>Other</option></select></div>
+    <div><label for="treatAmount">Dose / Application Details</label><input id="treatAmount" placeholder="As recorded from product label"></div>
+    <div><label for="treatFollowUp">Follow-Up Date</label><input type="date" id="treatFollowUp"></div>
+  </div>
+  <label for="treatNotes">Treatment Notes</label><textarea id="treatNotes" placeholder="Application, removal date, observed results, etc."></textarea>
+  <button type="button" id="saveTreatment">Save Treatment Record</button><p id="treatMessage" class="section-status" role="status"></p>
+  <h4>Treatment History</h4><div id="treatHistory">Select a hive.</div>
+</div>
+<div class="management">
+  <h3>Honey Harvest Log</h3>
+  <div class="two-col">
+    <div><label for="harvestDate">Harvest Date</label><input type="date" id="harvestDate"></div>
+    <div><label for="harvestPounds">Honey Collected (lb)</label><input id="harvestPounds" type="number" min="0.01" step="any" placeholder="e.g. 25.5"></div>
+  </div>
+  <label for="harvestNotes">Harvest Notes</label><textarea id="harvestNotes" placeholder="Supers, extraction, batch, moisture, etc."></textarea>
+  <button type="button" id="saveHarvest">Save Honey Harvest</button><p id="harvestMessage" class="section-status" role="status"></p>
+  <h4>Harvest History</h4><div id="harvestHistory">Select a hive.</div>
+</div>
+
 </div>
 
         <button id="logout">Sign Out</button>
@@ -289,6 +351,7 @@
       return el;
     }
     function clearSelectedHive() {
+      managementRequest++;
       selectedHiveId=null;
       $("inspectionPanel").style.display="none";
       $("inspectionHistory").replaceChildren();
@@ -305,25 +368,29 @@
         return;
       }
       allInspections=data||[];
-      const reminders=allInspections.filter(r=>r.treatment_follow_up_date);
-      const overdue=reminders.filter(r=>dayDifference(r.treatment_follow_up_date)<0);
-      const soon=reminders.filter(r=>{const n=dayDifference(r.treatment_follow_up_date);return n>=0&&n<=7;});
+      const {data:extraTreatments,error:treatError}=await supabase.from("Hive_Treatments").select("hive_id,treatment_date,product,follow_up_date").not("follow_up_date","is",null);
+      if (request!==dashboardRequest) return;
+      const reminders=allInspections.filter(r=>r.treatment_follow_up_date).map(r=>({...r,reminder_date:r.treatment_follow_up_date,reminder_treatment:r.treatment_applied}));
+      if (!treatError) for(const t of extraTreatments||[]) reminders.push({hive_id:t.hive_id,inspection_date:t.treatment_date,reminder_date:t.follow_up_date,reminder_treatment:t.product});
+      else $("dashboardMessage").textContent="Treatment log reminders unavailable: "+treatError.message;
+      const overdue=reminders.filter(r=>dayDifference(r.reminder_date)<0);
+      const soon=reminders.filter(r=>{const n=dayDifference(r.reminder_date);return n>=0&&n<=7;});
       const summary=$("apiarySummary");
       summary.replaceChildren(tile("Registered hives",hives.length),tile("Inspections",allInspections.length),tile("Overdue follow-ups",overdue.length),tile("Due within 7 days",soon.length));
       const list=$("treatmentReminders"); list.replaceChildren();
       if (!reminders.length) list.append(make("p","No treatment follow-up dates recorded."));
       const names=new Map(hives.map(h=>[String(h.id),`Hive ${h.hive_number}: ${h.hive_name||"Unnamed"}`]));
-      reminders.sort((a,b)=>a.treatment_follow_up_date.localeCompare(b.treatment_follow_up_date));
+      reminders.sort((a,b)=>a.reminder_date.localeCompare(b.reminder_date));
       for (const r of reminders) {
-        const days=dayDifference(r.treatment_follow_up_date);
+        const days=dayDifference(r.reminder_date);
         const state=days<0?"overdue":days<=7?"soon":"";
         const status=days<0?`${Math.abs(days)} day(s) overdue`:days===0?"Due today":`Due in ${days} day(s)`;
         const card=make("div",undefined,"reminder "+state);
-        card.append(make("strong",`${names.get(String(r.hive_id))||"Hive #"+r.hive_id} | ${formatDate(r.treatment_follow_up_date)} | ${status}`));
-        card.append(make("small",`Inspection: ${formatDate(r.inspection_date)} | Treatment: ${r.treatment_applied||"Not specified"}`));
+        card.append(make("strong",`${names.get(String(r.hive_id))||"Hive #"+r.hive_id} | ${formatDate(r.reminder_date)} | ${status}`));
+        card.append(make("small",`Inspection: ${formatDate(r.inspection_date)} | Treatment: ${r.reminder_treatment||"Not specified"}`));
         list.append(card);
       }
-      $("dashboardMessage").textContent=`Updated ${new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}. Dates are reminders, not confirmation that treatment remains active.`;
+      $("dashboardMessage").textContent=`Updated ${new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}. Dates are reminders, not confirmation that treatment remains active.${treatError?" Separate treatment log reminders could not load.":""}`;
     }
     async function showDashboard(session) {
       if (!session) {
@@ -351,6 +418,8 @@
           for(const id of ["queenSeen","eggsSeen","broodPattern","temperament","honeyStores","pollenStores","colonyStrength","miteCount","miteTestMethod","feedingDetails","treatmentApplied","treatmentFollowUpDate","inspectionNotes"]) $(id).value="";
           $("inspectionDate").value=localToday();
           loadInspectionHistory(hive.id);
+          resetManagementForm();
+          loadManagement(hive.id);
         });
         list.append(button);
       }
@@ -419,6 +488,82 @@
       const a=document.createElement("a");a.href=url;a.download=`tricks-bees-inspections-${localToday()}.csv`;
       document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
     });
+
+    // Batch 2: independent records keyed to the selected hive.
+    let managementRequest = 0;
+    const mgmtIds = ["hiveStatus","queenOrigin","queenIntroduced","queenMarked","hiveEquipment","hiveProfileNotes","feedDate","feedType","feedQuantity","feedUnit","feedNotes","treatDate","treatProduct","treatAmount","treatFollowUp","treatNotes","harvestDate","harvestPounds","harvestNotes"];
+    function resetManagementForm() {
+      for (const id of mgmtIds) $(id).value = "";
+      $("hiveStatus").value="Active"; $("feedUnit").value="gallon";
+      for(const id of ["feedDate","treatDate","harvestDate"]) $(id).value=localToday();
+      for(const id of ["hiveProfileMessage","feedMessage","treatMessage","harvestMessage"]) $(id).textContent="";
+      for(const id of ["feedHistory","treatHistory","harvestHistory"]) $(id).textContent="Loading...";
+    }
+    function showRecords(elementId, records, fields) {
+      const list=$(elementId);list.replaceChildren();
+      if (!records?.length) {list.textContent="No records for this hive yet.";return;}
+      for (const record of records) {
+        const card=make("div",undefined,"record");
+        for (const [label,key] of fields) {
+          const v=record[key]; if(v===null||v===undefined||v==="")continue;
+          card.append(make("small",`${label}: ${key.endsWith("_date")?formatDate(v):v}`));
+        }
+        list.append(card);
+      }
+    }
+    async function loadManagement(hiveId) {
+      const request=++managementRequest;
+      const tables=["Hive_Profiles","Hive_Feedings","Hive_Treatments","Hive_Harvests"];
+      const results=await Promise.all(tables.map(t=>supabase.from(t).select("*").eq("hive_id",hiveId)));
+      if(request!==managementRequest||String(selectedHiveId)!==String(hiveId))return;
+      const [profile,feed,treat,harvest]=results;
+      if(profile.error) $("hiveProfileMessage").textContent="Profile unavailable: "+profile.error.message;
+      else if(profile.data?.[0]) {
+        const p=profile.data[0];
+        for(const [id,key] of [["hiveStatus","status"],["queenOrigin","queen_origin"],["queenIntroduced","queen_introduced"],["queenMarked","queen_mark_color"],["hiveEquipment","equipment"],["hiveProfileNotes","notes"]]) $(id).value=p[key]??(id==="hiveStatus"?"Active":"");
+      }
+      if(feed.error) $("feedHistory").textContent="Feeding records unavailable: "+feed.error.message;
+      else showRecords("feedHistory",feed.data?.sort((a,b)=>b.feed_date.localeCompare(a.feed_date)),[["Date","feed_date"],["Type","feed_type"],["Quantity","quantity"],["Unit","unit"],["Notes","notes"]]);
+      if(treat.error) $("treatHistory").textContent="Treatments unavailable: "+treat.error.message;
+      else showRecords("treatHistory",treat.data?.sort((a,b)=>b.treatment_date.localeCompare(a.treatment_date)),[["Date","treatment_date"],["Product","product"],["Application","application_details"],["Follow-up","follow_up_date"],["Notes","notes"]]);
+      if(harvest.error) $("harvestHistory").textContent="Harvests unavailable: "+harvest.error.message;
+      else showRecords("harvestHistory",harvest.data?.sort((a,b)=>b.harvest_date.localeCompare(a.harvest_date)),[["Date","harvest_date"],["Honey (lb)","pounds"],["Notes","notes"]]);
+    }
+    async function saveManagement(buttonId,table,record,messageId,required) {
+      const msg=$(messageId);
+      if(selectedHiveId===null){msg.textContent="Select a hive first.";return;}
+      for(const [id,label] of required) if(!value(id)){msg.textContent=`Please enter ${label}.`;return;}
+      const hiveId=selectedHiveId;
+      const button=$(buttonId);button.disabled=true;msg.textContent="Saving...";
+      try {
+        const {data:{user},error:authError}=await supabase.auth.getUser();
+        if(authError||!user)throw new Error("Please sign in again.");
+        const payload={...record(),hive_id:hiveId,user_id:user.id};
+        const query=supabase.from(table);
+        const {error}=table==="Hive_Profiles"?await query.upsert(payload,{onConflict:"hive_id,user_id"}):await query.insert(payload);
+        if(error)throw error;
+        msg.textContent="Saved successfully!";
+        if(String(selectedHiveId)===String(hiveId)) await loadManagement(hiveId);
+        if(table==="Hive_Treatments") await loadDashboardData();
+      } catch(error) {msg.textContent="Save failed: "+error.message;}
+      finally {button.disabled=false;}
+    }
+    $("saveHiveProfile").addEventListener("click",()=>saveManagement("saveHiveProfile","Hive_Profiles",()=>({
+      status:value("hiveStatus"),queen_origin:value("queenOrigin")||null,queen_introduced:value("queenIntroduced")||null,
+      queen_mark_color:value("queenMarked")||null,equipment:value("hiveEquipment")||null,notes:value("hiveProfileNotes")||null
+    }),"hiveProfileMessage",[]));
+    $("saveFeed").addEventListener("click",()=>saveManagement("saveFeed","Hive_Feedings",()=>({
+      feed_date:value("feedDate"),feed_type:value("feedType"),quantity:Number(value("feedQuantity")),
+      unit:value("feedUnit"),notes:value("feedNotes")||null
+    }),"feedMessage",[["feedDate","a feeding date"],["feedType","a feed type"],["feedQuantity","a quantity"]]));
+    $("saveTreatment").addEventListener("click",()=>saveManagement("saveTreatment","Hive_Treatments",()=>({
+      treatment_date:value("treatDate"),product:value("treatProduct"),application_details:value("treatAmount")||null,
+      follow_up_date:value("treatFollowUp")||null,notes:value("treatNotes")||null
+    }),"treatMessage",[["treatDate","a treatment date"],["treatProduct","a treatment product"]]));
+    $("saveHarvest").addEventListener("click",()=>saveManagement("saveHarvest","Hive_Harvests",()=>({
+      harvest_date:value("harvestDate"),pounds:Number(value("harvestPounds")),notes:value("harvestNotes")||null
+    }),"harvestMessage",[["harvestDate","a harvest date"],["harvestPounds","the pounds harvested"]]));
+
     $("loginForm").addEventListener("submit",async event=>{
       event.preventDefault();$("loginMessage").textContent="Signing in...";
       const {error}=await supabase.auth.signInWithPassword({email:value("email"),password:value("password")});
