@@ -182,6 +182,18 @@
   <option value="Sticky Board">Sticky Board</option>
   <option value="Other">Other</option>
 </select>
+  <label for="feedingDetails">Feeding Details</label>
+<textarea
+  id="feedingDetails"
+  rows="3"
+  placeholder="Record feed type, amount, and details (e.g., 1 gallon of 2:1 sugar syrup)"
+></textarea>
+  <label for="treatmentApplied">Treatment Applied</label>
+<textarea
+  id="treatmentApplied"
+  rows="3"
+  placeholder="Record treatment name, dosage, application date, and details"
+></textarea>
 <label for="inspectionNotes">Inspection Notes</label>
 <textarea id="inspectionNotes" rows="5"
   placeholder="Record observations, concerns, and work needed..."></textarea>
@@ -322,6 +334,8 @@ for (const hive of data || []) {
       ["Colony Strength", inspection.colony_strength],
       ["Varroa Mite Count", inspection.mite_count],
       ["Mite Testing Method", inspection.mite_test_method],
+      ["Feeding Details", inspection.feeding_details],
+["Treatment Applied", inspection.treatment_applied],
       ["Notes", inspection.inspection_notes]
     ];
 
@@ -378,6 +392,8 @@ document.getElementById("saveInspection")
         colony_strength: value("colonyStrength"),
         mite_count: value("miteCount") === "" ? null : Number(value("miteCount")),
 mite_test_method: value("miteTestMethod") || null,
+        feeding_details: value("feedingDetails") || null,
+treatment_applied: value("treatmentApplied") || null,
         inspection_notes: value("inspectionNotes")
       });
 
