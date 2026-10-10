@@ -1,0 +1,160 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tricks Bees 207 | Apiary Log</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #fff9e8;
+      color: #30291d;
+      margin: 0;
+    }
+    header {
+      background: #29241b;
+      color: #ffcc45;
+      padding: 22px;
+      text-align: center;
+    }
+    main {
+      max-width: 750px;
+      margin: 35px auto;
+      padding: 24px;
+    }
+    .panel {
+      background: white;
+      border: 1px solid #e8dcbf;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    input, button {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 12px;
+      margin: 8px 0;
+      font-size: 16px;
+    }
+    button {
+      background: #e6ad25;
+      border: 0;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .hidden { display: none; }
+    .error { color: #a32626; }
+    .muted { color: #686052; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🐝 Tricks Bees 207</h1>
+    <p>Private Apiary Log</p>
+  </header>
+
+  <main>
+    <section id="login" class="panel">
+      <h2>Owner Sign In</h2>
+      <p>Sign in with your Apiary Log account.</p>
+      <form id="loginForm">
+        <input id="email" type="email"
+          placeholder="Email address" required>
+        <input id="password" type="password"
+          placeholder="Password" required>
+        <button type="submit">Sign In</button>
+      </form>
+      <p id="loginMessage" class="error"
+        role="status"></p>
+    </section>
+
+    <section id="dashboard" class="hidden">
+      <div class="panel">
+        <h2>Apiary Dashboard</h2>
+        <p class="muted">Your registered hives</p>
+        <div id="hiveList">Loading hives...</div>
+        <button id="logout">Sign Out</button>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { createClient } from
+      "https://esm.sh/@supabase/supabase-js@2";
+
+    const supabase = createClient(
+      "https://mkypanucvttinkjggxzv.supabase.co",
+      "sb_publishable_-mN1hBm5z7YCjBzg_LDU4g_5C3N8ejJ"
+    );
+
+    const login = document.getElementById("login");
+    const dashboard =
+      document.getElementById("dashboard");
+    const message =
+      document.getElementById("loginMessage");
+
+    async function showDashboard(session) {
+      if (!session) {
+        login.classList.remove("hidden");
+        dashboard.classList.add("hidden");
+        return;
+      }
+
+      login.classList.add("hidden");
+      dashboard.classList.remove("hidden");
+
+      const list = document.getElementById("hiveList");
+      list.textContent = "Loading hives...";
+
+      const { data, error } = await supabase
+        .from("Hives")
+        .select("hive_number,hive_name,hive_location")
+        .order("hive_number");
+
+      if (error) {
+        list.textContent = error.message;
+        return;
+      }
+
+      list.replaceChildren();
+
+      for (const hive of data || []) {
+        const item = document.createElement("p");
+        item.textContent =
+          `Hive ${hive.hive_number}: ` +
+          `${hive.hive_name || "Unnamed"} ` +
+          `(${hive.hive_location || "No location"})`;
+        list.appendChild(item);
+      }
+    }
+
+    document.getElementById("loginForm")
+      .addEventListener("submit", async (event) => {
+        event.preventDefault();
+        message.textContent = "";
+
+        const { error } =
+          await supabase.auth.signInWithPassword({
+            email: document.getElementById("email").value,
+            password:
+              document.getElementById("password").value
+          });
+
+        if (error) message.textContent = error.message;
+      });
+
+    document.getElementById("logout")
+      .addEventListener("click", async () => {
+        await supabase.auth.signOut();
+      });
+
+    supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setTimeout(() => showDashboard(session), 0);
+      }
+    );
+  </script>
+</body>
+</html>
