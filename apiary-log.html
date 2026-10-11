@@ -191,7 +191,7 @@
   <p id="statsMessage" class="status" role="status"></p>
   <div class="summary-grid" id="statsSummary" aria-live="polite"></div>
   <div id="statsHiveTable"></div>
-  <p class="muted">Hive count reflects registered hives, not confirmed active colonies. Losses, splits and replacements are event counts, not a calculated survival rate. Harvest totals use recorded pounds. Feeding expenses are not calculated because costs are not yet recorded.</p>
+  <p class="muted">Hive count reflects registered hives, not confirmed active colonies. Losses, splits and replacements are event counts, not a calculated survival rate. Harvest totals use recorded pounds. Income and expense totals reflect recorded transactions; net is income minus expenses.</p>
 </section>
 <section class="management" id="expensesSection" aria-labelledby="expenseHeading">
   <h3 id="expenseHeading">Apiary Expense Tracking</h3>
@@ -224,6 +224,38 @@
   </div>
   <button type="button" class="secondary" id="exportExpenses">Export Expenses (CSV)</button>
   <h4>Expense History</h4><div id="expenseHistory">Loading...</div>
+</section>
+<section class="management" id="incomeSection" aria-labelledby="incomeHeading">
+  <h3 id="incomeHeading">Apiary Income Tracking</h3>
+  <p>Record honey sales and other income for the whole apiary or assign income to a hive. Income records are private to your account.</p>
+  <div class="two-col">
+    <div><label for="incomeDate">Income Date</label><input id="incomeDate" type="date"></div>
+    <div><label for="incomeCategory">Category</label><select id="incomeCategory">
+      <option value="">Choose income category</option><option>Honey Sales</option><option>Beeswax Sales</option>
+      <option>Nuc Sales</option><option>Queen Sales</option><option>Package Bee Sales</option>
+      <option>Pollination Services</option><option>Beekeeping Services</option><option>Workshops / Education</option>
+      <option>Other</option>
+    </select></div>
+    <div><label for="incomeDescription">Description</label><input id="incomeDescription" placeholder="What did you sell or receive payment for?"></div>
+    <div><label for="incomeCustomer">Customer</label><input id="incomeCustomer" placeholder="Customer (optional)"></div>
+    <div><label for="incomeAmount">Amount Received ($)</label><input id="incomeAmount" type="number" min="0" step="0.01" placeholder="0.00"></div>
+    <div><label for="incomeHive">Assign to Hive (optional)</label><select id="incomeHive"><option value="">Entire apiary / Shared income</option></select></div>
+    <div><label for="incomePayment">Payment Method</label><select id="incomePayment">
+      <option value="">Not specified</option><option>Cash</option><option>Credit card</option>
+      <option>Debit card</option><option>Bank transfer</option><option>Check</option><option>Other</option>
+    </select></div>
+  </div>
+  <label for="incomeNotes">Notes</label><textarea id="incomeNotes" placeholder="Quantities, receipts, or other details"></textarea>
+  <button type="button" id="saveIncome">Save Income</button>
+  <button type="button" id="cancelIncomeEdit" hidden>Cancel Edit</button>
+  <p id="incomeMessage" class="section-status" role="status"></p>
+  <h4>Income Summary</h4><div id="incomeTotals">Loading...</div>
+  <div class="two-col">
+    <div><label for="incomeYear">Income Year</label><select id="incomeYear"><option value="all">All years</option></select></div>
+    <div><label for="incomeCategoryFilter">Category Filter</label><select id="incomeCategoryFilter"><option value="all">All categories</option></select></div>
+  </div>
+  <button type="button" class="secondary" id="exportIncome">Export Income (CSV)</button>
+  <h4>Income History</h4><div id="incomeHistory">Loading...</div>
 </section>
         <h3>Select a Hive</h3>
         <div id="hiveList">Loading hives...</div>
@@ -732,6 +764,118 @@
       a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
     });
     $("expenseDate").value=localToday();
+    let incomeRecords=[],editingIncomeId=null;
+    const incomeFields=["incomeDate","incomeCategory","incomeDescription","incomeCustomer","incomeAmount","incomeHive","incomePayment","incomeNotes"];
+
+    function populateIncomeHives(selected=""){
+      const el=$("incomeHive");el.replaceChildren(new Option("Entire apiary / Shared income",""));
+      hives.forEach(h=>el.add(new Option(`Hive ${h.hive_number}: ${h.hive_name||"Unnamed"}`,String(h.id))));
+      el.value=selected;
+    }
+    function resetIncomeForm(){
+      editingIncomeId=null;
+      incomeFields.forEach(id=>$(id).value="");
+      $("incomeDate").value=localToday();
+      $("saveIncome").textContent="Save Income";
+      $("cancelIncomeEdit").hidden=true;
+    }
+    function incomeFilterRows(){
+      return incomeRecords.filter(r=>
+        ($("incomeYear").value==="all"||String(r.income_date||"").startsWith($("incomeYear").value+"-"))&&
+        ($("incomeCategoryFilter").value==="all"||r.category===$("incomeCategoryFilter").value));
+    }
+    function renderIncome(){
+      const previousYear=$("incomeYear").value,previousCategory=$("incomeCategoryFilter").value;
+      const years=[...new Set(incomeRecords.map(r=>String(r.income_date||"").slice(0,4)).filter(y=>/^\d{4}$/.test(y)))].sort().reverse();
+      $("incomeYear").replaceChildren(new Option("All years","all"),...years.map(y=>new Option(y,y)));
+      $("incomeYear").value=years.includes(previousYear)?previousYear:"all";
+      const categories=[...new Set(incomeRecords.map(r=>r.category).filter(Boolean))].sort();
+      $("incomeCategoryFilter").replaceChildren(new Option("All categories","all"),...categories.map(c=>new Option(c,c)));
+      $("incomeCategoryFilter").value=categories.includes(previousCategory)?previousCategory:"all";
+      const rows=incomeFilterRows().sort((a,b)=>b.income_date.localeCompare(a.income_date)||b.id-a.id);
+      const total=rows.reduce((n,r)=>n+Number(r.amount||0),0);
+      $("incomeTotals").textContent=`${rows.length} recorded income(s) · ${money(total)} total for selected filters`;
+      const host=$("incomeHistory");host.replaceChildren();
+      if(!rows.length){host.textContent="No income recorded for these filters.";return;}
+      const hiveNames=new Map(hives.map(h=>[String(h.id),`Hive ${h.hive_number}`]));
+      rows.forEach(r=>{
+        const card=make("div",undefined,"record");
+        card.append(make("strong",`${formatDate(r.income_date)} · ${money(r.amount)} · ${r.category}`));
+        card.append(make("small",r.description));
+        card.append(make("small",`Hive: ${r.hive_id?hiveNames.get(String(r.hive_id))||"Unknown":"Shared / Entire apiary"}`));
+        if(r.customer)card.append(make("small",`Customer: ${r.customer}`));
+        if(r.payment_method)card.append(make("small",`Payment: ${r.payment_method}`));
+        if(r.notes)card.append(make("small",`Notes: ${r.notes}`));
+        const actions=make("div",undefined,"record-actions");
+        const edit=make("button","Edit");edit.type="button";edit.addEventListener("click",()=>{
+          editingIncomeId=r.id;
+          const values={incomeDate:r.income_date,incomeCategory:r.category,incomeDescription:r.description,
+            incomeCustomer:r.customer,incomeAmount:r.amount,incomeHive:r.hive_id||"",incomePayment:r.payment_method,incomeNotes:r.notes};
+          for(const [id,v] of Object.entries(values))$(id).value=v??"";
+          $("saveIncome").textContent="Save Changes";$("cancelIncomeEdit").hidden=false;
+          $("incomeMessage").textContent="Editing existing income.";
+          $("saveIncome").scrollIntoView({behavior:"smooth",block:"center"});
+        });
+        const del=make("button","Delete");del.type="button";del.addEventListener("click",()=>deleteIncome(r));
+        actions.append(edit,del);card.append(actions);host.append(card);
+      });
+    }
+    async function deleteIncome(record){
+      if(!window.confirm("Permanently delete this income? This cannot be undone."))return;
+      const msg=$("incomeMessage");msg.textContent="Deleting...";
+      try{
+        const {data:{user},error:authError}=await supabase.auth.getUser();
+        if(authError||!user)throw new Error("Please sign in again.");
+        const {data,error}=await supabase.from("Apiary_Income").delete().eq("id",record.id).eq("user_id",user.id).select("id");
+        if(error)throw error;
+        if(!data?.length)throw new Error("No income deleted.");
+        if(editingIncomeId===record.id)resetIncomeForm();
+        await refreshStats();msg.textContent="Income deleted.";
+      }catch(e){msg.textContent="Delete failed: "+e.message;}
+    }
+    $("saveIncome").addEventListener("click",async()=>{
+      const msg=$("incomeMessage");
+      if(!value("incomeDate")||!value("incomeCategory")||!value("incomeDescription").trim()){
+        msg.textContent="Enter a date, category and description.";return;
+      }
+      const amountText=value("incomeAmount");
+      if(!amountText.trim()||!/^\d+(?:\.\d{1,2})?$/.test(amountText)||!Number.isFinite(Number(amountText))){
+        msg.textContent="Enter a valid nonnegative amount with up to two decimal places.";return;
+      }
+      const btn=$("saveIncome");btn.disabled=true;msg.textContent="Saving...";
+      try{
+        const {data:{user},error:authError}=await supabase.auth.getUser();
+        if(authError||!user)throw new Error("Please sign in again.");
+        const payload={user_id:user.id,income_date:value("incomeDate"),category:value("incomeCategory"),
+          description:value("incomeDescription").trim(),customer:value("incomeCustomer")||null,
+          amount:Number(amountText),hive_id:value("incomeHive")?Number(value("incomeHive")):null,
+          payment_method:value("incomePayment")||null,notes:value("incomeNotes")||null};
+        let error;
+        if(editingIncomeId!==null){
+          const {data,error:e}=await supabase.from("Apiary_Income").update(payload).eq("id",editingIncomeId).eq("user_id",user.id).select("id");
+          error=e;if(!error&&!data?.length)throw new Error("No income updated.");
+        }else ({error}=await supabase.from("Apiary_Income").insert(payload));
+        if(error)throw error;
+        resetIncomeForm();
+        await refreshStats();
+        msg.textContent="Income saved successfully!";
+      }catch(e){msg.textContent="Save failed: "+e.message;}
+      finally{btn.disabled=false;}
+    });
+    $("cancelIncomeEdit").addEventListener("click",()=>{resetIncomeForm();$("incomeMessage").textContent="Edit canceled.";});
+    $("incomeYear").addEventListener("change",renderIncome);
+    $("incomeCategoryFilter").addEventListener("change",renderIncome);
+    $("exportIncome").addEventListener("click",()=>{
+      const rows=incomeFilterRows();
+      const header=["Date","Category","Description","Customer","Amount","Hive ID","Payment Method","Notes"];
+      const esc=v=>'"'+String(v??"").replace(/"/g,'""')+'"';
+      const csv=[header,...rows.map(r=>[r.income_date,r.category,r.description,r.customer,r.amount,r.hive_id,r.payment_method,r.notes])]
+        .map(row=>row.map(esc).join(",")).join("\r\n");
+      const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
+      const a=document.createElement("a");a.href=url;a.download=`tricks-bees-income-${$("incomeYear").value}.csv`;
+      a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    });
+    $("incomeDate").value=localToday();
     const statsSources=[
       ["Hive_Inspections","inspection_date","Inspections"],
       ["Hive_Feedings","feed_date","Feedings"],
@@ -740,7 +884,8 @@
       ["Hive_Queen_Replacements","replacement_date","Queen replacements"],
       ["Hive_Splits","split_date","Colony splits"],
       ["Hive_Losses","loss_date","Colony losses"],
-      ["Apiary_Expenses","expense_date","Expenses"]
+      ["Apiary_Expenses","expense_date","Expenses"],
+      ["Apiary_Income","income_date","Income"]
     ];
     function statsCsvEscape(v){return `"${String(v??"").replace(/"/g,'""')}"`;}
     function exportStatsCsv(){
@@ -779,6 +924,8 @@
       renderStats();
       expenseRecords=statsCache[7]||[];
       renderExpenses();
+      incomeRecords=statsCache[8]||[];
+      renderIncome();
     }
     function renderStats(){
       if(!statsCache)return;
@@ -792,7 +939,9 @@
         ["Honey harvested (lb)",records[3].reduce((total,r)=>total+(Number(r.pounds)||0),0).toFixed(2)],
         ["Queen replacements",records[4].length],["Colony splits",records[5].length],
         ["Colony losses",records[6].length],
-        ["Expenses ($)",records[7].reduce((total,r)=>total+(Number(r.amount)||0),0).toFixed(2)]
+        ["Expenses ($)",records[7].reduce((total,r)=>total+(Number(r.amount)||0),0).toFixed(2)],
+        ["Income ($)",records[8].reduce((total,r)=>total+(Number(r.amount)||0),0).toFixed(2)],
+        ["Net ($)",(records[8].reduce((total,r)=>total+(Number(r.amount)||0),0)-records[7].reduce((total,r)=>total+(Number(r.amount)||0),0)).toFixed(2)]
       ];
       metrics.forEach(([label,n])=>sum.append(tile(label,n)));
       statsRows=hives.map(h=>{
@@ -856,6 +1005,7 @@
         list.append(button);
       }
       populateExpenseHives();
+      populateIncomeHives();
       await Promise.all([loadDashboardData(),refreshStats()]);
     }
     async function loadInspectionHistory(hiveId) {
