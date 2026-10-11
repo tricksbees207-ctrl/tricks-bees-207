@@ -611,6 +611,14 @@
     const backupSection=document.createElement('section');
     backupSection.id='backupSection';
     backupSection.innerHTML='<h3>Apiary Data Backup</h3><p class="muted">Download a read-only JSON snapshot of your saved Apiary Log data. Keep this file private. This feature does not change the database or restore data.</p><button type="button" id="downloadApiaryBackup">Download Full Backup (JSON)</button><p id="backupMessage" class="status" role="status" aria-live="polite"></p>';
+    backupSection.insertAdjacentHTML('beforeend', `
+      <hr><h3>Restore Preview (Read Only)</h3>
+      <p class="muted">Choose a JSON backup saved on this device. The file is inspected locally in your browser; it is not uploaded or restored.</p>
+      <label for="previewBackupFile">Select backup file (.json)</label>
+      <input id="previewBackupFile" type="file" accept=".json,application/json">
+      <div id="backupPreview" role="status" aria-live="polite"></div>
+      <p class="muted"><strong>Preview only:</strong> No restore button is available. This page cannot import or overwrite database records.</p>
+    `);
     mainPanel.insertBefore(backupSection,hivePage);
     const topPages = [
       ['Overview', overview],
@@ -704,6 +712,54 @@
       "Hive_Queen_Replacements","Hive_Splits","Hive_Losses",
       "Apiary_Activities","Apiary_Expenses","Apiary_Income"
     ];
+    function showBackupPreview(file){
+      const host=$("backupPreview");
+      host.replaceChildren();
+      const line=(text,tag="p")=>{const node=document.createElement(tag);node.textContent=text;host.append(node);};
+      if(!file){line("Choose a backup file to preview.");return;}
+      if(file.size>25*1024*1024){line("File exceeds the 25 MB preview limit. No changes made.");return;}
+      line("Checking "+file.name+"...");
+      file.text().then(content=>{
+        host.replaceChildren();
+        let backup;
+        try{backup=JSON.parse(content);}catch(e){line("Invalid JSON backup file. No changes made.");return;}
+        if(!backup||backup.format!=="tricks-bees-207-apiary-backup"||backup.version!==1||!backup.tables||typeof backup.tables!=="object"||Array.isArray(backup.tables)){
+          line("This is not a supported Tricks Bees 207 backup (version 1). No changes made.");return;
+        }
+        const missing=backupTables.filter(name=>!Array.isArray(backup.tables[name]));
+        const extras=Object.keys(backup.tables).filter(name=>!backupTables.includes(name));
+        const invalid=backupTables.filter(name=>Array.isArray(backup.tables[name])&&backup.tables[name].some(row=>!row||typeof row!=="object"||Array.isArray(row)));
+        if(missing.length||invalid.length){
+          line("Backup structure has issues. Do not use this file for restoration.","h4");
+          if(missing.length)line("Missing or invalid tables: "+missing.join(", "));
+          if(invalid.length)line("Tables with invalid rows: "+invalid.join(", "));
+          return;
+        }
+        const total=backupTables.reduce((sum,name)=>sum+backup.tables[name].length,0);
+        line("Valid Tricks Bees 207 backup structure (version 1)","h4");
+        line("Backup date: "+(backup.exported_at||"Not recorded"));
+        line("Tables: "+backupTables.length+" | Total records: "+total);
+        for(const name of backupTables)line(name+": "+backup.tables[name].length+" record(s)");
+        const hives=backup.tables.Hives;
+        const numbers=hives.map(h=>h.hive_number);
+        const duplicates=numbers.filter((n,i)=>numbers.indexOf(n)!==i);
+        const ids=new Set(hives.map(h=>String(h.id)));
+        const orphans=[];
+        for(const name of backupTables){
+          if(name==="Hives"||name==="Colony_Transfers")continue;
+          for(const row of backup.tables[name]){
+            if(row.hive_id!=null&&!ids.has(String(row.hive_id)))orphans.push(name+" record "+(row.id??"(no id)"));
+          }
+        }
+        if(duplicates.length)line("Warning: duplicate hive numbers found: "+[...new Set(duplicates)].join(", "));
+        if(orphans.length)line("Warning: "+orphans.length+" records reference hive locations missing from this backup.");
+        if(extras.length)line("Note: additional tables not included in this preview: "+extras.join(", "));
+        line("PREVIEW ONLY. Nothing has been uploaded, imported, restored, or changed.","strong");
+      }).catch(e=>{host.replaceChildren();line("Could not read file: "+e.message+". No changes made.");});
+    }
+    document.addEventListener("change",event=>{
+      if(event.target?.id==="previewBackupFile")showBackupPreview(event.target.files?.[0]);
+    });
     async function downloadFullBackup(){
       const button=$("downloadApiaryBackup"),message=$("backupMessage");
       if(!button||!message)return;
