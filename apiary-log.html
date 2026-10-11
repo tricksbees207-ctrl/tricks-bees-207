@@ -193,6 +193,22 @@
   <div id="statsHiveTable"></div>
   <p class="muted">Hive count reflects registered hives, not confirmed active colonies. Losses, splits and replacements are event counts, not a calculated survival rate. Harvest totals use recorded pounds. Income and expense totals reflect recorded transactions; net is income minus expenses.</p>
 </section>
+<section id="financialSection" class="management" aria-labelledby="financialHeading">
+  <h3 id="financialHeading">Apiary Profit &amp; Loss Dashboard</h3>
+  <p class="muted">Financial results from recorded income and expenses. Shared transactions remain unassigned to individual hives.</p>
+  <div class="stats-controls">
+    <label class="stats-period" for="financialYear">Financial year
+      <select id="financialYear"><option value="all">All years</option></select>
+    </label>
+    <button type="button" id="refreshFinancial" class="secondary">Refresh Financial Report</button>
+    <button type="button" id="exportFinancial" class="secondary">Export Financial Report (CSV)</button>
+  </div>
+  <p id="financialMessage" class="status" role="status"></p>
+  <div id="financialTotals" class="summary-grid" aria-live="polite"></div>
+  <div id="financialCategories"></div>
+  <div id="financialHives"></div>
+  <p class="muted">Net = income minus expenses, based on transaction dates and entered amounts. This is a cash-record summary, not a tax determination; it does not account for inventory, depreciation, or unpaid bills. Hive totals exclude shared/unassigned transactions.</p>
+</section>
 <section class="management" id="expensesSection" aria-labelledby="expenseHeading">
   <h3 id="expenseHeading">Apiary Expense Tracking</h3>
   <p>Record expenses for the whole apiary or assign a purchase to one hive. Expenses are private to your account.</p>
@@ -876,6 +892,61 @@
       a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
     });
     $("incomeDate").value=localToday();
+    let financialExportRows=[];
+    function financialSum(rows){return rows.reduce((sum,r)=>sum+(Number(r.amount)||0),0);}
+    function financialGrouped(rows,key){
+      const totals=new Map();
+      rows.forEach(r=>{const label=String(r[key]||"Uncategorized");totals.set(label,(totals.get(label)||0)+(Number(r.amount)||0));});
+      return [...totals].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]));
+    }
+    function financialTable(title,headers,rows){
+      const container=make("div");container.append(make("h4",title));
+      const scroll=make("div");scroll.className="stats-table-scroll";
+      const table=make("table");table.className="stats-table";
+      const head=make("thead"),tr=make("tr");headers.forEach(h=>tr.append(make("th",h)));head.append(tr);table.append(head);
+      const body=make("tbody");rows.forEach(row=>{const tr=make("tr");row.forEach(v=>tr.append(make("td",v)));body.append(tr);});
+      table.append(body);scroll.append(table);container.append(scroll);return container;
+    }
+    function renderFinancial(){
+      if(!statsCache)return;
+      const selected=$("financialYear").value;
+      const matches=(r,dateField)=>selected==="all"||String(r[dateField]||"").startsWith(selected+"-");
+      const expenses=(statsCache[7]||[]).filter(r=>matches(r,"expense_date"));
+      const income=(statsCache[8]||[]).filter(r=>matches(r,"income_date"));
+      const incomeTotal=financialSum(income),expenseTotal=financialSum(expenses);
+      const totals=$("financialTotals");totals.replaceChildren();
+      totals.append(tile("Income",money(incomeTotal)),tile("Expenses",money(expenseTotal)),tile("Net profit / loss",money(incomeTotal-expenseTotal)),tile("Income transactions",income.length),tile("Expense transactions",expenses.length));
+      const categories=$("financialCategories");categories.replaceChildren();
+      const incomeCategories=financialGrouped(income,"category");
+      const expenseCategories=financialGrouped(expenses,"category");
+      categories.append(financialTable("Income by Category",["Category","Income"],incomeCategories.map(([name,n])=>[name,money(n)])));
+      categories.append(financialTable("Expenses by Category",["Category","Expenses"],expenseCategories.map(([name,n])=>[name,money(n)])));
+      const byHive=$("financialHives");byHive.replaceChildren();
+      const hiveRows=hives.map(h=>{
+        const id=String(h.id),received=financialSum(income.filter(r=>String(r.hive_id)===id)),spent=financialSum(expenses.filter(r=>String(r.hive_id)===id));
+        return [`Hive ${h.hive_number}: ${h.hive_name||"Unnamed"}`,money(received),money(spent),money(received-spent)];
+      });
+      const sharedIncome=financialSum(income.filter(r=>r.hive_id==null));
+      const sharedExpenses=financialSum(expenses.filter(r=>r.hive_id==null));
+      hiveRows.push(["Shared / Entire apiary",money(sharedIncome),money(sharedExpenses),money(sharedIncome-sharedExpenses)]);
+      byHive.append(financialTable("Income and Expenses by Hive",["Hive","Income","Expenses","Net"],hiveRows));
+      financialExportRows=[["Section","Item","Income ($)","Expenses ($)","Net ($)"],
+        ["Overall",selected==="all"?"All years":selected,incomeTotal.toFixed(2),expenseTotal.toFixed(2),(incomeTotal-expenseTotal).toFixed(2)],
+        ...incomeCategories.map(([name,n])=>["Income category",name,n.toFixed(2),"",""]),
+        ...expenseCategories.map(([name,n])=>["Expense category",name,"",n.toFixed(2),""]),
+        ...hives.map(h=>{const id=String(h.id),a=financialSum(income.filter(r=>String(r.hive_id)===id)),b=financialSum(expenses.filter(r=>String(r.hive_id)===id));return ["Hive",`Hive ${h.hive_number}: ${h.hive_name||"Unnamed"}`,a.toFixed(2),b.toFixed(2),(a-b).toFixed(2)];}),
+        ["Shared / Entire apiary","Unassigned transactions",sharedIncome.toFixed(2),sharedExpenses.toFixed(2),(sharedIncome-sharedExpenses).toFixed(2)]];
+      $("financialMessage").textContent=`Financial report for ${selected==="all"?"all years":selected}. ${income.length+expenses.length} recorded transactions.`;
+    }
+    $("financialYear").addEventListener("change",renderFinancial);
+    $("refreshFinancial").addEventListener("click",refreshStats);
+    $("exportFinancial").addEventListener("click",()=>{
+      if(!statsCache){$("financialMessage").textContent="Refresh the report before exporting.";return;}
+      const csv=financialExportRows.map(row=>row.map(statsCsvEscape).join(",")).join("\r\n");
+      const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
+      const a=document.createElement("a");a.href=url;a.download=`tricks-bees-profit-loss-${$("financialYear").value}.csv`;
+      a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    });
     const statsSources=[
       ["Hive_Inspections","inspection_date","Inspections"],
       ["Hive_Feedings","feed_date","Feedings"],
@@ -908,7 +979,7 @@
       if(req!==statsRequest)return;
       const errors=results.flatMap((r,i)=>r.error?[`${statsSources[i][0]}: ${r.error.message}`]:[]);
       if(errors.length){
-        statsCache=null;statsRows=[];$("statsSummary").replaceChildren();$("statsHiveTable").replaceChildren();
+        statsCache=null;statsRows=[];financialExportRows=[];$("financialTotals").replaceChildren();$("financialCategories").replaceChildren();$("financialHives").replaceChildren();$("financialMessage").textContent="Financial report unavailable until statistics load.";$("statsSummary").replaceChildren();$("statsHiveTable").replaceChildren();
         $("statsMessage").textContent="Statistics unavailable: "+errors.join("; ");return;
       }
       statsCache=results.map(r=>r.data);
@@ -921,7 +992,12 @@
       sel.replaceChildren(new Option("All years","all"));
       [...years].sort().reverse().forEach(y=>sel.add(new Option(y,y)));
       sel.value=[...sel.options].some(o=>o.value===prior)?prior:"all";
+      const finSel=$("financialYear"),previousFinYear=finSel.value;
+      finSel.replaceChildren(new Option("All years","all"));
+      [...years].sort().reverse().forEach(y=>finSel.add(new Option(y,y)));
+      finSel.value=[...finSel.options].some(o=>o.value===previousFinYear)?previousFinYear:"all";
       renderStats();
+      renderFinancial();
       expenseRecords=statsCache[7]||[];
       renderExpenses();
       incomeRecords=statsCache[8]||[];
