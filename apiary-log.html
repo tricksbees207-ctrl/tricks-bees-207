@@ -612,14 +612,15 @@
     backupSection.id='backupSection';
     backupSection.innerHTML='<h3>Apiary Data Backup</h3><p class="muted">Download a read-only JSON snapshot of your saved Apiary Log data. Keep this file private. This feature does not change the database or restore data.</p><button type="button" id="downloadApiaryBackup">Download Full Backup (JSON)</button><p id="backupMessage" class="status" role="status" aria-live="polite"></p>';
     backupSection.insertAdjacentHTML('beforeend', `
-      <hr><h3>Restore Preview (Read Only)</h3>
+      <hr><h3>Restore Preview &amp; Safety Audit (Read Only)</h3>
       <p class="muted">Choose a JSON backup saved on this device. The file is inspected locally in your browser; it is not uploaded or restored.</p>
       <label for="previewBackupFile">Select backup file (.json)</label>
       <input id="previewBackupFile" type="file" accept=".json,application/json">
       <div id="backupPreview" role="status" aria-live="polite"></div>
       <button type="button" id="compareBackupButton" disabled>Compare Backup to Live Data (Read Only)</button>
       <div id="backupComparison" role="status" aria-live="polite"></div>
-      <p class="muted"><strong>Preview only:</strong> No restore button is available. This page cannot import or overwrite database records.</p>
+      <div id="backupSafetyAudit" role="status" aria-live="polite"></div>
+      <p class="muted"><strong>Preview only:</strong> No restore button is available. This page cannot import or overwrite database records. Use the separate Test Lab to perform recovery tests.</p>
     `);
     mainPanel.insertBefore(backupSection,hivePage);
     const topPages = [
@@ -721,6 +722,7 @@
       selectedValidBackup=null;
       $("compareBackupButton").disabled=true;
       $("backupComparison").replaceChildren();
+      $("backupSafetyAudit").replaceChildren();
       const host=$("backupPreview");
       host.replaceChildren();
       const line=(text,tag="p")=>{const node=document.createElement(tag);node.textContent=text;host.append(node);};
@@ -778,9 +780,115 @@
       for(const key of Object.keys(row).sort())sorted[key]=row[key];
       return JSON.stringify(sorted);
     }
+    // Read-only preliminary safety audit. This never invokes a restore RPC.
+    // A clean audit is NOT permission to import data: database-side validation is required.
+    function runRecoverySafetyAudit(backup, liveRowsByTable, authenticatedUser){
+      const warnings=[];
+      const blockers=[];
+      const details=[];
+      const makeIds=rows=>new Set(rows.map(r=>String(r.id)));
+      const backupIds={};
+      const liveIds={};
+      const missingRows={};
+      const foreignKeys={
+        Hive_Colonies:[['hive_id','Hives']],
+        Colony_Transfers:[['colony_id','Hive_Colonies'],['from_hive_id','Hives'],['to_hive_id','Hives']],
+        Hive_Profiles:[['hive_id','Hives'],['colony_id','Hive_Colonies']],
+        Hive_Inspections:[['hive_id','Hives'],['colony_id','Hive_Colonies']],
+        Hive_Feedings:[['hive_id','Hives'],['colony_id','Hive_Colonies']],
+        Hive_Treatments:[['hive_id','Hives'],['colony_id','Hive_Colonies']],
+        Hive_Harvests:[['hive_id','Hives'],['colony_id','Hive_Colonies']],
+        Hive_Queen_Replacements:[['hive_id','Hives'],['colony_id','Hive_Colonies']],
+        Hive_Splits:[['hive_id','Hives'],['daughter_hive_id','Hives'],['colony_id','Hive_Colonies']],
+        Hive_Losses:[['hive_id','Hives'],['colony_id','Hive_Colonies']],
+        Apiary_Activities:[['hive_id','Hives'],['colony_id','Hive_Colonies']],
+        Apiary_Expenses:[['hive_id','Hives']],
+        Apiary_Income:[['hive_id','Hives']]
+      };
+      for(const table of backupTables){
+        const oldRows=backup.tables[table], live=liveRowsByTable.get(table)||[];
+        backupIds[table]=makeIds(oldRows);
+        liveIds[table]=makeIds(live);
+        missingRows[table]=oldRows.filter(row=>!liveIds[table].has(String(row.id)));
+        const seen=new Set();
+        for(const row of oldRows){
+          const id=String(row.id);
+          if(!/^\d+$/.test(id) || !Number.isSafeInteger(Number(id)) || Number(id)<1)
+            blockers.push(table+': invalid or unsafe database ID '+id);
+          if(seen.has(id))blockers.push(table+': duplicate ID '+id+' inside backup');
+          seen.add(id);
+          if('user_id' in row && row.user_id!==authenticatedUser.id)
+            blockers.push(table+' ID '+id+': record owner does not match your signed-in account');
+        }
+        for(const row of missingRows[table]){
+          for(const [field,parentTable] of foreignKeys[table]||[]){
+            const parentId=row[field];
+            if(parentId==null)continue;
+            const key=String(parentId);
+            if(liveIds[parentTable].has(key))continue;
+            if(backupIds[parentTable].has(key)){
+              details.push(table+' ID '+row.id+': '+field+' needs '+parentTable+' ID '+key+' restored first');
+            }else{
+              blockers.push(table+' ID '+row.id+': '+field+' references missing '+parentTable+' ID '+key+' (not in backup or live database)');
+            }
+          }
+        }
+      }
+      function checkUnique(table,keyFor,label){
+        const taken=new Map();
+        for(const row of liveRowsByTable.get(table)||[]){
+          const key=keyFor(row);
+          if(key!=null)taken.set(key,String(row.id));
+        }
+        for(const row of backup.tables[table]){
+          const key=keyFor(row);
+          if(key==null)continue;
+          const existing=taken.get(key);
+          if(existing && existing!==String(row.id)){
+            blockers.push(table+' ID '+row.id+': '+label+' conflicts with record ID '+existing);
+          }else{
+            taken.set(key,String(row.id));
+          }
+        }
+      }
+      checkUnique('Hives',row=>row.hive_number==null?null:String(row.hive_number),'hive number');
+      checkUnique('Hive_Profiles',row=>row.hive_id==null||row.user_id==null?null:String(row.hive_id)+'|'+row.user_id,'hive profile ownership');
+      checkUnique('Hive_Colonies',row=>row.colony_status==='active'&&row.hive_id!=null?String(row.hive_id):null,'active colony occupying the same hive');
+      const mismatched=[];
+      for(const table of backupTables){
+        const existing=new Map((liveRowsByTable.get(table)||[]).map(r=>[String(r.id),r]));
+        for(const row of backup.tables[table]){
+          const live=existing.get(String(row.id));
+          if(live && canonicalRecord(live)!==canonicalRecord(row))mismatched.push(table+' ID '+row.id);
+        }
+      }
+      if(mismatched.length){
+        blockers.push(mismatched.length+' existing IDs contain different field values. No overwrite is appropriate.');
+        details.push(...mismatched.slice(0,12).map(s=>'Different record: '+s));
+      }
+      const missingCount=backupTables.reduce((sum,t)=>sum+missingRows[t].length,0);
+      if(missingCount)warnings.push('The live site has no restore operation. Missing records are shown for review only.');
+      warnings.push('Restore testing in a separate Supabase project does not validate production account mapping, permissions, concurrent changes, or every database constraint.');
+      return {blockers,warnings,details,missingCount};
+    }
+    function renderRecoverySafetyAudit(report){
+      const host=$("backupSafetyAudit");
+      host.replaceChildren();
+      const add=(message,tag='p')=>{const el=document.createElement(tag);el.textContent=message;host.append(el);};
+      add('Additional Recovery Safety Audit (Read Only)','h4');
+      add(report.missingCount+' missing record(s) analyzed | '+report.blockers.length+' safety blocker(s) | '+report.details.length+' relationship/detail note(s)');
+      for(const message of report.blockers.slice(0,20))add('STOP: '+message);
+      if(report.blockers.length>20)add((report.blockers.length-20)+' additional blockers not shown.');
+      for(const message of report.details.slice(0,20))add('Note: '+message);
+      if(report.details.length>20)add((report.details.length-20)+' additional notes not shown.');
+      for(const message of report.warnings)add(message);
+      if(!report.blockers.length)add('No obvious conflicts were detected by these read-only checks. This is NOT a restore approval.');
+      add('RESTORATION REMAINS DISABLED. No records were inserted, updated, deleted, or restored.','strong');
+    }
     async function compareBackupToLive(){
       const host=$("backupComparison"),button=$("compareBackupButton");
       host.replaceChildren();
+      $("backupSafetyAudit").replaceChildren();
       const line=(message,tag="p")=>{const el=document.createElement(tag);el.textContent=message;host.append(el);};
       const backup=selectedValidBackup;
       if(!backup){line("Select and preview a valid backup first.");return;}
@@ -792,6 +900,7 @@
         const summaries=[];
         const backupMissingByTable=new Map();
         const liveIdsByTable=new Map();
+        const liveRowsByTable=new Map();
         for(const table of backupTables){
           if(token!==previewToken)return;
           line("Checking "+table+"...");
@@ -804,6 +913,7 @@
             if((data||[]).length<batchSize)break;
             if(offset>1000000)throw new Error(table+": safety row limit reached");
           }
+          liveRowsByTable.set(table,current);
           const backed=backup.tables[table];
           const backupIds=new Set();
           for(const row of backed){
@@ -878,10 +988,12 @@
           if(missingColonies.length)line("Missing colony records: "+missingColonies.length+". Active-colony limits and colony history must be checked before any recovery.");
           line("Additional checks still required: ownership, database constraints, ID sequences, relationships, concurrent changes, and test-environment recovery.");
         }
+        renderRecoverySafetyAudit(runRecoverySafetyAudit(backup,liveRowsByTable,user));
         line("READ ONLY. This is not a restore plan. No restore button is enabled; nothing was inserted, updated, deleted, or restored.","strong");
       }catch(error){
         if(token!==previewToken)return;
         host.replaceChildren();
+        $("backupSafetyAudit").replaceChildren();
         line("Comparison could not finish: "+error.message+". No database changes were made.");
       }finally{if(token===previewToken)button.disabled=!selectedValidBackup;}
     }
