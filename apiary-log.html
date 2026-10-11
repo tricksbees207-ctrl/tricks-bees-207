@@ -147,7 +147,7 @@
 <div id="inspectionPanel" style="display:none; margin-top:25px;">
   <h2 id="inspectionTitle">Hive Inspection</h2>
   <nav class="quick-nav" aria-label="Selected hive sections">
-    <a href="#inspectionEntry">Inspection</a><a href="#hiveManagement">Profile</a><a href="#feedingSection">Feeding</a><a href="#treatmentSection">Treatments</a><a href="#harvestSection">Harvests</a>
+    <a href="#inspectionEntry">Inspection</a><a href="#hiveManagement">Profile</a><a href="#feedingSection">Feeding</a><a href="#treatmentSection">Treatments</a><a href="#harvestSection">Harvests</a><a href="#queenSection">Queens</a>
   </nav>
   <div id="currentHiveProfile" class="profile-overview" aria-live="polite">Loading hive profile...</div>
   <p id="inspectionEntry">Record an inspection for the selected hive.</p>
@@ -310,6 +310,26 @@
   <button type="button" id="saveHarvest">Save Honey Harvest</button> <button type="button" id="cancelHarvestEdit" hidden>Cancel Edit</button><p id="harvestMessage" class="section-status" role="status"></p>
   <div id="harvestTotals" class="profile-overview" aria-live="polite">Loading honey totals...</div>
   <h4>Harvest History</h4><div id="harvestHistory">Select a hive.</div>
+</div>
+
+<div class="management" id="queenSection">
+  <h3>Queen Replacement Log</h3>
+  <p>Record queen changes and follow acceptance over time. Saving here does not overwrite the current Hive Profile.</p>
+  <div class="two-col">
+    <div><label for="queenReplaceDate">Replacement Date</label><input type="date" id="queenReplaceDate"></div>
+    <div><label for="queenReason">Reason for Replacement</label><input id="queenReason" placeholder="Queen lost, poor brood, planned requeening"></div>
+    <div><label for="queenReplaceOrigin">New Queen Origin</label><input id="queenReplaceOrigin" placeholder="Purchased, colony raised, grafted"></div>
+    <div><label for="queenReplaceMark">Queen Marking / Color</label><input id="queenReplaceMark" placeholder="Marking or identification"></div>
+    <div><label for="queenIntroMethod">Introduction Method</label><input id="queenIntroMethod" placeholder="Cage, direct release, queen cell"></div>
+    <div><label for="queenAcceptance">Acceptance Status</label>
+      <select id="queenAcceptance"><option value="Pending">Pending</option><option value="Accepted">Accepted</option><option value="Rejected">Rejected</option><option value="Unknown">Unknown</option></select></div>
+    <div><label for="queenEggsDate">First Eggs Observed</label><input type="date" id="queenEggsDate"></div>
+  </div>
+  <label for="queenReplaceNotes">Notes</label><textarea id="queenReplaceNotes" placeholder="Observations and follow-up findings"></textarea>
+  <button type="button" id="saveQueen">Save Queen Replacement</button>
+  <button type="button" id="cancelQueenEdit" hidden>Cancel Edit</button>
+  <p id="queenMessage" class="section-status" role="status"></p>
+  <h4>Queen Replacement History</h4><div id="queenHistory">Select a hive.</div>
 </div>
 
 </div>
@@ -565,21 +585,23 @@
 
     // Batch 2: independent records keyed to the selected hive.
     let managementRequest = 0;
-    const mgmtIds = ["hiveStatus","queenOrigin","queenIntroduced","queenMarked","hiveEquipment","hiveProfileNotes","feedDate","feedType","feedQuantity","feedUnit","feedNotes","treatDate","treatProduct","treatAmount","treatFollowUp","treatNotes","harvestDate","harvestPounds","harvestNotes"];
+    const mgmtIds = ["hiveStatus","queenOrigin","queenIntroduced","queenMarked","hiveEquipment","hiveProfileNotes","feedDate","feedType","feedQuantity","feedUnit","feedNotes","treatDate","treatProduct","treatAmount","treatFollowUp","treatNotes","harvestDate","harvestPounds","harvestNotes","queenReplaceDate","queenReason","queenReplaceOrigin","queenReplaceMark","queenIntroMethod","queenAcceptance","queenEggsDate","queenReplaceNotes"];
     const editConfig = {
       Hive_Feedings:{kind:"Feed",history:"feedHistory",message:"feedMessage",button:"saveFeed",fields:{feedDate:"feed_date",feedType:"feed_type",feedQuantity:"quantity",feedUnit:"unit",feedNotes:"notes"}},
       Hive_Treatments:{kind:"Treatment",history:"treatHistory",message:"treatMessage",button:"saveTreatment",fields:{treatDate:"treatment_date",treatProduct:"product",treatAmount:"application_details",treatFollowUp:"follow_up_date",treatNotes:"notes"}},
-      Hive_Harvests:{kind:"Harvest",history:"harvestHistory",message:"harvestMessage",button:"saveHarvest",fields:{harvestDate:"harvest_date",harvestPounds:"pounds",harvestNotes:"notes"}}
+      Hive_Harvests:{kind:"Harvest",history:"harvestHistory",message:"harvestMessage",button:"saveHarvest",fields:{harvestDate:"harvest_date",harvestPounds:"pounds",harvestNotes:"notes"}},
+      Hive_Queen_Replacements:{kind:"Queen",history:"queenHistory",message:"queenMessage",button:"saveQueen",fields:{queenReplaceDate:"replacement_date",queenReason:"reason",queenReplaceOrigin:"queen_origin",queenReplaceMark:"queen_mark_color",queenIntroMethod:"introduction_method",queenAcceptance:"acceptance_status",queenEggsDate:"first_eggs_date",queenReplaceNotes:"notes"}}
     };
     const editing = {};
     const recordsByTable = {};
     function cancelEdit(table) {
       const c=editConfig[table]; delete editing[table];
-      $(c.button).textContent=table==="Hive_Harvests"?"Save Honey Harvest":table==="Hive_Feedings"?"Save Feeding Record":"Save Treatment Record";
+      $(c.button).textContent=table==="Hive_Harvests"?"Save Honey Harvest":table==="Hive_Feedings"?"Save Feeding Record":table==="Hive_Queen_Replacements"?"Save Queen Replacement":"Save Treatment Record";
       $("cancel"+c.kind+"Edit").hidden=true;
       for(const id of Object.keys(c.fields)) $(id).value="";
       if(c.fields.feedUnit) $("feedUnit").value="gallon";
-      for(const id of ["feedDate","treatDate","harvestDate"]) if(c.fields[id]) $(id).value=localToday();
+      if(c.fields.queenAcceptance) $("queenAcceptance").value="Pending";
+      for(const id of ["feedDate","treatDate","harvestDate","queenReplaceDate"]) if(c.fields[id]) $(id).value=localToday();
     }
     async function deleteRecord(table,record) {
       if(!window.confirm("Permanently delete this record? This cannot be undone."))return;
@@ -612,10 +634,10 @@
     function resetManagementForm() {
       for(const table of Object.keys(editConfig))cancelEdit(table);
       for (const id of mgmtIds) $(id).value = "";
-      $("hiveStatus").value="Active"; $("feedUnit").value="gallon";
-      for(const id of ["feedDate","treatDate","harvestDate"]) $(id).value=localToday();
-      for(const id of ["hiveProfileMessage","feedMessage","treatMessage","harvestMessage"]) $(id).textContent="";
-      for(const id of ["feedHistory","treatHistory","harvestHistory"]) $(id).textContent="Loading...";
+      $("hiveStatus").value="Active"; $("feedUnit").value="gallon"; $("queenAcceptance").value="Pending";
+      for(const id of ["feedDate","treatDate","harvestDate","queenReplaceDate"]) $(id).value=localToday();
+      for(const id of ["hiveProfileMessage","feedMessage","treatMessage","harvestMessage","queenMessage"]) $(id).textContent="";
+      for(const id of ["feedHistory","treatHistory","harvestHistory","queenHistory"]) $(id).textContent="Loading...";
       $("currentHiveProfile").textContent="Loading hive profile...";
       $("harvestTotals").textContent="Loading honey totals...";
     }
@@ -639,10 +661,10 @@
     }
     async function loadManagement(hiveId) {
       const request=++managementRequest;
-      const tables=["Hive_Profiles","Hive_Feedings","Hive_Treatments","Hive_Harvests"];
+      const tables=["Hive_Profiles","Hive_Feedings","Hive_Treatments","Hive_Harvests","Hive_Queen_Replacements"];
       const results=await Promise.all(tables.map(t=>supabase.from(t).select("*").eq("hive_id",hiveId)));
       if(request!==managementRequest||String(selectedHiveId)!==String(hiveId))return;
-      const [profile,feed,treat,harvest]=results;
+      const [profile,feed,treat,harvest,queen]=results;
       const overview=$("currentHiveProfile"); overview.replaceChildren();
       if(profile.error) {
         $("hiveProfileMessage").textContent="Profile unavailable: "+profile.error.message;
@@ -666,6 +688,8 @@
       else showRecords("feedHistory",feed.data?.sort((a,b)=>b.feed_date.localeCompare(a.feed_date)),[["Date","feed_date"],["Type","feed_type"],["Quantity","quantity"],["Unit","unit"],["Notes","notes"]],"Hive_Feedings");
       if(treat.error) $("treatHistory").textContent="Treatments unavailable: "+treat.error.message;
       else showRecords("treatHistory",treat.data?.sort((a,b)=>b.treatment_date.localeCompare(a.treatment_date)),[["Date","treatment_date"],["Product","product"],["Application","application_details"],["Follow-up","follow_up_date"],["Completed","follow_up_completed"],["Completion date","follow_up_completed_date"],["Follow-up results","follow_up_notes"],["Notes","notes"]],"Hive_Treatments");
+      if(queen.error) $("queenHistory").textContent="Queen history unavailable: "+queen.error.message;
+      else showRecords("queenHistory",(queen.data||[]).sort((a,b)=>b.replacement_date.localeCompare(a.replacement_date)),[["Replacement date","replacement_date"],["Reason","reason"],["Origin","queen_origin"],["Mark","queen_mark_color"],["Introduction","introduction_method"],["Acceptance","acceptance_status"],["First eggs","first_eggs_date"],["Notes","notes"]],"Hive_Queen_Replacements");
       if(harvest.error) {
         $("harvestHistory").textContent="Harvests unavailable: "+harvest.error.message;
         $("harvestTotals").textContent="Honey totals unavailable: "+harvest.error.message;
@@ -729,6 +753,13 @@
     $("saveHarvest").addEventListener("click",()=>saveManagement("saveHarvest","Hive_Harvests",()=>({
       harvest_date:value("harvestDate"),pounds:Number(value("harvestPounds")),notes:value("harvestNotes")||null
     }),"harvestMessage",[["harvestDate","a harvest date"],["harvestPounds","the pounds harvested"]]));
+
+    $("saveQueen").addEventListener("click",()=>saveManagement("saveQueen","Hive_Queen_Replacements",()=>({
+      replacement_date:value("queenReplaceDate"),reason:value("queenReason")||null,
+      queen_origin:value("queenReplaceOrigin")||null,queen_mark_color:value("queenReplaceMark")||null,
+      introduction_method:value("queenIntroMethod")||null,acceptance_status:value("queenAcceptance")||"Pending",
+      first_eggs_date:value("queenEggsDate")||null,notes:value("queenReplaceNotes")||null
+    }),"queenMessage",[["queenReplaceDate","a replacement date"]]));
 
     $("loginForm").addEventListener("submit",async event=>{
       event.preventDefault();$("loginMessage").textContent="Signing in...";
