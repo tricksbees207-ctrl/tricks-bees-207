@@ -147,7 +147,7 @@
 <div id="inspectionPanel" style="display:none; margin-top:25px;">
   <h2 id="inspectionTitle">Hive Inspection</h2>
   <nav class="quick-nav" aria-label="Selected hive sections">
-    <a href="#inspectionEntry">Inspection</a><a href="#hiveManagement">Profile</a><a href="#feedingSection">Feeding</a><a href="#treatmentSection">Treatments</a><a href="#harvestSection">Harvests</a><a href="#queenSection">Queens</a>
+    <a href="#inspectionEntry">Inspection</a><a href="#hiveManagement">Profile</a><a href="#feedingSection">Feeding</a><a href="#treatmentSection">Treatments</a><a href="#harvestSection">Harvests</a><a href="#queenSection">Queens</a><a href="#splitSection">Splits</a>
   </nav>
   <div id="currentHiveProfile" class="profile-overview" aria-live="polite">Loading hive profile...</div>
   <p id="inspectionEntry">Record an inspection for the selected hive.</p>
@@ -332,6 +332,27 @@
   <h4>Queen Replacement History</h4><div id="queenHistory">Select a hive.</div>
 </div>
 
+<div class="management" id="splitSection">
+  <h3>Colony Split Log</h3>
+  <p>The currently selected hive is the <strong>parent hive</strong>. Choose an existing daughter hive if one has been registered, or leave it unassigned until later. Saving a split does not automatically create a new hive or change queen profiles.</p>
+  <div class="two-col">
+    <div><label for="splitDate">Split Date</label><input type="date" id="splitDate"></div>
+    <div><label for="splitDaughter">Daughter Hive</label><select id="splitDaughter"><option value="">Not assigned yet</option></select></div>
+    <div><label for="splitMethod">Split Method</label><input id="splitMethod" placeholder="Walk-away, queen-right, queen cell"></div>
+    <div><label for="splitBrood">Brood Frames Transferred</label><input id="splitBrood" type="number" min="0" step="1" placeholder="e.g. 3"></div>
+    <div><label for="splitFood">Honey / Food Frames Transferred</label><input id="splitFood" type="number" min="0" step="1" placeholder="e.g. 2"></div>
+    <div><label for="splitBees">Frames of Bees Transferred</label><input id="splitBees" type="number" min="0" step="1" placeholder="e.g. 4"></div>
+    <div><label for="splitParentQueen">Parent Queen Status</label><input id="splitParentQueen" placeholder="Queen retained, queenless, unknown"></div>
+    <div><label for="splitDaughterQueen">Daughter Queen Status</label><input id="splitDaughterQueen" placeholder="Mated queen, queen cell, queenless"></div>
+    <div><label for="splitFollowUp">Follow-Up Inspection Date</label><input id="splitFollowUp" type="date"></div>
+  </div>
+  <label for="splitNotes">Split Notes</label><textarea id="splitNotes" placeholder="Resources moved, queen observations, follow-up results"></textarea>
+  <button type="button" id="saveSplit">Save Colony Split</button>
+  <button type="button" id="cancelSplitEdit" hidden>Cancel Edit</button>
+  <p id="splitMessage" class="section-status" role="status"></p>
+  <h4>Colony Split History</h4><div id="splitHistory">Select a hive.</div>
+</div>
+
 </div>
 
         <button id="logout">Sign Out</button>
@@ -499,6 +520,7 @@
         button.type="button";button.style.textAlign="left";
         button.addEventListener("click",()=>{
           selectedHiveId=hive.id;
+          refreshSplitDaughterOptions();
           $("inspectionTitle").textContent=`Hive ${hive.hive_number}: ${hive.hive_name||"Unnamed"} Inspection`;
           $("inspectionPanel").style.display="block";
           $("inspectionMessage").textContent="";
@@ -585,23 +607,45 @@
 
     // Batch 2: independent records keyed to the selected hive.
     let managementRequest = 0;
-    const mgmtIds = ["hiveStatus","queenOrigin","queenIntroduced","queenMarked","hiveEquipment","hiveProfileNotes","feedDate","feedType","feedQuantity","feedUnit","feedNotes","treatDate","treatProduct","treatAmount","treatFollowUp","treatNotes","harvestDate","harvestPounds","harvestNotes","queenReplaceDate","queenReason","queenReplaceOrigin","queenReplaceMark","queenIntroMethod","queenAcceptance","queenEggsDate","queenReplaceNotes"];
+    function refreshSplitDaughterOptions(selected="") {
+      const select=$("splitDaughter");
+      select.replaceChildren();
+      const none=document.createElement("option");none.value="";none.textContent="Not assigned yet";select.append(none);
+      for(const hive of hives) {
+        if(String(hive.id)===String(selectedHiveId))continue;
+        const option=document.createElement("option");
+        option.value=String(hive.id);
+        option.textContent=`Hive ${hive.hive_number}: ${hive.hive_name||"Unnamed"}`;
+        select.append(option);
+      }
+      select.value=selected && [...select.options].some(o=>o.value===String(selected))?String(selected):"";
+    }
+    const splitFrameValue=id=>value(id)===""?null:Number(value(id));
+    function validateSplitFrames() {
+      for(const id of ["splitBrood","splitFood","splitBees"]) {
+        const n=splitFrameValue(id);
+        if(n!==null&&(!Number.isSafeInteger(n)||n<0))throw new Error("Frame counts must be whole numbers of zero or more.");
+      }
+    }
+    const mgmtIds = ["hiveStatus","queenOrigin","queenIntroduced","queenMarked","hiveEquipment","hiveProfileNotes","feedDate","feedType","feedQuantity","feedUnit","feedNotes","treatDate","treatProduct","treatAmount","treatFollowUp","treatNotes","harvestDate","harvestPounds","harvestNotes","queenReplaceDate","queenReason","queenReplaceOrigin","queenReplaceMark","queenIntroMethod","queenAcceptance","queenEggsDate","queenReplaceNotes","splitDate","splitDaughter","splitMethod","splitBrood","splitFood","splitBees","splitParentQueen","splitDaughterQueen","splitFollowUp","splitNotes"];
     const editConfig = {
       Hive_Feedings:{kind:"Feed",history:"feedHistory",message:"feedMessage",button:"saveFeed",fields:{feedDate:"feed_date",feedType:"feed_type",feedQuantity:"quantity",feedUnit:"unit",feedNotes:"notes"}},
       Hive_Treatments:{kind:"Treatment",history:"treatHistory",message:"treatMessage",button:"saveTreatment",fields:{treatDate:"treatment_date",treatProduct:"product",treatAmount:"application_details",treatFollowUp:"follow_up_date",treatNotes:"notes"}},
       Hive_Harvests:{kind:"Harvest",history:"harvestHistory",message:"harvestMessage",button:"saveHarvest",fields:{harvestDate:"harvest_date",harvestPounds:"pounds",harvestNotes:"notes"}},
-      Hive_Queen_Replacements:{kind:"Queen",history:"queenHistory",message:"queenMessage",button:"saveQueen",fields:{queenReplaceDate:"replacement_date",queenReason:"reason",queenReplaceOrigin:"queen_origin",queenReplaceMark:"queen_mark_color",queenIntroMethod:"introduction_method",queenAcceptance:"acceptance_status",queenEggsDate:"first_eggs_date",queenReplaceNotes:"notes"}}
+      Hive_Queen_Replacements:{kind:"Queen",history:"queenHistory",message:"queenMessage",button:"saveQueen",fields:{queenReplaceDate:"replacement_date",queenReason:"reason",queenReplaceOrigin:"queen_origin",queenReplaceMark:"queen_mark_color",queenIntroMethod:"introduction_method",queenAcceptance:"acceptance_status",queenEggsDate:"first_eggs_date",queenReplaceNotes:"notes"}},
+      Hive_Splits:{kind:"Split",history:"splitHistory",message:"splitMessage",button:"saveSplit",fields:{splitDate:"split_date",splitDaughter:"daughter_hive_id",splitMethod:"split_method",splitBrood:"brood_frames",splitFood:"food_frames",splitBees:"bee_frames",splitParentQueen:"parent_queen_status",splitDaughterQueen:"daughter_queen_status",splitFollowUp:"follow_up_date",splitNotes:"notes"}}
     };
     const editing = {};
     const recordsByTable = {};
     function cancelEdit(table) {
       const c=editConfig[table]; delete editing[table];
-      $(c.button).textContent=table==="Hive_Harvests"?"Save Honey Harvest":table==="Hive_Feedings"?"Save Feeding Record":table==="Hive_Queen_Replacements"?"Save Queen Replacement":"Save Treatment Record";
+      $(c.button).textContent=table==="Hive_Harvests"?"Save Honey Harvest":table==="Hive_Feedings"?"Save Feeding Record":table==="Hive_Queen_Replacements"?"Save Queen Replacement":table==="Hive_Splits"?"Save Colony Split":"Save Treatment Record";
       $("cancel"+c.kind+"Edit").hidden=true;
       for(const id of Object.keys(c.fields)) $(id).value="";
       if(c.fields.feedUnit) $("feedUnit").value="gallon";
       if(c.fields.queenAcceptance) $("queenAcceptance").value="Pending";
-      for(const id of ["feedDate","treatDate","harvestDate","queenReplaceDate"]) if(c.fields[id]) $(id).value=localToday();
+      if(c.fields.splitDaughter) refreshSplitDaughterOptions();
+      for(const id of ["feedDate","treatDate","harvestDate","queenReplaceDate","splitDate"]) if(c.fields[id]) $(id).value=localToday();
     }
     async function deleteRecord(table,record) {
       if(!window.confirm("Permanently delete this record? This cannot be undone."))return;
@@ -622,6 +666,7 @@
     function startEdit(table,record) {
       const c=editConfig[table]; editing[table]=record.id;
       for(const [id,key] of Object.entries(c.fields)) $(id).value=record[key]??"";
+      if(table==="Hive_Splits") refreshSplitDaughterOptions(record.daughter_hive_id);
       $(c.button).textContent="Save Changes";
       $("cancel"+c.kind+"Edit").hidden=false;
       $(c.message).textContent="Editing an existing record. Save Changes or Cancel Edit.";
@@ -634,10 +679,10 @@
     function resetManagementForm() {
       for(const table of Object.keys(editConfig))cancelEdit(table);
       for (const id of mgmtIds) $(id).value = "";
-      $("hiveStatus").value="Active"; $("feedUnit").value="gallon"; $("queenAcceptance").value="Pending";
-      for(const id of ["feedDate","treatDate","harvestDate","queenReplaceDate"]) $(id).value=localToday();
-      for(const id of ["hiveProfileMessage","feedMessage","treatMessage","harvestMessage","queenMessage"]) $(id).textContent="";
-      for(const id of ["feedHistory","treatHistory","harvestHistory","queenHistory"]) $(id).textContent="Loading...";
+      $("hiveStatus").value="Active"; $("feedUnit").value="gallon"; $("queenAcceptance").value="Pending"; refreshSplitDaughterOptions();
+      for(const id of ["feedDate","treatDate","harvestDate","queenReplaceDate","splitDate"]) $(id).value=localToday();
+      for(const id of ["hiveProfileMessage","feedMessage","treatMessage","harvestMessage","queenMessage","splitMessage"]) $(id).textContent="";
+      for(const id of ["feedHistory","treatHistory","harvestHistory","queenHistory","splitHistory"]) $(id).textContent="Loading...";
       $("currentHiveProfile").textContent="Loading hive profile...";
       $("harvestTotals").textContent="Loading honey totals...";
     }
@@ -661,10 +706,10 @@
     }
     async function loadManagement(hiveId) {
       const request=++managementRequest;
-      const tables=["Hive_Profiles","Hive_Feedings","Hive_Treatments","Hive_Harvests","Hive_Queen_Replacements"];
+      const tables=["Hive_Profiles","Hive_Feedings","Hive_Treatments","Hive_Harvests","Hive_Queen_Replacements","Hive_Splits"];
       const results=await Promise.all(tables.map(t=>supabase.from(t).select("*").eq("hive_id",hiveId)));
       if(request!==managementRequest||String(selectedHiveId)!==String(hiveId))return;
-      const [profile,feed,treat,harvest,queen]=results;
+      const [profile,feed,treat,harvest,queen,splits]=results;
       const overview=$("currentHiveProfile"); overview.replaceChildren();
       if(profile.error) {
         $("hiveProfileMessage").textContent="Profile unavailable: "+profile.error.message;
@@ -690,6 +735,12 @@
       else showRecords("treatHistory",treat.data?.sort((a,b)=>b.treatment_date.localeCompare(a.treatment_date)),[["Date","treatment_date"],["Product","product"],["Application","application_details"],["Follow-up","follow_up_date"],["Completed","follow_up_completed"],["Completion date","follow_up_completed_date"],["Follow-up results","follow_up_notes"],["Notes","notes"]],"Hive_Treatments");
       if(queen.error) $("queenHistory").textContent="Queen history unavailable: "+queen.error.message;
       else showRecords("queenHistory",(queen.data||[]).sort((a,b)=>b.replacement_date.localeCompare(a.replacement_date)),[["Replacement date","replacement_date"],["Reason","reason"],["Origin","queen_origin"],["Mark","queen_mark_color"],["Introduction","introduction_method"],["Acceptance","acceptance_status"],["First eggs","first_eggs_date"],["Notes","notes"]],"Hive_Queen_Replacements");
+      if(splits.error) $("splitHistory").textContent="Split history unavailable: "+splits.error.message;
+      else {
+        const labels=new Map(hives.map(h=>[String(h.id),`Hive ${h.hive_number}: ${h.hive_name||"Unnamed"}`]));
+        const records=(splits.data||[]).map(r=>({...r,daughter_hive_label:r.daughter_hive_id?labels.get(String(r.daughter_hive_id))||`Hive ID ${r.daughter_hive_id}`:"Not assigned"}));
+        showRecords("splitHistory",records.sort((a,b)=>b.split_date.localeCompare(a.split_date)),[["Split date","split_date"],["Daughter hive","daughter_hive_label"],["Method","split_method"],["Brood frames","brood_frames"],["Food frames","food_frames"],["Bee frames","bee_frames"],["Parent queen","parent_queen_status"],["Daughter queen","daughter_queen_status"],["Follow-up","follow_up_date"],["Notes","notes"]],"Hive_Splits");
+      }
       if(harvest.error) {
         $("harvestHistory").textContent="Harvests unavailable: "+harvest.error.message;
         $("harvestTotals").textContent="Honey totals unavailable: "+harvest.error.message;
@@ -760,6 +811,27 @@
       introduction_method:value("queenIntroMethod")||null,acceptance_status:value("queenAcceptance")||"Pending",
       first_eggs_date:value("queenEggsDate")||null,notes:value("queenReplaceNotes")||null
     }),"queenMessage",[["queenReplaceDate","a replacement date"]]));
+
+    $("saveSplit").addEventListener("click",async()=>{
+      const msg=$("splitMessage");
+      try {
+        validateSplitFrames();
+        if(value("splitDaughter") && String(value("splitDaughter"))===String(selectedHiveId))
+          throw new Error("Parent and daughter hive must be different.");
+        await saveManagement("saveSplit","Hive_Splits",()=>({
+          split_date:value("splitDate"),
+          daughter_hive_id:value("splitDaughter")?Number(value("splitDaughter")):null,
+          split_method:value("splitMethod")||null,
+          brood_frames:splitFrameValue("splitBrood"),
+          food_frames:splitFrameValue("splitFood"),
+          bee_frames:splitFrameValue("splitBees"),
+          parent_queen_status:value("splitParentQueen")||null,
+          daughter_queen_status:value("splitDaughterQueen")||null,
+          follow_up_date:value("splitFollowUp")||null,
+          notes:value("splitNotes")||null
+        }),"splitMessage",[["splitDate","a split date"]]);
+      }catch(error){msg.textContent="Cannot save: "+error.message;}
+    });
 
     $("loginForm").addEventListener("submit",async event=>{
       event.preventDefault();$("loginMessage").textContent="Signing in...";
