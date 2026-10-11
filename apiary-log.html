@@ -327,6 +327,11 @@
     <a href="#inspectionEntry">Inspection</a><a href="#hiveManagement">Profile</a><a href="#feedingSection">Feeding</a><a href="#treatmentSection">Treatments</a><a href="#harvestSection">Harvests</a><a href="#queenSection">Queens</a><a href="#splitSection">Splits</a><a href="#lossSection">Losses</a>
   </nav>
   <div id="currentHiveProfile" class="profile-overview" aria-live="polite">Loading hive profile...</div>
+  <section id="colonyHistorySection" class="hive-section" aria-label="Colony History">
+    <h3>Colony History</h3>
+    <p class="muted">Every colony registered at this permanent hive location is listed here, including retired colonies. Historical records without a colony assignment stay linked to the location only.</p>
+    <div id="colonyHistoryForHive" aria-live="polite">Select a hive to view colony history.</div>
+  </section>
   <p id="inspectionEntry">Record an inspection for the selected hive.</p>
   <p class="muted">A treatment follow-up date is a recordkeeping reminder, not a product-specific dosing recommendation. Follow the approved treatment label.</p>
   
@@ -667,6 +672,7 @@
         const pages=[
           ['Inspection',inspectionTabPage],
           ['Hive Profile',firstManagement],
+          ['Colony History',document.getElementById('colonyHistorySection')],
           ['Feedings',document.getElementById('feedingSection')],
           ['Treatments',document.getElementById('treatmentSection')],
           ['Harvests',document.getElementById('harvestSection')],
@@ -1240,6 +1246,24 @@
       select.value=active.some(c=>String(c.id)===prior)?prior:active.length===1?String(active[0].id):"";
       $("recordColonyHint").textContent=active.length?"Records will be linked to the selected colony. Choose location-only only for information not attributable to a colony.":"This location has no active registered colony. New records will remain location-only until you register one.";
     }
+    function renderSelectedHiveColonyHistory(){
+      const host=$("colonyHistoryForHive");if(!host)return;
+      host.replaceChildren();
+      if(!selectedHiveId){host.textContent="Select a hive to view colony history.";return;}
+      const at=colonyRecords.filter(c=>String(c.hive_id)===String(selectedHiveId));
+      const active=at.find(c=>c.colony_status==="active");
+      host.append(make("p",active?`Current occupancy: ${active.colony_name} (active)`:"Current occupancy: Vacant (no active registered colony)"));
+      if(!at.length){host.append(make("p","No colonies have been registered at this location yet. Register one in Manage Hives when ready."));return;}
+      for(const c of at){
+        const card=make("div",undefined,"record");
+        card.append(make("strong",`${c.colony_name} · ${c.colony_status}`));
+        for(const [label,key] of [["Started","start_date"],["Ended","end_date"],["Origin","origin"],["Retirement reason","retirement_reason"],["Historical notes","historical_notes"]]){
+          if(c[key])card.append(make("small",`${label}: ${c[key]}`));
+        }
+        host.append(card);
+      }
+      host.append(make("p","To register, retire, reactivate, or edit colonies, use Manage Hives. Activity records remain available under their respective tabs."));
+    }
     const locationLabel=h=>`Hive ${h.hive_number}: ${h.hive_name||"Unnamed"}`;
     async function refreshLocations(){
       const msg=$("locationMessage");msg.textContent="Loading locations and colonies...";
@@ -1249,6 +1273,7 @@
       ]);
       if(locResult.error||colResult.error){msg.textContent="Unable to load: "+(locResult.error||colResult.error).message;return;}
       hives=locResult.data||[];colonyRecords=colResult.data||[];
+      renderSelectedHiveColonyHistory();
       updateRecordColonySelector();
       const active=colonyRecords.filter(c=>c.colony_status==="active");
       const activeIds=new Set(active.map(c=>String(c.hive_id)));
@@ -1388,6 +1413,7 @@
         button.type="button";button.style.textAlign="left";
         button.addEventListener("click",()=>{
           selectedHiveId=hive.id;
+          renderSelectedHiveColonyHistory();
           updateRecordColonySelector();
           refreshSplitDaughterOptions();
           $("inspectionTitle").textContent=`Hive ${hive.hive_number}: ${hive.hive_name||"Unnamed"} Inspection`;
