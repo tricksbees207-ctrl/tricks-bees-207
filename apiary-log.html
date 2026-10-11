@@ -332,7 +332,6 @@
     <div id="colonyHistoryForHive" aria-live="polite">Select a hive to view colony history.</div>
   </section>
   <p id="inspectionEntry">Record an inspection for the selected hive.</p>
-  <div class="field colony-entry-picker"><label for="colonyPickInspection"><strong>Colony for this inspection</strong></label><select id="colonyPickInspection" data-colony-table="inspection"></select><small class="colony-picker-hint"></small></div>
   <p class="muted">A treatment follow-up date is a recordkeeping reminder, not a product-specific dosing recommendation. Follow the approved treatment label.</p>
   
 <label for="inspectionDate">Inspection Date</label>
@@ -459,7 +458,6 @@
 </div>
 <div class="management" id="feedingSection">
   <h3>Feeding Log</h3>
-  <div class="field colony-entry-picker"><label for="colonyPickHive_Feedings"><strong>Colony for new records</strong></label><select id="colonyPickHive_Feedings" data-colony-table="Hive_Feedings"></select><small class="colony-picker-hint"></small></div>
   <div class="two-col">
     <div><label for="feedDate">Date Fed</label><input type="date" id="feedDate"></div>
     <div><label for="feedType">Feed Type</label><select id="feedType"><option value="">Select feed type</option><option>Sugar syrup 1:1</option><option>Sugar syrup 2:1</option><option>Sugar syrup 4:1</option><option>Pollen patty / substitute</option><option>Fondant / sugar brick</option><option>Honey</option><option>Other</option></select></div>
@@ -472,7 +470,6 @@
 </div>
 <div class="management" id="treatmentSection">
   <h3>Treatment Log</h3>
-  <div class="field colony-entry-picker"><label for="colonyPickHive_Treatments"><strong>Colony for new records</strong></label><select id="colonyPickHive_Treatments" data-colony-table="Hive_Treatments"></select><small class="colony-picker-hint"></small></div>
   <p class="muted">Record what was actually applied. Follow the product's approved label for dosage, timing, and honey-super restrictions.</p>
   <div class="two-col">
     <div><label for="treatDate">Treatment Date</label><input type="date" id="treatDate"></div>
@@ -486,7 +483,6 @@
 </div>
 <div class="management" id="harvestSection">
   <h3>Honey Harvest Log</h3>
-  <div class="field colony-entry-picker"><label for="colonyPickHive_Harvests"><strong>Colony for new records</strong></label><select id="colonyPickHive_Harvests" data-colony-table="Hive_Harvests"></select><small class="colony-picker-hint"></small></div>
   <div class="two-col">
     <div><label for="harvestDate">Harvest Date</label><input type="date" id="harvestDate"></div>
     <div><label for="harvestPounds">Honey Collected (lb)</label><input id="harvestPounds" type="number" min="0.01" step="any" placeholder="e.g. 25.5"></div>
@@ -499,7 +495,6 @@
 
 <div class="management" id="queenSection">
   <h3>Queen Replacement Log</h3>
-  <div class="field colony-entry-picker"><label for="colonyPickHive_Queen_Replacements"><strong>Colony for new records</strong></label><select id="colonyPickHive_Queen_Replacements" data-colony-table="Hive_Queen_Replacements"></select><small class="colony-picker-hint"></small></div>
   <p>Record queen changes and follow acceptance over time. Saving here does not overwrite the current Hive Profile.</p>
   <div class="two-col">
     <div><label for="queenReplaceDate">Replacement Date</label><input type="date" id="queenReplaceDate"></div>
@@ -520,7 +515,6 @@
 
 <div class="management" id="splitSection">
   <h3>Colony Split Log</h3>
-  <div class="field colony-entry-picker"><label for="colonyPickHive_Splits"><strong>Colony for new records</strong></label><select id="colonyPickHive_Splits" data-colony-table="Hive_Splits"></select><small class="colony-picker-hint"></small></div>
   <p>The currently selected hive is the <strong>parent hive</strong>. Choose an existing daughter hive if one has been registered, or leave it unassigned until later. Saving a split does not automatically create a new hive or change queen profiles.</p>
   <div class="two-col">
     <div><label for="splitDate">Split Date</label><input type="date" id="splitDate"></div>
@@ -542,7 +536,6 @@
 
 <div class="management" id="lossSection">
   <h3>Colony Loss Log</h3>
-  <div class="field colony-entry-picker"><label for="colonyPickHive_Losses"><strong>Colony for new records</strong></label><select id="colonyPickHive_Losses" data-colony-table="Hive_Losses"></select><small class="colony-picker-hint"></small></div>
   <p>Record a suspected or confirmed colony loss. This does not delete the hive or its inspection history, or automatically change the hive's status.</p>
   <div class="two-col">
     <div><label for="lossDate">Date Discovered</label><input id="lossDate" type="date"></div>
@@ -1237,25 +1230,14 @@
     let colonyRecords=[];
     const colonyNameFor=id=>{const c=colonyRecords.find(x=>String(x.id)===String(id));return c?c.colony_name:`Colony ID ${id}`;};
     function selectedRecordColony(table){
-      const picker=document.querySelector(`[data-colony-table="${table}"]`);
-      if(!picker)throw new Error("Colony selector is unavailable for this record type.");
-      const id=picker.value;
-      if(!id)return null;
-      const c=colonyRecords.find(x=>String(x.id)===String(id) && String(x.hive_id)===String(selectedHiveId));
-      if(!c)throw new Error("Selected colony does not belong to this hive location. Refresh and choose again.");
-      if(c.colony_status!=="active")throw new Error("Only active colonies can receive new records. Choose an active colony or location-only.");
-      return Number(c.id);
+      // A location can have at most one active colony (enforced by the database).
+      // New activity is attributed automatically; vacant locations remain location-only.
+      const active=colonyRecords.filter(c=>String(c.hive_id)===String(selectedHiveId)&&c.colony_status==="active");
+      if(active.length>1)throw new Error("Multiple active colonies found at this location. Resolve this in Manage Hives before saving.");
+      return active.length?Number(active[0].id):null;
     }
     function updateRecordColonySelector(){
-      const active=colonyRecords.filter(c=>String(c.hive_id)===String(selectedHiveId)&&c.colony_status==="active");
-      for(const select of document.querySelectorAll("[data-colony-table]")){
-        const prior=select.value;
-        select.replaceChildren(new Option("Location only (no colony assigned)",""));
-        active.forEach(c=>select.add(new Option(c.colony_name+" (active)",String(c.id))));
-        select.value=active.some(c=>String(c.id)===prior)?prior:active.length===1?String(active[0].id):"";
-        const hint=select.parentElement.querySelector(".colony-picker-hint");
-        if(hint)hint.textContent=active.length?"The active colony is selected automatically. Choose location-only for records not attributable to a colony.":"No active colony registered here. This record will be location-only.";
-      }
+      // Kept as a harmless compatibility hook for existing refresh calls.
     }
     function renderSelectedHiveColonyHistory(){
       const host=$("colonyHistoryForHive");if(!host)return;
