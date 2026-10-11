@@ -446,9 +446,9 @@
 
 <div class="management" id="hiveManagement">
   <h3>Hive Management</h3>
-  <p class="muted">Manage equipment and saved hive profile details. The profile status is separate from registered colony occupancy, which is shown in Colony History.</p>
+  <p class="muted">Manage equipment, queen information, and notes. Current occupancy is determined automatically from registered colonies, not older profile status values.</p>
   <div class="two-col">
-    <div><label for="hiveStatus">Hive Status</label><select id="hiveStatus"><option value="Active">Active</option><option value="Nucleus">Nucleus / Nuc</option><option value="Queenless">Queenless</option><option value="Inactive">Inactive</option><option value="Lost">Lost</option></select></div>
+    <div hidden aria-hidden="true"><label for="hiveStatus">Legacy profile status (stored for compatibility only)</label><select id="hiveStatus"><option value="Active">Active</option><option value="Nucleus">Nucleus / Nuc</option><option value="Queenless">Queenless</option><option value="Inactive">Inactive</option><option value="Lost">Lost</option></select></div>
     <div><label for="queenOrigin">Queen Origin / Source</label><input id="queenOrigin" maxlength="200" placeholder="Breeder, raised here, swarm, etc."></div>
     <div><label for="queenIntroduced">Queen Introduced / Hatched</label><input type="date" id="queenIntroduced"></div>
     <div><label for="queenMarked">Queen Mark Color</label><select id="queenMarked"><option value="">Not recorded</option><option>White</option><option>Yellow</option><option>Red</option><option>Green</option><option>Blue</option><option>Unmarked</option></select></div>
@@ -1730,7 +1730,7 @@
         overview.append(make("strong","Current Hive Profile"));
         const activeColony=colonyRecords.find(c=>String(c.hive_id)===String(hiveId)&&c.colony_status==="active");
         overview.append(make("p",activeColony?`Location occupancy: ${activeColony.colony_name} (active colony)`:"Location occupancy: Vacant (no active registered colony)"));
-        for (const [label,key] of [["Saved profile status (historical)","status"],["Queen origin","queen_origin"],["Queen introduced","queen_introduced"],["Queen mark","queen_mark_color"],["Equipment","equipment"],["Notes","notes"]]) {
+        for (const [label,key] of [["Queen origin","queen_origin"],["Queen introduced","queen_introduced"],["Queen mark","queen_mark_color"],["Equipment","equipment"],["Notes","notes"]]) {
           if(p[key]!==null && p[key]!==undefined && p[key]!=="") {
             overview.append(make("p",`${label}: ${key==="queen_introduced"?formatDate(p[key]):p[key]}`));
           }
