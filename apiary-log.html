@@ -608,6 +608,10 @@
 
     const manageSection = document.getElementById('manageLocationsSection');
     if(manageSection) mainPanel.insertBefore(manageSection,hivePage);
+    const backupSection=document.createElement('section');
+    backupSection.id='backupSection';
+    backupSection.innerHTML='<h3>Apiary Data Backup</h3><p class="muted">Download a read-only JSON snapshot of your saved Apiary Log data. Keep this file private. This feature does not change the database or restore data.</p><button type="button" id="downloadApiaryBackup">Download Full Backup (JSON)</button><p id="backupMessage" class="status" role="status" aria-live="polite"></p>';
+    mainPanel.insertBefore(backupSection,hivePage);
     const topPages = [
       ['Overview', overview],
       ['Hives', hivePage],
@@ -615,7 +619,8 @@
       ['Statistics', document.getElementById('statisticsSection')],
       ['Profit & Loss', document.getElementById('financialSection')],
       ['Expenses', document.getElementById('expensesSection')],
-      ['Income', document.getElementById('incomeSection')]
+      ['Income', document.getElementById('incomeSection')],
+      ['Backup', backupSection]
     ].filter(([,el]) => !!el);
 
     function createTabs(pages, parent, before, label, defaultIndex=0) {
@@ -693,6 +698,50 @@
     const supabase = createClient("https://mkypanucvttinkjggxzv.supabase.co", "sb_publishable_-mN1hBm5z7YCjBzg_LDU4g_5C3N8ejJ");
     const $ = id => document.getElementById(id);
     const value = id => $(id).value;
+    const backupTables=[
+      "Hives","Hive_Colonies","Colony_Transfers","Hive_Profiles",
+      "Hive_Inspections","Hive_Feedings","Hive_Treatments","Hive_Harvests",
+      "Hive_Queen_Replacements","Hive_Splits","Hive_Losses",
+      "Apiary_Activities","Apiary_Expenses","Apiary_Income"
+    ];
+    async function downloadFullBackup(){
+      const button=$("downloadApiaryBackup"),message=$("backupMessage");
+      if(!button||!message)return;
+      button.disabled=true;
+      const collected={};
+      try{
+        const {data:{user},error:userError}=await supabase.auth.getUser();
+        if(userError||!user)throw new Error("Sign in before downloading a backup.");
+        for(const table of backupTables){
+          message.textContent="Reading "+table+"...";
+          const rows=[];
+          const batchSize=500;
+          for(let offset=0;;offset+=batchSize){
+            const {data,error}=await supabase.from(table).select("*").range(offset,offset+batchSize-1);
+            if(error)throw new Error(table+": "+error.message);
+            rows.push(...(data||[]));
+            if((data||[]).length<batchSize)break;
+            if(offset>1000000)throw new Error(table+": safety row limit reached");
+          }
+          collected[table]=rows;
+        }
+        const {data:{user:stillSignedIn}}=await supabase.auth.getUser();
+        if(!stillSignedIn||stillSignedIn.id!==user.id)throw new Error("Sign-in changed while preparing the backup. Please try again.");
+        const snapshot={format:"tricks-bees-207-apiary-backup",version:1,exported_at:new Date().toISOString(),tables:collected};
+        const blob=new Blob([JSON.stringify(snapshot,null,2)],{type:"application/json"});
+        const url=URL.createObjectURL(blob);
+        const a=document.createElement("a");
+        a.href=url;a.download="tricks-bees-207-backup-"+new Date().toISOString().slice(0,10)+".json";
+        document.body.append(a);a.click();a.remove();
+        setTimeout(()=>URL.revokeObjectURL(url),60000);
+        message.textContent="Backup prepared: "+Object.values(collected).reduce((n,rows)=>n+rows.length,0)+" records across "+backupTables.length+" tables. Store this file somewhere private. Restore is not implemented.";
+      }catch(error){
+        message.textContent="Backup not downloaded: "+error.message+". No database records were changed.";
+      }finally{button.disabled=false;}
+    }
+    document.addEventListener("click",event=>{
+      if(event.target?.id==="downloadApiaryBackup")downloadFullBackup();
+    });
     const inspectionFields = [
       ["Queen Seen", "queen_seen"], ["Eggs Seen", "eggs_seen"],
       ["Brood Pattern", "brood_pattern"], ["Temperament", "temperament"],
