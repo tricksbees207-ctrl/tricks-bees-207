@@ -185,7 +185,7 @@
     <section id="dashboard" class="hidden">
       <div class="panel">
         <h2>Apiary Dashboard</h2>
-        <p class="muted">Your registered hives</p>
+        <p class="muted">Permanent hive locations and registered colony occupancy</p>
         <div class="summary-grid" id="apiarySummary" aria-live="polite"></div>
         <section aria-labelledby="reminderHeading">
           <h3 id="reminderHeading">Treatment Follow-Up Dashboard</h3>
@@ -207,7 +207,7 @@
   <p id="statsMessage" class="status" role="status"></p>
   <div class="summary-grid" id="statsSummary" aria-live="polite"></div>
   <div id="statsHiveTable"></div>
-  <p class="muted">Hive count reflects registered hives, not confirmed active colonies. Losses, splits and replacements are event counts, not a calculated survival rate. Harvest totals use recorded pounds. Income and expense totals reflect recorded transactions; net is income minus expenses.</p>
+  <p class="muted">Permanent location count is separate from registered active colonies. Vacant locations have no active colony record. Losses, splits and replacements are event counts, not a calculated survival rate. Harvest totals use recorded pounds. Income and expense totals reflect recorded transactions; net is income minus expenses.</p>
 </section>
 <section id="financialSection" class="management" aria-labelledby="financialHeading">
   <h3 id="financialHeading">Apiary Profit &amp; Loss Dashboard</h3>
@@ -765,7 +765,17 @@
       const overdue=active.filter(r=>dayDifference(r.reminder_date)<0);
       const soon=active.filter(r=>{const n=dayDifference(r.reminder_date);return n>=0&&n<=7;});
       const summary=$("apiarySummary");
-      summary.replaceChildren(tile("Registered hives",hives.length),tile("Inspections",allInspections.length),tile("Overdue follow-ups",overdue.length),tile("Due within 7 days",soon.length));
+      const {data:overviewColonies,error:overviewColonyError}=await supabase.from("Hive_Colonies").select("hive_id").eq("colony_status","active");
+      if(request!==dashboardRequest)return;
+      const occupiedLocations=new Set((overviewColonies||[]).map(c=>String(c.hive_id)));
+      summary.replaceChildren(tile("Permanent locations",hives.length));
+      if(overviewColonyError){
+        summary.append(tile("Active colonies","Unavailable"),tile("Vacant locations","Unavailable"));
+        $("dashboardMessage").textContent="Colony occupancy unavailable: "+overviewColonyError.message;
+      } else {
+        summary.append(tile("Active colonies",(overviewColonies||[]).length),tile("Vacant locations",hives.filter(h=>!occupiedLocations.has(String(h.id))).length));
+      }
+      summary.append(tile("Inspections",allInspections.length),tile("Overdue follow-ups",overdue.length),tile("Due within 7 days",soon.length));
       const list=$("treatmentReminders"),doneList=$("completedFollowUps");
       list.replaceChildren();doneList.replaceChildren();
       if(!active.length)list.append(make("p",treatError?"No inspection follow-ups outstanding. Treatment log could not load.":"No outstanding treatment follow-ups."));
@@ -1119,18 +1129,19 @@
       a.href=url;a.download=`tricks-bees-statistics-${$("statsYear").value}.csv`;
       a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
     }
-    let statsCache=null,statsRequest=0;
+    let statsCache=null,statsRequest=0,statsColonies=null;
     async function refreshStats(){
       const req=++statsRequest;
       $("statsMessage").textContent="Loading statistics...";
-      const results=await Promise.all(statsSources.map(async ([table])=>{
+      const [results,colonyResult]=await Promise.all([Promise.all(statsSources.map(async ([table])=>{
         const {data,error}=await supabase.from(table).select("*");
         return {data:data||[],error};
-      }));
+      })),supabase.from("Hive_Colonies").select("hive_id").eq("colony_status","active")]);
       if(req!==statsRequest)return;
+      statsColonies=colonyResult.error?null:(colonyResult.data||[]);
       const errors=results.flatMap((r,i)=>r.error?[`${statsSources[i][0]}: ${r.error.message}`]:[]);
       if(errors.length){
-        statsCache=null;statsRows=[];financialExportRows=[];$("financialTotals").replaceChildren();$("financialCategories").replaceChildren();$("financialHives").replaceChildren();$("financialMessage").textContent="Financial report unavailable until statistics load.";$("statsSummary").replaceChildren();$("statsHiveTable").replaceChildren();
+        statsCache=null;statsColonies=null;statsRows=[];financialExportRows=[];$("financialTotals").replaceChildren();$("financialCategories").replaceChildren();$("financialHives").replaceChildren();$("financialMessage").textContent="Financial report unavailable until statistics load.";$("statsSummary").replaceChildren();$("statsHiveTable").replaceChildren();
         $("statsMessage").textContent="Statistics unavailable: "+errors.join("; ");return;
       }
       statsCache=results.map(r=>r.data);
@@ -1148,6 +1159,7 @@
       [...years].sort().reverse().forEach(y=>finSel.add(new Option(y,y)));
       finSel.value=[...finSel.options].some(o=>o.value===previousFinYear)?previousFinYear:"all";
       renderStats();
+      if(colonyResult.error)$("statsMessage").textContent+=" Colony occupancy unavailable: "+colonyResult.error.message;
       renderFinancial();
       expenseRecords=statsCache[7]||[];
       renderExpenses();
@@ -1159,7 +1171,11 @@
       const year=$("statsYear").value;
       const records=statsCache.map((rows,i)=>rows.filter(r=>year==="all"||String(r[statsSources[i][1]]||"").startsWith(year+"-")));
       const sum=$("statsSummary");sum.replaceChildren();
-      sum.append(tile("Registered hives",hives.length));
+      sum.append(tile("Permanent locations",hives.length));
+      // Occupancy is derived from registered colony records, never from Hives.hive_status.
+      const activeColonyLocations=new Set((statsColonies||[]).map(c=>String(c.hive_id)));
+      sum.append(tile("Active colonies",statsColonies===null?"Unavailable":statsColonies.length));
+      sum.append(tile("Vacant locations",statsColonies===null?"Unavailable":hives.filter(h=>!activeColonyLocations.has(String(h.id))).length));
       const metrics=[
         ["Inspections",records[0].length],["Feedings",records[1].length],
         ["Treatments",records[2].length],
