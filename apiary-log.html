@@ -318,6 +318,11 @@
         
 <div id="inspectionPanel" style="display:none; margin-top:25px;">
   <h2 id="inspectionTitle">Hive Inspection</h2>
+  <div class="field" style="margin:12px 0;padding:12px;border:1px solid #a9bdad;border-radius:8px">
+    <label for="recordColony"><strong>Colony for new records</strong></label>
+    <select id="recordColony" style="width:100%;padding:8px;margin-top:6px"></select>
+    <small id="recordColonyHint">Choose the registered colony for this permanent hive location. A location-only record will not be attributed to any colony.</small>
+  </div>
   <nav class="quick-nav" aria-label="Selected hive sections">
     <a href="#inspectionEntry">Inspection</a><a href="#hiveManagement">Profile</a><a href="#feedingSection">Feeding</a><a href="#treatmentSection">Treatments</a><a href="#harvestSection">Harvests</a><a href="#queenSection">Queens</a><a href="#splitSection">Splits</a><a href="#lossSection">Losses</a>
   </nav>
@@ -1218,6 +1223,23 @@
 
     // Permanent locations + colony generations; existing hive_id history is never rewritten.
     let colonyRecords=[];
+    const colonyNameFor=id=>{const c=colonyRecords.find(x=>String(x.id)===String(id));return c?c.colony_name:`Colony ID ${id}`;};
+    function selectedRecordColony(){
+      const id=$("recordColony").value;
+      if(!id)return null;
+      const c=colonyRecords.find(x=>String(x.id)===String(id) && String(x.hive_id)===String(selectedHiveId));
+      if(!c)throw new Error("Selected colony does not belong to this hive location. Refresh and choose again.");
+      if(c.colony_status!=="active")throw new Error("Only active colonies can receive new records. Choose an active colony or location-only.");
+      return Number(c.id);
+    }
+    function updateRecordColonySelector(){
+      const select=$("recordColony");if(!select)return;
+      const prior=select.value;select.replaceChildren(new Option("Location only (no colony assigned)",""));
+      const active=colonyRecords.filter(c=>String(c.hive_id)===String(selectedHiveId)&&c.colony_status==="active");
+      active.forEach(c=>select.add(new Option(c.colony_name+" (active)",String(c.id))));
+      select.value=active.some(c=>String(c.id)===prior)?prior:active.length===1?String(active[0].id):"";
+      $("recordColonyHint").textContent=active.length?"Records will be linked to the selected colony. Choose location-only only for information not attributable to a colony.":"This location has no active registered colony. New records will remain location-only until you register one.";
+    }
     const locationLabel=h=>`Hive ${h.hive_number}: ${h.hive_name||"Unnamed"}`;
     async function refreshLocations(){
       const msg=$("locationMessage");msg.textContent="Loading locations and colonies...";
@@ -1227,6 +1249,7 @@
       ]);
       if(locResult.error||colResult.error){msg.textContent="Unable to load: "+(locResult.error||colResult.error).message;return;}
       hives=locResult.data||[];colonyRecords=colResult.data||[];
+      updateRecordColonySelector();
       const active=colonyRecords.filter(c=>c.colony_status==="active");
       const activeIds=new Set(active.map(c=>String(c.hive_id)));
       $("locationSummary").replaceChildren(tile("Permanent locations",hives.length),tile("Registered active colonies",active.length),tile("Vacant locations",hives.filter(h=>!activeIds.has(String(h.id))).length),tile("Retired colony records",colonyRecords.filter(c=>c.colony_status==="retired").length));
@@ -1365,6 +1388,7 @@
         button.type="button";button.style.textAlign="left";
         button.addEventListener("click",()=>{
           selectedHiveId=hive.id;
+          updateRecordColonySelector();
           refreshSplitDaughterOptions();
           $("inspectionTitle").textContent=`Hive ${hive.hive_number}: ${hive.hive_name||"Unnamed"} Inspection`;
           $("inspectionPanel").style.display="block";
@@ -1395,6 +1419,7 @@
       for(const inspection of data){
         const entry=make("div",undefined,"reminder");
         entry.append(make("strong",`Inspection: ${formatDate(inspection.inspection_date)}`));
+        entry.append(make("p",`Colony: ${inspection.colony_id?colonyNameFor(inspection.colony_id):"Location-only / historical unassigned"}`));
         for(const [label,key] of inspectionFields){
           const v=inspection[key];
           if(v===null||v===undefined||v==="") continue;
@@ -1421,7 +1446,7 @@
       message.textContent="Saving inspection...";
       try {
         const {error}=await supabase.from("Hive_Inspections").insert({
-          hive_id:hiveId,inspection_date:value("inspectionDate"),
+          hive_id:hiveId,colony_id:selectedRecordColony(),inspection_date:value("inspectionDate"),
           queen_seen:yesNo("queenSeen"),eggs_seen:yesNo("eggsSeen"),
           brood_pattern:value("broodPattern")||null,temperament:value("temperament")||null,
           honey_stores:value("honeyStores")||null,pollen_stores:value("pollenStores")||null,
@@ -1512,8 +1537,9 @@
         await refreshStats();
       }catch(error){msg.textContent="Delete failed: "+error.message;}
     }
+    const editingColony={};
     function startEdit(table,record) {
-      const c=editConfig[table]; editing[table]=record.id;
+      const c=editConfig[table]; editing[table]=record.id; editingColony[table]=record.colony_id??null;
       for(const [id,key] of Object.entries(c.fields)) $(id).value=record[key]??"";
       if(table==="Hive_Splits") refreshSplitDaughterOptions(record.daughter_hive_id);
       $(c.button).textContent="Save Changes";
@@ -1540,6 +1566,7 @@
       if (!records?.length) {list.textContent="No records for this hive yet.";return;}
       for (const record of records) {
         const card=make("div",undefined,"record");
+        card.append(make("small",`Colony: ${record.colony_id?colonyNameFor(record.colony_id):"Location-only / historical unassigned"}`));
         for (const [label,key] of fields) {
           const v=record[key]; if(v===null||v===undefined||v==="")continue;
           card.append(make("small",`${label}: ${key.endsWith("_date")?formatDate(v):typeof v==="boolean"?(v?"Yes":"No"):v}`));
@@ -1623,11 +1650,12 @@
       try {
         const {data:{user},error:authError}=await supabase.auth.getUser();
         if(authError||!user)throw new Error("Please sign in again.");
-        const payload={...record(),hive_id:hiveId,user_id:user.id};
+        const payload={...record(),hive_id:hiveId,colony_id:selectedRecordColony(),user_id:user.id};
         const query=supabase.from(table);
         let error;
-        if(table==="Hive_Profiles")({error}=await query.upsert(payload,{onConflict:"hive_id,user_id"}));
+        if(table==="Hive_Profiles") { payload.colony_id=null; ({error}=await query.upsert(payload,{onConflict:"hive_id,user_id"})); }
         else if(editing[table]!==undefined) {
+          payload.colony_id=editingColony[table]??null;
           const {data,error:updateError}=await query.update(payload).eq("id",editing[table]).eq("hive_id",hiveId).eq("user_id",user.id).select("id");
           error=updateError;
           if(!error&&!data?.length)throw new Error("No record updated. Check database permissions.");
