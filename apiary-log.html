@@ -193,6 +193,38 @@
   <div id="statsHiveTable"></div>
   <p class="muted">Hive count reflects registered hives, not confirmed active colonies. Losses, splits and replacements are event counts, not a calculated survival rate. Harvest totals use recorded pounds. Feeding expenses are not calculated because costs are not yet recorded.</p>
 </section>
+<section class="management" id="expensesSection" aria-labelledby="expenseHeading">
+  <h3 id="expenseHeading">Apiary Expense Tracking</h3>
+  <p>Record expenses for the whole apiary or assign a purchase to one hive. Expenses are private to your account.</p>
+  <div class="two-col">
+    <div><label for="expenseDate">Purchase Date</label><input id="expenseDate" type="date"></div>
+    <div><label for="expenseCategory">Category</label><select id="expenseCategory">
+      <option value="">Choose category</option><option>Feed / Sugar</option><option>Pollen Substitute</option>
+      <option>Treatments</option><option>Queens / Bees</option><option>Hive Equipment</option>
+      <option>Tools / Supplies</option><option>Travel / Fuel</option><option>Education</option>
+      <option>Other</option>
+    </select></div>
+    <div><label for="expenseDescription">Description</label><input id="expenseDescription" placeholder="What did you buy?"></div>
+    <div><label for="expenseVendor">Vendor</label><input id="expenseVendor" placeholder="Store or supplier"></div>
+    <div><label for="expenseAmount">Total Amount ($)</label><input id="expenseAmount" type="number" min="0" step="0.01" placeholder="0.00"></div>
+    <div><label for="expenseHive">Assign to Hive (optional)</label><select id="expenseHive"><option value="">Entire apiary / Shared expense</option></select></div>
+    <div><label for="expensePayment">Payment Method</label><select id="expensePayment">
+      <option value="">Not specified</option><option>Cash</option><option>Credit card</option>
+      <option>Debit card</option><option>Bank transfer</option><option>Check</option><option>Other</option>
+    </select></div>
+  </div>
+  <label for="expenseNotes">Notes</label><textarea id="expenseNotes" placeholder="Quantities, receipts, or other details"></textarea>
+  <button type="button" id="saveExpense">Save Expense</button>
+  <button type="button" id="cancelExpenseEdit" hidden>Cancel Edit</button>
+  <p id="expenseMessage" class="section-status" role="status"></p>
+  <h4>Expense Summary</h4><div id="expenseTotals">Loading...</div>
+  <div class="two-col">
+    <div><label for="expenseYear">Expense Year</label><select id="expenseYear"><option value="all">All years</option></select></div>
+    <div><label for="expenseCategoryFilter">Category Filter</label><select id="expenseCategoryFilter"><option value="all">All categories</option></select></div>
+  </div>
+  <button type="button" class="secondary" id="exportExpenses">Export Expenses (CSV)</button>
+  <h4>Expense History</h4><div id="expenseHistory">Loading...</div>
+</section>
         <h3>Select a Hive</h3>
         <div id="hiveList">Loading hives...</div>
         
@@ -588,6 +620,118 @@
       $("dashboardMessage").textContent=`Updated ${new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}. Completed follow-ups are excluded from overdue and due-soon counts.${treatError?" Treatment log follow-ups could not load: "+treatError.message:""}`;
     }
     let statsRows=[];
+    let expenseRecords=[],editingExpenseId=null;
+    const expenseFields=["expenseDate","expenseCategory","expenseDescription","expenseVendor","expenseAmount","expenseHive","expensePayment","expenseNotes"];
+    const money=n=>"$"+Number(n||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+    function populateExpenseHives(selected=""){
+      const el=$("expenseHive");el.replaceChildren(new Option("Entire apiary / Shared expense",""));
+      hives.forEach(h=>el.add(new Option(`Hive ${h.hive_number}: ${h.hive_name||"Unnamed"}`,String(h.id))));
+      el.value=selected;
+    }
+    function resetExpenseForm(){
+      editingExpenseId=null;
+      expenseFields.forEach(id=>$(id).value="");
+      $("expenseDate").value=localToday();
+      $("saveExpense").textContent="Save Expense";
+      $("cancelExpenseEdit").hidden=true;
+    }
+    function expenseFilterRows(){
+      return expenseRecords.filter(r=>
+        ($("expenseYear").value==="all"||String(r.expense_date||"").startsWith($("expenseYear").value+"-"))&&
+        ($("expenseCategoryFilter").value==="all"||r.category===$("expenseCategoryFilter").value));
+    }
+    function renderExpenses(){
+      const previousYear=$("expenseYear").value,previousCategory=$("expenseCategoryFilter").value;
+      const years=[...new Set(expenseRecords.map(r=>String(r.expense_date||"").slice(0,4)).filter(y=>/^\\d{4}$/.test(y)))].sort().reverse();
+      $("expenseYear").replaceChildren(new Option("All years","all"),...years.map(y=>new Option(y,y)));
+      $("expenseYear").value=years.includes(previousYear)?previousYear:"all";
+      const categories=[...new Set(expenseRecords.map(r=>r.category).filter(Boolean))].sort();
+      $("expenseCategoryFilter").replaceChildren(new Option("All categories","all"),...categories.map(c=>new Option(c,c)));
+      $("expenseCategoryFilter").value=categories.includes(previousCategory)?previousCategory:"all";
+      const rows=expenseFilterRows().sort((a,b)=>b.expense_date.localeCompare(a.expense_date)||b.id-a.id);
+      const total=rows.reduce((n,r)=>n+Number(r.amount||0),0);
+      $("expenseTotals").textContent=`${rows.length} recorded expense(s) · ${money(total)} total for selected filters`;
+      const host=$("expenseHistory");host.replaceChildren();
+      if(!rows.length){host.textContent="No expenses recorded for these filters.";return;}
+      const hiveNames=new Map(hives.map(h=>[String(h.id),`Hive ${h.hive_number}`]));
+      rows.forEach(r=>{
+        const card=make("div",undefined,"record");
+        card.append(make("strong",`${formatDate(r.expense_date)} · ${money(r.amount)} · ${r.category}`));
+        card.append(make("small",r.description));
+        card.append(make("small",`Hive: ${r.hive_id?hiveNames.get(String(r.hive_id))||"Unknown":"Shared / Entire apiary"}`));
+        if(r.vendor)card.append(make("small",`Vendor: ${r.vendor}`));
+        if(r.payment_method)card.append(make("small",`Payment: ${r.payment_method}`));
+        if(r.notes)card.append(make("small",`Notes: ${r.notes}`));
+        const actions=make("div",undefined,"record-actions");
+        const edit=make("button","Edit");edit.type="button";edit.addEventListener("click",()=>{
+          editingExpenseId=r.id;
+          const values={expenseDate:r.expense_date,expenseCategory:r.category,expenseDescription:r.description,
+            expenseVendor:r.vendor,expenseAmount:r.amount,expenseHive:r.hive_id||"",expensePayment:r.payment_method,expenseNotes:r.notes};
+          for(const [id,v] of Object.entries(values))$(id).value=v??"";
+          $("saveExpense").textContent="Save Changes";$("cancelExpenseEdit").hidden=false;
+          $("expenseMessage").textContent="Editing existing expense.";
+          $("saveExpense").scrollIntoView({behavior:"smooth",block:"center"});
+        });
+        const del=make("button","Delete");del.type="button";del.addEventListener("click",()=>deleteExpense(r));
+        actions.append(edit,del);card.append(actions);host.append(card);
+      });
+    }
+    async function deleteExpense(record){
+      if(!window.confirm("Permanently delete this expense? This cannot be undone."))return;
+      const msg=$("expenseMessage");msg.textContent="Deleting...";
+      try{
+        const {data:{user},error:authError}=await supabase.auth.getUser();
+        if(authError||!user)throw new Error("Please sign in again.");
+        const {data,error}=await supabase.from("Apiary_Expenses").delete().eq("id",record.id).eq("user_id",user.id).select("id");
+        if(error)throw error;
+        if(!data?.length)throw new Error("No expense deleted.");
+        if(editingExpenseId===record.id)resetExpenseForm();
+        await refreshStats();msg.textContent="Expense deleted.";
+      }catch(e){msg.textContent="Delete failed: "+e.message;}
+    }
+    $("saveExpense").addEventListener("click",async()=>{
+      const msg=$("expenseMessage");
+      if(!value("expenseDate")||!value("expenseCategory")||!value("expenseDescription").trim()){
+        msg.textContent="Enter a date, category and description.";return;
+      }
+      const amountText=value("expenseAmount");
+      if(!amountText.trim()||!/^\\d+(?:\\.\\d{1,2})?$/.test(amountText)||!Number.isFinite(Number(amountText))){
+        msg.textContent="Enter a valid nonnegative amount with up to two decimal places.";return;
+      }
+      const btn=$("saveExpense");btn.disabled=true;msg.textContent="Saving...";
+      try{
+        const {data:{user},error:authError}=await supabase.auth.getUser();
+        if(authError||!user)throw new Error("Please sign in again.");
+        const payload={user_id:user.id,expense_date:value("expenseDate"),category:value("expenseCategory"),
+          description:value("expenseDescription").trim(),vendor:value("expenseVendor")||null,
+          amount:Number(amountText),hive_id:value("expenseHive")?Number(value("expenseHive")):null,
+          payment_method:value("expensePayment")||null,notes:value("expenseNotes")||null};
+        let error;
+        if(editingExpenseId!==null){
+          const {data,error:e}=await supabase.from("Apiary_Expenses").update(payload).eq("id",editingExpenseId).eq("user_id",user.id).select("id");
+          error=e;if(!error&&!data?.length)throw new Error("No expense updated.");
+        }else ({error}=await supabase.from("Apiary_Expenses").insert(payload));
+        if(error)throw error;
+        resetExpenseForm();
+        await refreshStats();
+        msg.textContent="Expense saved successfully!";
+      }catch(e){msg.textContent="Save failed: "+e.message;}
+      finally{btn.disabled=false;}
+    });
+    $("cancelExpenseEdit").addEventListener("click",()=>{resetExpenseForm();$("expenseMessage").textContent="Edit canceled.";});
+    $("expenseYear").addEventListener("change",renderExpenses);
+    $("expenseCategoryFilter").addEventListener("change",renderExpenses);
+    $("exportExpenses").addEventListener("click",()=>{
+      const rows=expenseFilterRows();
+      const header=["Date","Category","Description","Vendor","Amount","Hive ID","Payment Method","Notes"];
+      const esc=v=>'"'+String(v??"").replace(/"/g,'""')+'"';
+      const csv=[header,...rows.map(r=>[r.expense_date,r.category,r.description,r.vendor,r.amount,r.hive_id,r.payment_method,r.notes])]
+        .map(row=>row.map(esc).join(",")).join("\\r\\n");
+      const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
+      const a=document.createElement("a");a.href=url;a.download=`tricks-bees-expenses-${$("expenseYear").value}.csv`;
+      a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    });
+    $("expenseDate").value=localToday();
     const statsSources=[
       ["Hive_Inspections","inspection_date","Inspections"],
       ["Hive_Feedings","feed_date","Feedings"],
@@ -595,7 +739,8 @@
       ["Hive_Harvests","harvest_date","Harvests"],
       ["Hive_Queen_Replacements","replacement_date","Queen replacements"],
       ["Hive_Splits","split_date","Colony splits"],
-      ["Hive_Losses","loss_date","Colony losses"]
+      ["Hive_Losses","loss_date","Colony losses"],
+      ["Apiary_Expenses","expense_date","Expenses"]
     ];
     function statsCsvEscape(v){return `"${String(v??"").replace(/"/g,'""')}"`;}
     function exportStatsCsv(){
@@ -632,6 +777,8 @@
       [...years].sort().reverse().forEach(y=>sel.add(new Option(y,y)));
       sel.value=[...sel.options].some(o=>o.value===prior)?prior:"all";
       renderStats();
+      expenseRecords=statsCache[7]||[];
+      renderExpenses();
     }
     function renderStats(){
       if(!statsCache)return;
@@ -644,7 +791,8 @@
         ["Treatments",records[2].length],
         ["Honey harvested (lb)",records[3].reduce((total,r)=>total+(Number(r.pounds)||0),0).toFixed(2)],
         ["Queen replacements",records[4].length],["Colony splits",records[5].length],
-        ["Colony losses",records[6].length]
+        ["Colony losses",records[6].length],
+        ["Expenses ($)",records[7].reduce((total,r)=>total+(Number(r.amount)||0),0).toFixed(2)]
       ];
       metrics.forEach(([label,n])=>sum.append(tile(label,n)));
       statsRows=hives.map(h=>{
@@ -707,6 +855,7 @@
         });
         list.append(button);
       }
+      populateExpenseHives();
       await Promise.all([loadDashboardData(),refreshStats()]);
     }
     async function loadInspectionHistory(hiveId) {
