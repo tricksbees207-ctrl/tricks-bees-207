@@ -1285,7 +1285,7 @@
           const name=prompt("Location name",h.hive_name||"");if(name===null)return;
           if(!name.trim()){msg.textContent="Location name cannot be blank.";return;}
           const {error}=await supabase.from("Hives").update({hive_name:name.trim()}).eq("id",h.id);
-          if(error){msg.textContent=error.message;return;}await refreshLocations();await showDashboard((await supabase.auth.getSession()).data.session);
+          if(error){msg.textContent=error.message;return;}await synchronizeHiveViews();
         });
         const actions=make("div",undefined,"toolbar");actions.append(rename);
         const renumber=make("button","Correct Location Number","secondary");renumber.type="button";
@@ -1299,7 +1299,7 @@
           if(!confirm(`Change location number ${h.hive_number} to ${newNumber}? This changes the label, not its database ID or history.`))return;
           const {error}=await supabase.from("Hives").update({hive_number:newNumber}).eq("id",h.id);
           if(error){msg.textContent="Could not correct location number: "+error.message;return;}
-          await showDashboard((await supabase.auth.getSession()).data.session);
+          await synchronizeHiveViews();
           msg.textContent=`Location number changed from ${h.hive_number} to ${newNumber}.`;
         });actions.append(renumber);
         if(Number(h.hive_number)>8){
@@ -1316,7 +1316,7 @@
             const {data,error}=await supabase.from("Hives").delete().eq("id",h.id).select("id");
             if(error){msg.textContent="Deletion blocked. This location may have linked records or lack delete permission: "+error.message;return;}
             if(!data?.length){msg.textContent="Deletion was not permitted or no matching location was found. No deletion confirmed.";return;}
-            await showDashboard((await supabase.auth.getSession()).data.session);
+            await synchronizeHiveViews();
             msg.textContent=`Unused location ${h.hive_number} permanently deleted.`;
           });actions.append(erase);
         }
@@ -1332,7 +1332,7 @@
           edit.addEventListener("click",async()=>{
             const notes=prompt("Historical notes",c.historical_notes||"");if(notes===null)return;
             const {error}=await supabase.from("Hive_Colonies").update({historical_notes:notes.trim()||null}).eq("id",c.id);
-            if(error){msg.textContent=error.message;return;}await refreshLocations();
+            if(error){msg.textContent=error.message;return;}await synchronizeHiveViews();
           });controls.append(edit);
           const change=make("button",c.colony_status==="active"?"Retire Colony":"Reactivate Colony");change.type="button";
           change.addEventListener("click",async()=>{
@@ -1343,7 +1343,7 @@
             if(!confirm(`${retiring?"Retire":"Reactivate"} ${c.colony_name} at ${locationLabel(h)}?`))return;
             const fields=retiring?{colony_status:"retired",end_date:new Date().toLocaleDateString("en-CA"),retirement_reason:reason.trim()||null}:{colony_status:"active",end_date:null,retirement_reason:null};
             const {error}=await supabase.from("Hive_Colonies").update(fields).eq("id",c.id);
-            if(error){msg.textContent=error.message;return;}await refreshLocations();
+            if(error){msg.textContent=error.message;return;}await synchronizeHiveViews();
           });controls.append(change);
           const deleteColony=make("button","Permanently Delete Colony","secondary");deleteColony.type="button";
           deleteColony.addEventListener("click",async()=>{
@@ -1355,7 +1355,7 @@
             const {data,error}=await supabase.from("Hive_Colonies").delete().eq("id",c.id).eq("hive_id",h.id).select("id");
             if(error){msg.textContent="Colony deletion blocked: "+error.message;return;}
             if(!data?.length){msg.textContent="Colony deletion was not permitted or the record was not found.";return;}
-            await refreshLocations();
+            await synchronizeHiveViews();
             msg.textContent=`Colony record ${c.colony_name} permanently deleted. Location ${h.hive_number} and its older records were preserved.`;
           });controls.append(deleteColony);
           item.append(controls);card.append(item);
@@ -1374,7 +1374,7 @@
       const {error}=await supabase.from("Hives").insert({hive_number:number,hive_name:name,hive_location:area||null,hive_status:"active"});
       if(error){msg.textContent="Could not add location: "+error.message;return;}
       $("newLocationNumber").value="";$("newLocationName").value="";
-      await showDashboard((await supabase.auth.getSession()).data.session);await refreshLocations();
+      await synchronizeHiveViews();
     });
     $("addColony").addEventListener("click",async()=>{
       const hiveId=$("newColonyLocation").value,name=$("newColonyName").value.trim(),msg=$("locationMessage");
@@ -1384,8 +1384,22 @@
       const {error}=await supabase.from("Hive_Colonies").insert({hive_id:Number(hiveId),colony_name:name,colony_status:"active",user_id:authData.user.id,start_date:$("newColonyDate").value||null,origin:$("newColonyOrigin").value.trim()||null,historical_notes:$("newColonyNotes").value.trim()||null});
       if(error){msg.textContent="Could not register colony: "+error.message;return;}
       for(const id of ["newColonyName","newColonyDate","newColonyOrigin","newColonyNotes"])$(id).value="";
-      await refreshLocations();
+      await synchronizeHiveViews();
     });
+
+    // Re-read the authoritative hive list after any location/colony mutation.
+    // Every hive dropdown, table, dashboard and split destination then shares one list.
+    async function synchronizeHiveViews(){
+      const {data}=await supabase.auth.getSession();
+      await showDashboard(data.session);
+      const selected=hives.find(h=>String(h.id)===String(selectedHiveId));
+      if(selected){
+        $("inspectionTitle").textContent=`Hive ${selected.hive_number}: ${selected.hive_name||"Unnamed"} Inspection`;
+        refreshSplitDaughterOptions();
+      }else if(selectedHiveId!==null){
+        clearSelectedHive();
+      }
+    }
 
     async function showDashboard(session) {
       if (!session) {
@@ -1423,6 +1437,7 @@
       }
       populateExpenseHives();
       populateIncomeHives();
+      refreshSplitDaughterOptions();
       await Promise.all([loadDashboardData(),refreshStats(),refreshLocations()]);
     }
     async function loadInspectionHistory(hiveId) {
