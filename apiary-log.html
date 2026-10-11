@@ -100,7 +100,10 @@
     .management .section-status { min-height:1.3em; }
     .management details { margin:12px 0; }
     .management summary { cursor:pointer; font-weight:bold; padding:8px 0; }
-  </style>
+    .record-actions{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap}
+  .record-actions button{width:auto;min-width:80px;padding:7px 12px}
+  button[hidden]{display:none!important}
+</style>
 </head>
 <body>
   <header>
@@ -278,7 +281,7 @@
     <div><label for="feedUnit">Unit</label><select id="feedUnit"><option>gallon</option><option>quart</option><option>liter</option><option>pound</option><option>ounce</option><option>kilogram</option><option>piece</option><option>other</option></select></div>
   </div>
   <label for="feedNotes">Feeding Notes</label><textarea id="feedNotes" placeholder="Feeder, recipe, amount remaining, etc."></textarea>
-  <button type="button" id="saveFeed">Save Feeding Record</button><p id="feedMessage" class="section-status" role="status"></p>
+  <button type="button" id="saveFeed">Save Feeding Record</button> <button type="button" id="cancelFeedEdit" hidden>Cancel Edit</button><p id="feedMessage" class="section-status" role="status"></p>
   <h4>Feeding History</h4><div id="feedHistory">Select a hive.</div>
 </div>
 <div class="management" id="treatmentSection">
@@ -291,7 +294,7 @@
     <div><label for="treatFollowUp">Follow-Up Date</label><input type="date" id="treatFollowUp"></div>
   </div>
   <label for="treatNotes">Treatment Notes</label><textarea id="treatNotes" placeholder="Application, removal date, observed results, etc."></textarea>
-  <button type="button" id="saveTreatment">Save Treatment Record</button><p id="treatMessage" class="section-status" role="status"></p>
+  <button type="button" id="saveTreatment">Save Treatment Record</button> <button type="button" id="cancelTreatmentEdit" hidden>Cancel Edit</button><p id="treatMessage" class="section-status" role="status"></p>
   <h4>Treatment History</h4><div id="treatHistory">Select a hive.</div>
 </div>
 <div class="management" id="harvestSection">
@@ -301,7 +304,7 @@
     <div><label for="harvestPounds">Honey Collected (lb)</label><input id="harvestPounds" type="number" min="0.01" step="any" placeholder="e.g. 25.5"></div>
   </div>
   <label for="harvestNotes">Harvest Notes</label><textarea id="harvestNotes" placeholder="Supers, extraction, batch, moisture, etc."></textarea>
-  <button type="button" id="saveHarvest">Save Honey Harvest</button><p id="harvestMessage" class="section-status" role="status"></p>
+  <button type="button" id="saveHarvest">Save Honey Harvest</button> <button type="button" id="cancelHarvestEdit" hidden>Cancel Edit</button><p id="harvestMessage" class="section-status" role="status"></p>
   <div id="harvestTotals" class="profile-overview" aria-live="polite">Loading honey totals...</div>
   <h4>Harvest History</h4><div id="harvestHistory">Select a hive.</div>
 </div>
@@ -502,7 +505,51 @@
     // Batch 2: independent records keyed to the selected hive.
     let managementRequest = 0;
     const mgmtIds = ["hiveStatus","queenOrigin","queenIntroduced","queenMarked","hiveEquipment","hiveProfileNotes","feedDate","feedType","feedQuantity","feedUnit","feedNotes","treatDate","treatProduct","treatAmount","treatFollowUp","treatNotes","harvestDate","harvestPounds","harvestNotes"];
+    const editConfig = {
+      Hive_Feedings:{kind:"Feed",history:"feedHistory",message:"feedMessage",button:"saveFeed",fields:{feedDate:"feed_date",feedType:"feed_type",feedQuantity:"quantity",feedUnit:"unit",feedNotes:"notes"}},
+      Hive_Treatments:{kind:"Treatment",history:"treatHistory",message:"treatMessage",button:"saveTreatment",fields:{treatDate:"treatment_date",treatProduct:"product",treatAmount:"application_details",treatFollowUp:"follow_up_date",treatNotes:"notes"}},
+      Hive_Harvests:{kind:"Harvest",history:"harvestHistory",message:"harvestMessage",button:"saveHarvest",fields:{harvestDate:"harvest_date",harvestPounds:"pounds",harvestNotes:"notes"}}
+    };
+    const editing = {};
+    const recordsByTable = {};
+    function cancelEdit(table) {
+      const c=editConfig[table]; delete editing[table];
+      $(c.button).textContent=table==="Hive_Harvests"?"Save Honey Harvest":table==="Hive_Feedings"?"Save Feeding Record":"Save Treatment Record";
+      $("cancel"+c.kind+"Edit").hidden=true;
+      for(const id of Object.keys(c.fields)) $(id).value="";
+      if(c.fields.feedUnit) $("feedUnit").value="gallon";
+      for(const id of ["feedDate","treatDate","harvestDate"]) if(c.fields[id]) $(id).value=localToday();
+    }
+    async function deleteRecord(table,record) {
+      if(!window.confirm("Permanently delete this record? This cannot be undone."))return;
+      const c=editConfig[table],msg=$(c.message),hiveId=selectedHiveId;
+      msg.textContent="Deleting...";
+      try {
+        const {data:{user},error:authError}=await supabase.auth.getUser();
+        if(authError||!user)throw new Error("Please sign in again.");
+        const {data,error}=await supabase.from(table).delete().eq("id",record.id).eq("hive_id",hiveId).eq("user_id",user.id).select("id");
+        if(error)throw error;
+        if(!data?.length)throw new Error("No record deleted. Check database permissions.");
+        if(editing[table]===record.id)cancelEdit(table);
+        msg.textContent="Record deleted.";
+        if(String(selectedHiveId)===String(hiveId))await loadManagement(hiveId);
+        if(table==="Hive_Treatments")await loadDashboardData();
+      }catch(error){msg.textContent="Delete failed: "+error.message;}
+    }
+    function startEdit(table,record) {
+      const c=editConfig[table]; editing[table]=record.id;
+      for(const [id,key] of Object.entries(c.fields)) $(id).value=record[key]??"";
+      $(c.button).textContent="Save Changes";
+      $("cancel"+c.kind+"Edit").hidden=false;
+      $(c.message).textContent="Editing an existing record. Save Changes or Cancel Edit.";
+      $(c.button).scrollIntoView({behavior:"smooth",block:"center"});
+    }
+    for(const table of Object.keys(editConfig)) {
+      const c=editConfig[table];
+      $("cancel"+c.kind+"Edit").addEventListener("click",()=>{cancelEdit(table);$(c.message).textContent="Edit canceled.";});
+    }
     function resetManagementForm() {
+      for(const table of Object.keys(editConfig))cancelEdit(table);
       for (const id of mgmtIds) $(id).value = "";
       $("hiveStatus").value="Active"; $("feedUnit").value="gallon";
       for(const id of ["feedDate","treatDate","harvestDate"]) $(id).value=localToday();
@@ -511,7 +558,7 @@
       $("currentHiveProfile").textContent="Loading hive profile...";
       $("harvestTotals").textContent="Loading honey totals...";
     }
-    function showRecords(elementId, records, fields) {
+    function showRecords(elementId, records, fields, table=null) {
       const list=$(elementId);list.replaceChildren();
       if (!records?.length) {list.textContent="No records for this hive yet.";return;}
       for (const record of records) {
@@ -519,6 +566,12 @@
         for (const [label,key] of fields) {
           const v=record[key]; if(v===null||v===undefined||v==="")continue;
           card.append(make("small",`${label}: ${key.endsWith("_date")?formatDate(v):v}`));
+        }
+        if(table && record.id!==undefined) {
+          const actions=make("div",undefined,"record-actions");
+          const edit=make("button","Edit"); edit.type="button"; edit.addEventListener("click",()=>startEdit(table,record));
+          const del=make("button","Delete"); del.type="button"; del.addEventListener("click",()=>deleteRecord(table,record));
+          actions.append(edit,del);card.append(actions);
         }
         list.append(card);
       }
@@ -549,15 +602,15 @@
         for(const [id,key] of [["hiveStatus","status"],["queenOrigin","queen_origin"],["queenIntroduced","queen_introduced"],["queenMarked","queen_mark_color"],["hiveEquipment","equipment"],["hiveProfileNotes","notes"]]) $(id).value=p[key]??(id==="hiveStatus"?"Active":"");
       }
       if(feed.error) $("feedHistory").textContent="Feeding records unavailable: "+feed.error.message;
-      else showRecords("feedHistory",feed.data?.sort((a,b)=>b.feed_date.localeCompare(a.feed_date)),[["Date","feed_date"],["Type","feed_type"],["Quantity","quantity"],["Unit","unit"],["Notes","notes"]]);
+      else showRecords("feedHistory",feed.data?.sort((a,b)=>b.feed_date.localeCompare(a.feed_date)),[["Date","feed_date"],["Type","feed_type"],["Quantity","quantity"],["Unit","unit"],["Notes","notes"]],"Hive_Feedings");
       if(treat.error) $("treatHistory").textContent="Treatments unavailable: "+treat.error.message;
-      else showRecords("treatHistory",treat.data?.sort((a,b)=>b.treatment_date.localeCompare(a.treatment_date)),[["Date","treatment_date"],["Product","product"],["Application","application_details"],["Follow-up","follow_up_date"],["Notes","notes"]]);
+      else showRecords("treatHistory",treat.data?.sort((a,b)=>b.treatment_date.localeCompare(a.treatment_date)),[["Date","treatment_date"],["Product","product"],["Application","application_details"],["Follow-up","follow_up_date"],["Notes","notes"]],"Hive_Treatments");
       if(harvest.error) {
         $("harvestHistory").textContent="Harvests unavailable: "+harvest.error.message;
         $("harvestTotals").textContent="Honey totals unavailable: "+harvest.error.message;
       } else {
         const records=harvest.data||[];
-        showRecords("harvestHistory",records.sort((a,b)=>b.harvest_date.localeCompare(a.harvest_date)),[["Date","harvest_date"],["Honey (lb)","pounds"],["Notes","notes"]]);
+        showRecords("harvestHistory",records.sort((a,b)=>b.harvest_date.localeCompare(a.harvest_date)),[["Date","harvest_date"],["Honey (lb)","pounds"],["Notes","notes"]],"Hive_Harvests");
         const totals=new Map();
         for(const r of records) {
           const year=String(r.harvest_date||"").slice(0,4);
@@ -585,8 +638,15 @@
         if(authError||!user)throw new Error("Please sign in again.");
         const payload={...record(),hive_id:hiveId,user_id:user.id};
         const query=supabase.from(table);
-        const {error}=table==="Hive_Profiles"?await query.upsert(payload,{onConflict:"hive_id,user_id"}):await query.insert(payload);
+        let error;
+        if(table==="Hive_Profiles")({error}=await query.upsert(payload,{onConflict:"hive_id,user_id"}));
+        else if(editing[table]!==undefined) {
+          const {data,error:updateError}=await query.update(payload).eq("id",editing[table]).eq("hive_id",hiveId).eq("user_id",user.id).select("id");
+          error=updateError;
+          if(!error&&!data?.length)throw new Error("No record updated. Check database permissions.");
+        } else ({error}=await query.insert(payload));
         if(error)throw error;
+        if(editing[table]!==undefined)cancelEdit(table);
         msg.textContent="Saved successfully!";
         if(String(selectedHiveId)===String(hiveId)) await loadManagement(hiveId);
         if(table==="Hive_Treatments") await loadDashboardData();
