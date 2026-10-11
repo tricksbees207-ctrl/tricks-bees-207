@@ -642,7 +642,7 @@
     }
     function renderExpenses(){
       const previousYear=$("expenseYear").value,previousCategory=$("expenseCategoryFilter").value;
-      const years=[...new Set(expenseRecords.map(r=>String(r.expense_date||"").slice(0,4)).filter(y=>/^\\d{4}$/.test(y)))].sort().reverse();
+      const years=[...new Set(expenseRecords.map(r=>String(r.expense_date||"").slice(0,4)).filter(y=>/^\d{4}$/.test(y)))].sort().reverse();
       $("expenseYear").replaceChildren(new Option("All years","all"),...years.map(y=>new Option(y,y)));
       $("expenseYear").value=years.includes(previousYear)?previousYear:"all";
       const categories=[...new Set(expenseRecords.map(r=>r.category).filter(Boolean))].sort();
@@ -695,7 +695,7 @@
         msg.textContent="Enter a date, category and description.";return;
       }
       const amountText=value("expenseAmount");
-      if(!amountText.trim()||!/^\\d+(?:\\.\\d{1,2})?$/.test(amountText)||!Number.isFinite(Number(amountText))){
+      if(!amountText.trim()||!/^\d+(?:\.\d{1,2})?$/.test(amountText)||!Number.isFinite(Number(amountText))){
         msg.textContent="Enter a valid nonnegative amount with up to two decimal places.";return;
       }
       const btn=$("saveExpense");btn.disabled=true;msg.textContent="Saving...";
@@ -726,7 +726,7 @@
       const header=["Date","Category","Description","Vendor","Amount","Hive ID","Payment Method","Notes"];
       const esc=v=>'"'+String(v??"").replace(/"/g,'""')+'"';
       const csv=[header,...rows.map(r=>[r.expense_date,r.category,r.description,r.vendor,r.amount,r.hive_id,r.payment_method,r.notes])]
-        .map(row=>row.map(esc).join(",")).join("\\r\\n");
+        .map(row=>row.map(esc).join(",")).join("\r\n");
       const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
       const a=document.createElement("a");a.href=url;a.download=`tricks-bees-expenses-${$("expenseYear").value}.csv`;
       a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
@@ -770,7 +770,7 @@
       const years=new Set();
       statsCache.forEach((records,i)=>records.forEach(r=>{
         const date=r[statsSources[i][1]];
-        if(/^\\d{4}-/.test(date||""))years.add(date.slice(0,4));
+        if(/^\d{4}-/.test(date||""))years.add(date.slice(0,4));
       }));
       const sel=$("statsYear"),prior=sel.value;
       sel.replaceChildren(new Option("All years","all"));
