@@ -1253,9 +1253,68 @@
         for(const [label,key] of [["Started","start_date"],["Ended","end_date"],["Origin","origin"],["Retirement reason","retirement_reason"],["Historical notes","historical_notes"]]){
           if(c[key])card.append(make("small",`${label}: ${c[key]}`));
         }
+        const reportButton=make("button","View this colony’s activity");
+        reportButton.type="button";
+        reportButton.addEventListener("click",()=>loadColonyActivityReport(c.id,c.hive_id,card));
+        card.append(reportButton);
         host.append(card);
       }
-      host.append(make("p","To register, retire, reactivate, or edit colonies, use Manage Hives. Activity records remain available under their respective tabs."));
+      host.append(make("p","To register, retire, reactivate, or edit colonies, use Manage Hives. Activity records without a colony assignment remain location-only."));
+    }
+    // Read-only colony report: every row must match BOTH the colony and its hive location.
+    // This never backfills old records, and it does not create or change colonies.
+    let colonyReportRequest=0;
+    const colonyReportTables=[
+      ["Inspections","Hive_Inspections"],
+      ["Feedings","Hive_Feedings"],
+      ["Treatments","Hive_Treatments"],
+      ["Honey harvests","Hive_Harvests"],
+      ["Queen replacements","Hive_Queen_Replacements"],
+      ["Colony splits","Hive_Splits"],
+      ["Colony losses","Hive_Losses"],
+      ["Apiary activities","Apiary_Activities"]
+    ];
+    async function loadColonyActivityReport(colonyId,hiveId,card){
+      const req=++colonyReportRequest;
+      for(const existing of document.querySelectorAll(".colony-activity-report"))existing.remove();
+      const panel=make("div",undefined,"colony-activity-report");
+      panel.style.marginTop="12px";
+      panel.append(make("h4","Colony activity report"));
+      const status=make("p","Loading colony records...");
+      panel.append(status);card.append(panel);
+      const colony=colonyRecords.find(c=>String(c.id)===String(colonyId));
+      if(!colony||String(colony.hive_id)!==String(hiveId)||String(selectedHiveId)!==String(hiveId)){
+        status.textContent="Colony is not registered at this location.";return;
+      }
+      const results=await Promise.all(colonyReportTables.map(async ([label,table])=>{
+        const {data,error}=await supabase.from(table).select("*").eq("colony_id",colonyId).eq("hive_id",hiveId).limit(500);
+        return {label,data:data||[],error};
+      }));
+      if(req!==colonyReportRequest||String(selectedHiveId)!==String(hiveId)||!panel.isConnected)return;
+      status.remove();
+      let total=0;
+      for(const result of results){
+        const section=make("div",undefined,"record");
+        section.append(make("strong",result.label));
+        if(result.error){
+          section.append(make("p","Unable to load: "+result.error.message));
+        }else{
+          total+=result.data.length;
+          section.append(make("p",result.data.length+" linked record(s)"+(result.data.length===500?" (first 500 shown)":"")));
+          for(const record of result.data){
+            const detail=make("details");
+            const keys=Object.keys(record).filter(k=>!["id","hive_id","colony_id","user_id","created_at","updated_at"].includes(k));
+            const date=keys.find(k=>/date|time/i.test(k)&&record[k]);
+            detail.append(make("summary",(date?String(record[date])+" · ":"")+"Record "+String(record.id??"")));
+            for(const key of keys)if(record[key]!==null&&record[key]!==""&&record[key]!==undefined){
+              detail.append(make("p",key.replace(/_/g," ")+": "+String(record[key])));
+            }
+            section.append(detail);
+          }
+        }
+        panel.append(section);
+      }
+      panel.prepend(make("p",total+" linked activity record(s) found across the available sections. Historical location-only records are not included."));
     }
     const locationLabel=h=>`Hive ${h.hive_number}: ${h.hive_name||"Unnamed"}`;
     async function refreshLocations(){
