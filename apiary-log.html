@@ -147,7 +147,7 @@
 <div id="inspectionPanel" style="display:none; margin-top:25px;">
   <h2 id="inspectionTitle">Hive Inspection</h2>
   <nav class="quick-nav" aria-label="Selected hive sections">
-    <a href="#inspectionEntry">Inspection</a><a href="#hiveManagement">Profile</a><a href="#feedingSection">Feeding</a><a href="#treatmentSection">Treatments</a><a href="#harvestSection">Harvests</a><a href="#queenSection">Queens</a><a href="#splitSection">Splits</a>
+    <a href="#inspectionEntry">Inspection</a><a href="#hiveManagement">Profile</a><a href="#feedingSection">Feeding</a><a href="#treatmentSection">Treatments</a><a href="#harvestSection">Harvests</a><a href="#queenSection">Queens</a><a href="#splitSection">Splits</a><a href="#lossSection">Losses</a>
   </nav>
   <div id="currentHiveProfile" class="profile-overview" aria-live="polite">Loading hive profile...</div>
   <p id="inspectionEntry">Record an inspection for the selected hive.</p>
@@ -351,6 +351,40 @@
   <button type="button" id="cancelSplitEdit" hidden>Cancel Edit</button>
   <p id="splitMessage" class="section-status" role="status"></p>
   <h4>Colony Split History</h4><div id="splitHistory">Select a hive.</div>
+</div>
+
+<div class="management" id="lossSection">
+  <h3>Colony Loss Log</h3>
+  <p>Record a suspected or confirmed colony loss. This does not delete the hive or its inspection history, or automatically change the hive's status.</p>
+  <div class="two-col">
+    <div><label for="lossDate">Date Discovered</label><input id="lossDate" type="date"></div>
+    <div><label for="lossCause">Suspected Cause</label><select id="lossCause">
+      <option value="">Select cause</option><option>Varroa mites</option><option>Starvation</option>
+      <option>Queen failure</option><option>Disease</option><option>Winter loss</option>
+      <option>Robbing</option><option>Pesticide exposure</option><option>Unknown</option><option>Other</option>
+    </select></div>
+    <div><label for="lossCondition">Colony Condition</label><select id="lossCondition">
+      <option value="">Select condition</option><option>Deadout</option><option>Dwindling / nonviable</option>
+      <option>Absconded</option><option>Collapsed</option><option>Unknown</option>
+    </select></div>
+    <div><label for="lossQueenStatus">Queen Status</label><select id="lossQueenStatus">
+      <option value="">Select status</option><option>Found dead</option><option>Missing</option>
+      <option>Present</option><option>Unknown</option>
+    </select></div>
+    <div><label for="lossEquipment">Equipment Disposition</label><select id="lossEquipment">
+      <option value="">Select disposition</option><option>Pending inspection</option><option>Cleaned</option>
+      <option>Stored</option><option>Quarantined</option><option>Reused</option><option>Destroyed</option>
+      <option>Other</option>
+    </select></div>
+  </div>
+  <label for="lossEvidence">Evidence Observed</label>
+  <textarea id="lossEvidence" placeholder="Dead bees, remaining food stores, brood condition, mite evidence"></textarea>
+  <label for="lossNotes">Additional Notes</label>
+  <textarea id="lossNotes" placeholder="What happened, possible contributing factors, future actions"></textarea>
+  <button type="button" id="saveLoss">Save Colony Loss</button>
+  <button type="button" id="cancelLossEdit" hidden>Cancel Edit</button>
+  <p id="lossMessage" class="section-status" role="status"></p>
+  <h4>Colony Loss History</h4><div id="lossHistory">Select a hive.</div>
 </div>
 
 </div>
@@ -627,25 +661,26 @@
         if(n!==null&&(!Number.isSafeInteger(n)||n<0))throw new Error("Frame counts must be whole numbers of zero or more.");
       }
     }
-    const mgmtIds = ["hiveStatus","queenOrigin","queenIntroduced","queenMarked","hiveEquipment","hiveProfileNotes","feedDate","feedType","feedQuantity","feedUnit","feedNotes","treatDate","treatProduct","treatAmount","treatFollowUp","treatNotes","harvestDate","harvestPounds","harvestNotes","queenReplaceDate","queenReason","queenReplaceOrigin","queenReplaceMark","queenIntroMethod","queenAcceptance","queenEggsDate","queenReplaceNotes","splitDate","splitDaughter","splitMethod","splitBrood","splitFood","splitBees","splitParentQueen","splitDaughterQueen","splitFollowUp","splitNotes"];
+    const mgmtIds = ["hiveStatus","queenOrigin","queenIntroduced","queenMarked","hiveEquipment","hiveProfileNotes","feedDate","feedType","feedQuantity","feedUnit","feedNotes","treatDate","treatProduct","treatAmount","treatFollowUp","treatNotes","harvestDate","harvestPounds","harvestNotes","queenReplaceDate","queenReason","queenReplaceOrigin","queenReplaceMark","queenIntroMethod","queenAcceptance","queenEggsDate","queenReplaceNotes","splitDate","splitDaughter","splitMethod","splitBrood","splitFood","splitBees","splitParentQueen","splitDaughterQueen","splitFollowUp","splitNotes","lossDate","lossCause","lossCondition","lossQueenStatus","lossEquipment","lossEvidence","lossNotes"];
     const editConfig = {
       Hive_Feedings:{kind:"Feed",history:"feedHistory",message:"feedMessage",button:"saveFeed",fields:{feedDate:"feed_date",feedType:"feed_type",feedQuantity:"quantity",feedUnit:"unit",feedNotes:"notes"}},
       Hive_Treatments:{kind:"Treatment",history:"treatHistory",message:"treatMessage",button:"saveTreatment",fields:{treatDate:"treatment_date",treatProduct:"product",treatAmount:"application_details",treatFollowUp:"follow_up_date",treatNotes:"notes"}},
       Hive_Harvests:{kind:"Harvest",history:"harvestHistory",message:"harvestMessage",button:"saveHarvest",fields:{harvestDate:"harvest_date",harvestPounds:"pounds",harvestNotes:"notes"}},
       Hive_Queen_Replacements:{kind:"Queen",history:"queenHistory",message:"queenMessage",button:"saveQueen",fields:{queenReplaceDate:"replacement_date",queenReason:"reason",queenReplaceOrigin:"queen_origin",queenReplaceMark:"queen_mark_color",queenIntroMethod:"introduction_method",queenAcceptance:"acceptance_status",queenEggsDate:"first_eggs_date",queenReplaceNotes:"notes"}},
-      Hive_Splits:{kind:"Split",history:"splitHistory",message:"splitMessage",button:"saveSplit",fields:{splitDate:"split_date",splitDaughter:"daughter_hive_id",splitMethod:"split_method",splitBrood:"brood_frames",splitFood:"food_frames",splitBees:"bee_frames",splitParentQueen:"parent_queen_status",splitDaughterQueen:"daughter_queen_status",splitFollowUp:"follow_up_date",splitNotes:"notes"}}
+      Hive_Splits:{kind:"Split",history:"splitHistory",message:"splitMessage",button:"saveSplit",fields:{splitDate:"split_date",splitDaughter:"daughter_hive_id",splitMethod:"split_method",splitBrood:"brood_frames",splitFood:"food_frames",splitBees:"bee_frames",splitParentQueen:"parent_queen_status",splitDaughterQueen:"daughter_queen_status",splitFollowUp:"follow_up_date",splitNotes:"notes"}},
+      Hive_Losses:{kind:"Loss",history:"lossHistory",message:"lossMessage",button:"saveLoss",fields:{lossDate:"loss_date",lossCause:"suspected_cause",lossCondition:"colony_condition",lossQueenStatus:"queen_status",lossEquipment:"equipment_disposition",lossEvidence:"evidence_observed",lossNotes:"notes"}}
     };
     const editing = {};
     const recordsByTable = {};
     function cancelEdit(table) {
       const c=editConfig[table]; delete editing[table];
-      $(c.button).textContent=table==="Hive_Harvests"?"Save Honey Harvest":table==="Hive_Feedings"?"Save Feeding Record":table==="Hive_Queen_Replacements"?"Save Queen Replacement":table==="Hive_Splits"?"Save Colony Split":"Save Treatment Record";
+      $(c.button).textContent=table==="Hive_Harvests"?"Save Honey Harvest":table==="Hive_Feedings"?"Save Feeding Record":table==="Hive_Queen_Replacements"?"Save Queen Replacement":table==="Hive_Splits"?"Save Colony Split":table==="Hive_Losses"?"Save Colony Loss":"Save Treatment Record";
       $("cancel"+c.kind+"Edit").hidden=true;
       for(const id of Object.keys(c.fields)) $(id).value="";
       if(c.fields.feedUnit) $("feedUnit").value="gallon";
       if(c.fields.queenAcceptance) $("queenAcceptance").value="Pending";
       if(c.fields.splitDaughter) refreshSplitDaughterOptions();
-      for(const id of ["feedDate","treatDate","harvestDate","queenReplaceDate","splitDate"]) if(c.fields[id]) $(id).value=localToday();
+      for(const id of ["feedDate","treatDate","harvestDate","queenReplaceDate","splitDate","lossDate"]) if(c.fields[id]) $(id).value=localToday();
     }
     async function deleteRecord(table,record) {
       if(!window.confirm("Permanently delete this record? This cannot be undone."))return;
@@ -680,9 +715,9 @@
       for(const table of Object.keys(editConfig))cancelEdit(table);
       for (const id of mgmtIds) $(id).value = "";
       $("hiveStatus").value="Active"; $("feedUnit").value="gallon"; $("queenAcceptance").value="Pending"; refreshSplitDaughterOptions();
-      for(const id of ["feedDate","treatDate","harvestDate","queenReplaceDate","splitDate"]) $(id).value=localToday();
-      for(const id of ["hiveProfileMessage","feedMessage","treatMessage","harvestMessage","queenMessage","splitMessage"]) $(id).textContent="";
-      for(const id of ["feedHistory","treatHistory","harvestHistory","queenHistory","splitHistory"]) $(id).textContent="Loading...";
+      for(const id of ["feedDate","treatDate","harvestDate","queenReplaceDate","splitDate","lossDate"]) $(id).value=localToday();
+      for(const id of ["hiveProfileMessage","feedMessage","treatMessage","harvestMessage","queenMessage","splitMessage","lossMessage"]) $(id).textContent="";
+      for(const id of ["feedHistory","treatHistory","harvestHistory","queenHistory","splitHistory","lossHistory"]) $(id).textContent="Loading...";
       $("currentHiveProfile").textContent="Loading hive profile...";
       $("harvestTotals").textContent="Loading honey totals...";
     }
@@ -706,10 +741,10 @@
     }
     async function loadManagement(hiveId) {
       const request=++managementRequest;
-      const tables=["Hive_Profiles","Hive_Feedings","Hive_Treatments","Hive_Harvests","Hive_Queen_Replacements","Hive_Splits"];
+      const tables=["Hive_Profiles","Hive_Feedings","Hive_Treatments","Hive_Harvests","Hive_Queen_Replacements","Hive_Splits","Hive_Losses"];
       const results=await Promise.all(tables.map(t=>supabase.from(t).select("*").eq("hive_id",hiveId)));
       if(request!==managementRequest||String(selectedHiveId)!==String(hiveId))return;
-      const [profile,feed,treat,harvest,queen,splits]=results;
+      const [profile,feed,treat,harvest,queen,splits,losses]=results;
       const overview=$("currentHiveProfile"); overview.replaceChildren();
       if(profile.error) {
         $("hiveProfileMessage").textContent="Profile unavailable: "+profile.error.message;
@@ -741,6 +776,8 @@
         const records=(splits.data||[]).map(r=>({...r,daughter_hive_label:r.daughter_hive_id?labels.get(String(r.daughter_hive_id))||`Hive ID ${r.daughter_hive_id}`:"Not assigned"}));
         showRecords("splitHistory",records.sort((a,b)=>b.split_date.localeCompare(a.split_date)),[["Split date","split_date"],["Daughter hive","daughter_hive_label"],["Method","split_method"],["Brood frames","brood_frames"],["Food frames","food_frames"],["Bee frames","bee_frames"],["Parent queen","parent_queen_status"],["Daughter queen","daughter_queen_status"],["Follow-up","follow_up_date"],["Notes","notes"]],"Hive_Splits");
       }
+      if(losses.error) $("lossHistory").textContent="Colony loss history unavailable: "+losses.error.message;
+      else showRecords("lossHistory",(losses.data||[]).sort((a,b)=>b.loss_date.localeCompare(a.loss_date)),[["Date discovered","loss_date"],["Suspected cause","suspected_cause"],["Condition","colony_condition"],["Queen","queen_status"],["Equipment","equipment_disposition"],["Evidence","evidence_observed"],["Notes","notes"]],"Hive_Losses");
       if(harvest.error) {
         $("harvestHistory").textContent="Harvests unavailable: "+harvest.error.message;
         $("harvestTotals").textContent="Honey totals unavailable: "+harvest.error.message;
@@ -832,6 +869,14 @@
         }),"splitMessage",[["splitDate","a split date"]]);
       }catch(error){msg.textContent="Cannot save: "+error.message;}
     });
+
+    $("saveLoss").addEventListener("click",()=>saveManagement("saveLoss","Hive_Losses",()=>({
+      loss_date:value("lossDate"),suspected_cause:value("lossCause")||null,
+      colony_condition:value("lossCondition")||null,
+      queen_status:value("lossQueenStatus")||null,
+      equipment_disposition:value("lossEquipment")||null,
+      evidence_observed:value("lossEvidence")||null,notes:value("lossNotes")||null
+    }),"lossMessage",[["lossDate","a date discovered"]]));
 
     $("loginForm").addEventListener("submit",async event=>{
       event.preventDefault();$("loginMessage").textContent="Signing in...";
