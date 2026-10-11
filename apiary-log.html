@@ -143,7 +143,16 @@
       #statisticsSection .stats-controls { padding:10px; }
       #statisticsSection .stats-controls button { flex-basis:100%; }
     }
-</style>
+
+    /* Accessible, compact section tabs */
+    .section-tabs { display:flex; flex-wrap:wrap; gap:8px; margin:16px 0 20px; padding:12px; background:#f7edcf; border-radius:12px; }
+    .section-tabs button { width:auto; flex:0 0 auto; padding:10px 13px; border:1px solid #bca56b; border-radius:9px; background:#fffdf7; color:#30291d; cursor:pointer; font-weight:700; }
+    .section-tabs button[aria-selected="true"] { background:#29241b; color:#ffcc45; border-color:#29241b; }
+    .section-tabs button:focus-visible { outline:3px solid #c48716; outline-offset:2px; }
+    .section-tab-hidden { display:none !important; }
+    @media(max-width:560px) { .section-tabs { gap:6px; padding:8px; } .section-tabs button { font-size:13px; padding:9px 10px; } }
+
+  </style>
 </head>
 <body>
   <header>
@@ -525,6 +534,114 @@
       </div>
     </section>
   </main>
+
+<script>
+  // Navigation only: existing form handlers, database calls, and data remain unchanged.
+  document.addEventListener('DOMContentLoaded', () => {
+    const dashboard = document.getElementById('dashboard');
+    if (!dashboard) return;
+    const mainPanel = dashboard.querySelector(':scope > .panel');
+    if (!mainPanel) return;
+    const hiveList = document.getElementById('hiveList');
+    const inspectionPanel = document.getElementById('inspectionPanel');
+    const hiveHeading = hiveList && hiveList.previousElementSibling;
+    const hivePage = document.createElement('div');
+    hivePage.id = 'hivesTabPage';
+    if (hiveHeading) mainPanel.insertBefore(hivePage, hiveHeading);
+    else if (hiveList) mainPanel.insertBefore(hivePage, hiveList);
+    if (hiveHeading) hivePage.appendChild(hiveHeading);
+    if (hiveList) hivePage.appendChild(hiveList);
+    if (inspectionPanel) hivePage.appendChild(inspectionPanel);
+
+    const overview = document.createElement('div');
+    overview.id = 'overviewTabPage';
+    const summary = document.getElementById('apiarySummary');
+    const intro = mainPanel.querySelector('h2');
+    const subtitle = intro && intro.nextElementSibling;
+    if (intro) mainPanel.insertBefore(overview, intro);
+    if (intro) overview.appendChild(intro);
+    if (subtitle && subtitle !== summary) overview.appendChild(subtitle);
+    if (summary) overview.appendChild(summary);
+    const reminders = document.getElementById('reminderHeading')?.closest('section');
+    if (reminders) overview.appendChild(reminders);
+
+    const topPages = [
+      ['Overview', overview],
+      ['Hives', hivePage],
+      ['Statistics', document.getElementById('statisticsSection')],
+      ['Profit & Loss', document.getElementById('financialSection')],
+      ['Expenses', document.getElementById('expensesSection')],
+      ['Income', document.getElementById('incomeSection')]
+    ].filter(([,el]) => !!el);
+
+    function createTabs(pages, parent, before, label, defaultIndex=0) {
+      const nav = document.createElement('nav');
+      nav.className='section-tabs';
+      nav.setAttribute('role','tablist');
+      nav.setAttribute('aria-label',label);
+      parent.insertBefore(nav,before);
+      const buttons=pages.map(([name,panel],i)=>{
+        const button=document.createElement('button');
+        button.type='button'; button.textContent=name;
+        button.setAttribute('role','tab');
+        button.setAttribute('aria-controls',panel.id);
+        button.id=label.replace(/\W+/g,'-').toLowerCase()+'-tab-'+i;
+        button.setAttribute('aria-selected','false');
+        panel.setAttribute('role','tabpanel');
+        panel.setAttribute('aria-labelledby',button.id);
+        nav.appendChild(button);
+        button.addEventListener('click',()=>select(i));
+        return button;
+      });
+      function select(index){
+        pages.forEach(([,panel],i)=>{
+          panel.classList.toggle('section-tab-hidden',i!==index);
+          buttons[i].setAttribute('aria-selected',String(i===index));
+          buttons[i].tabIndex=i===index?0:-1;
+        });
+      }
+      nav.addEventListener('keydown',e=>{
+        const index=buttons.indexOf(document.activeElement);
+        if(index<0)return;
+        const next=e.key==='ArrowRight'?(index+1)%buttons.length:e.key==='ArrowLeft'?(index-1+buttons.length)%buttons.length:-1;
+        if(next>=0){e.preventDefault();select(next);buttons[next].focus();}
+      });
+      select(defaultIndex);
+      return {select};
+    }
+    createTabs(topPages,mainPanel,overview,'Apiary sections');
+
+    if (inspectionPanel) {
+      const profile = document.getElementById('currentHiveProfile');
+      const firstInspection = document.getElementById('inspectionEntry');
+      const firstManagement = document.getElementById('hiveManagement');
+      if (firstInspection && firstManagement) {
+        const inspectionTabPage=document.createElement('div');
+        inspectionTabPage.id='inspectionTabPage';
+        inspectionPanel.insertBefore(inspectionTabPage,firstInspection);
+        let item=firstInspection;
+        while(item && item!==firstManagement){
+          const next=item.nextSibling;
+          inspectionTabPage.appendChild(item);
+          item=next;
+        }
+        const pages=[
+          ['Inspection',inspectionTabPage],
+          ['Hive Profile',firstManagement],
+          ['Feedings',document.getElementById('feedingSection')],
+          ['Treatments',document.getElementById('treatmentSection')],
+          ['Harvests',document.getElementById('harvestSection')],
+          ['Queens',document.getElementById('queenSection')],
+          ['Splits',document.getElementById('splitSection')],
+          ['Losses',document.getElementById('lossSection')]
+        ].filter(([,el])=>!!el);
+        const oldNav=inspectionPanel.querySelector('.quick-nav');
+        if(oldNav)oldNav.classList.add('section-tab-hidden');
+        createTabs(pages,inspectionPanel,profile||inspectionTabPage,'Hive sections');
+      }
+    }
+  });
+</script>
 
   <script type="module">
     import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
