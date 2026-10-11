@@ -141,6 +141,20 @@
           <p id="dashboardMessage" class="status" role="status"></p>
           <div id="treatmentReminders">Loading treatment follow-ups...</div><h4>Completed Follow-Ups</h4><div id="completedFollowUps">Loading completed follow-ups...</div>
         </section>
+<section aria-labelledby="statsHeading" id="statisticsSection">
+  <h3 id="statsHeading">Apiary Statistics &amp; Reports</h3>
+  <p class="muted">Summary of your saved records. Select a year or view all years. Empty categories show zero, not estimated activity.</p>
+  <div class="toolbar">
+    <label for="statsYear">Reporting period</label>
+    <select id="statsYear"><option value="all">All years</option></select>
+    <button type="button" class="secondary" id="refreshStats">Refresh Statistics</button>
+    <button type="button" class="secondary" id="exportStats">Export Summary (CSV)</button>
+  </div>
+  <p id="statsMessage" class="status" role="status"></p>
+  <div class="summary-grid" id="statsSummary" aria-live="polite"></div>
+  <div id="statsHiveTable"></div>
+  <p class="muted">Hive count reflects registered hives, not confirmed active colonies. Losses, splits and replacements are event counts, not a calculated survival rate. Harvest totals use recorded pounds. Feeding expenses are not calculated because costs are not yet recorded.</p>
+</section>
         <h3>Select a Hive</h3>
         <div id="hiveList">Loading hives...</div>
         
@@ -535,6 +549,91 @@
       }
       $("dashboardMessage").textContent=`Updated ${new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}. Completed follow-ups are excluded from overdue and due-soon counts.${treatError?" Treatment log follow-ups could not load: "+treatError.message:""}`;
     }
+    let statsRows=[];
+    const statsSources=[
+      ["Hive_Inspections","inspection_date","Inspections"],
+      ["Hive_Feedings","feed_date","Feedings"],
+      ["Hive_Treatments","treatment_date","Treatments"],
+      ["Hive_Harvests","harvest_date","Harvests"],
+      ["Hive_Queen_Replacements","replacement_date","Queen replacements"],
+      ["Hive_Splits","split_date","Colony splits"],
+      ["Hive_Losses","loss_date","Colony losses"]
+    ];
+    function statsCsvEscape(v){return `"${String(v??"").replace(/"/g,'""')}"`;}
+    function exportStatsCsv(){
+      if(!statsRows.length){$("statsMessage").textContent="Refresh statistics before exporting.";return;}
+      const rows=[["Hive","Inspections","Feedings","Treatments","Honey (lb)","Queen replacements","Splits","Losses"],...statsRows.map(r=>[r.hive,...r.values])];
+      const csv=rows.map(r=>r.map(statsCsvEscape).join(",")).join("\r\n");
+      const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+      const url=URL.createObjectURL(blob),a=document.createElement("a");
+      a.href=url;a.download=`tricks-bees-statistics-${$("statsYear").value}.csv`;
+      a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    }
+    let statsCache=null,statsRequest=0;
+    async function refreshStats(){
+      const req=++statsRequest;
+      $("statsMessage").textContent="Loading statistics...";
+      const results=await Promise.all(statsSources.map(async ([table])=>{
+        const {data,error}=await supabase.from(table).select("*");
+        return {data:data||[],error};
+      }));
+      if(req!==statsRequest)return;
+      const errors=results.flatMap((r,i)=>r.error?[`${statsSources[i][0]}: ${r.error.message}`]:[]);
+      if(errors.length){
+        statsCache=null;statsRows=[];$("statsSummary").replaceChildren();$("statsHiveTable").replaceChildren();
+        $("statsMessage").textContent="Statistics unavailable: "+errors.join("; ");return;
+      }
+      statsCache=results.map(r=>r.data);
+      const years=new Set();
+      statsCache.forEach((records,i)=>records.forEach(r=>{
+        const date=r[statsSources[i][1]];
+        if(/^\\d{4}-/.test(date||""))years.add(date.slice(0,4));
+      }));
+      const sel=$("statsYear"),prior=sel.value;
+      sel.replaceChildren(new Option("All years","all"));
+      [...years].sort().reverse().forEach(y=>sel.add(new Option(y,y)));
+      sel.value=[...sel.options].some(o=>o.value===prior)?prior:"all";
+      renderStats();
+    }
+    function renderStats(){
+      if(!statsCache)return;
+      const year=$("statsYear").value;
+      const records=statsCache.map((rows,i)=>rows.filter(r=>year==="all"||String(r[statsSources[i][1]]||"").startsWith(year+"-")));
+      const sum=$("statsSummary");sum.replaceChildren();
+      sum.append(tile("Registered hives",hives.length));
+      const metrics=[
+        ["Inspections",records[0].length],["Feedings",records[1].length],
+        ["Treatments",records[2].length],
+        ["Honey harvested (lb)",records[3].reduce((total,r)=>total+(Number(r.pounds)||0),0).toFixed(2)],
+        ["Queen replacements",records[4].length],["Colony splits",records[5].length],
+        ["Colony losses",records[6].length]
+      ];
+      metrics.forEach(([label,n])=>sum.append(tile(label,n)));
+      statsRows=hives.map(h=>{
+        const hiveId=String(h.id);
+        const mine=records.map(arr=>arr.filter(r=>String(r.hive_id)===hiveId));
+        return {hive:`Hive ${h.hive_number}: ${h.hive_name||"Unnamed"}`,
+          values:[mine[0].length,mine[1].length,mine[2].length,
+            mine[3].reduce((total,r)=>total+(Number(r.pounds)||0),0).toFixed(2),
+            mine[4].length,mine[5].length,mine[6].length]};
+      });
+      const host=$("statsHiveTable");host.replaceChildren();
+      host.append(make("h4","Breakdown by Parent / Recorded Hive"));
+      const scroll=make("div");scroll.style.overflowX="auto";
+      const table=make("table");table.style.width="100%";
+      const head=make("thead"),tr=make("tr");
+      ["Hive","Inspections","Feedings","Treatments","Honey (lb)","Queen replacements","Splits","Losses"].forEach(t=>tr.append(make("th",t)));
+      head.append(tr);table.append(head);
+      const body=make("tbody");
+      statsRows.forEach(r=>{
+        const tr=make("tr");[r.hive,...r.values].forEach(v=>tr.append(make("td",v)));body.append(tr);
+      });
+      table.append(body);scroll.append(table);host.append(scroll);
+      $("statsMessage").textContent=`Showing ${year==="all"?"all recorded years":year}. Last refreshed ${new Date().toLocaleTimeString()}.`;
+    }
+    $("statsYear").addEventListener("change",renderStats);
+    $("refreshStats").addEventListener("click",refreshStats);
+    $("exportStats").addEventListener("click",exportStatsCsv);
     async function showDashboard(session) {
       if (!session) {
         dashboardRequest++;historyRequest++;
@@ -567,7 +666,7 @@
         });
         list.append(button);
       }
-      await loadDashboardData();
+      await Promise.all([loadDashboardData(),refreshStats()]);
     }
     async function loadInspectionHistory(hiveId) {
       const request=++historyRequest;
@@ -627,7 +726,7 @@
       }catch(error){message.textContent="Save failed: "+error.message;}
       finally{button.disabled=false;}
     });
-    $("refreshReminders").addEventListener("click",loadDashboardData);
+    $("refreshReminders").addEventListener("click",()=>Promise.all([loadDashboardData(),refreshStats()]));
     function csvEscape(v){return '"'+String(v??"").replaceAll('"','""')+'"';}
     $("exportInspections").addEventListener("click",()=>{
       if(!allInspections.length){$("dashboardMessage").textContent="No loaded inspections to export. Refresh the dashboard first.";return;}
@@ -696,6 +795,7 @@
         msg.textContent="Record deleted.";
         if(String(selectedHiveId)===String(hiveId))await loadManagement(hiveId);
         if(table==="Hive_Treatments")await loadDashboardData();
+        await refreshStats();
       }catch(error){msg.textContent="Delete failed: "+error.message;}
     }
     function startEdit(table,record) {
@@ -823,6 +923,7 @@
         msg.textContent="Saved successfully!";
         if(String(selectedHiveId)===String(hiveId)) await loadManagement(hiveId);
         if(table==="Hive_Treatments") await loadDashboardData();
+        await refreshStats();
       } catch(error) {msg.textContent="Save failed: "+error.message;}
       finally {button.disabled=false;}
     }
