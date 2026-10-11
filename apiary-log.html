@@ -790,6 +790,8 @@
         const {data:{user},error:authError}=await supabase.auth.getUser();
         if(authError||!user)throw new Error("Sign in before comparing.");
         const summaries=[];
+        const backupMissingByTable=new Map();
+        const liveIdsByTable=new Map();
         for(const table of backupTables){
           if(token!==previewToken)return;
           line("Checking "+table+"...");
@@ -811,6 +813,8 @@
             backupIds.add(id);
           }
           const liveById=new Map(current.map(row=>[String(row.id),row]));
+          liveIdsByTable.set(table,new Set(liveById.keys()));
+          backupMissingByTable.set(table,backed.filter(row=>!liveById.has(String(row.id))));
           let missingLive=0,changed=0,identical=0,onlyLive=0;
           for(const row of backed){
             const live=liveById.get(String(row.id));
@@ -830,7 +834,51 @@
         for(const s of summaries)line(s.table+": "+s.identical+" identical, "+s.missingLive+" in backup but missing live, "+s.changed+" changed, "+s.onlyLive+" live-only");
         const sum=key=>summaries.reduce((total,s)=>total+s[key],0);
         line("TOTAL: "+sum("identical")+" identical | "+sum("missingLive")+" missing live | "+sum("changed")+" changed | "+sum("onlyLive")+" live-only","strong");
-        line("This is a snapshot comparison, not a restore plan. ID matches do not guarantee safe recovery. Nothing was inserted, updated, deleted, or restored.","strong");
+        line("Recovery Readiness Check (Read Only)","h4");
+        const missingTotal=sum("missingLive");
+        if(missingTotal===0){
+          line("No records are missing from the live database. There is nothing to recover from this backup right now.");
+        }else{
+          line(missingTotal+" backup record(s) are missing from the live database. These are candidates for further review, NOT approved restore operations.");
+          const missingHives=backupMissingByTable.get("Hives")||[];
+          const missingColonies=backupMissingByTable.get("Hive_Colonies")||[];
+          const hiveLive=liveIdsByTable.get("Hives")||new Set();
+          const colonyLive=liveIdsByTable.get("Hive_Colonies")||new Set();
+          const hiveBackupIds=new Set(backup.tables.Hives.map(row=>String(row.id)));
+          const colonyBackupIds=new Set(backup.tables.Hive_Colonies.map(row=>String(row.id)));
+          let unresolved=0;
+          for(const table of backupTables){
+            const missing=backupMissingByTable.get(table)||[];
+            if(!missing.length)continue;
+            const problems=[];
+            for(const row of missing){
+              const refs=[];
+              if(table==="Colony_Transfers"){
+                if(row.from_hive_id!=null)refs.push(["Hives",row.from_hive_id,"from_hive_id"]);
+                if(row.to_hive_id!=null)refs.push(["Hives",row.to_hive_id,"to_hive_id"]);
+              }
+              if(row.hive_id!=null)refs.push(["Hives",row.hive_id,"hive_id"]);
+              if(row.colony_id!=null)refs.push(["Hive_Colonies",row.colony_id,"colony_id"]);
+              for(const [parent,id,field] of refs){
+                const live=parent==="Hives"?hiveLive:colonyLive;
+                const inBackup=parent==="Hives"?hiveBackupIds:colonyBackupIds;
+                if(!live.has(String(id))){
+                  unresolved++;
+                  problems.push("record "+row.id+" needs "+parent+" ID "+id+" ("+field+")"+(inBackup.has(String(id))?"; present in backup, absent live":"; absent from backup and live"));
+                }
+              }
+            }
+            line(table+": "+missing.length+" missing record(s)"+(problems.length?"; "+problems.length+" relationship warning(s)":"; no missing parent references detected"));
+            for(const problem of problems.slice(0,10))line("  Warning: "+problem);
+            if(problems.length>10)line("  "+(problems.length-10)+" additional warnings not shown.");
+          }
+          if(unresolved)line("CAUTION: "+unresolved+" missing parent reference(s) detected. Related records would need dependency-aware recovery.","strong");
+          else line("No missing parent references detected for these candidates. This does NOT establish that restoring them is safe.","strong");
+          if(missingHives.length)line("Missing hive locations: "+missingHives.length+". Permanent hive numbers and live uniqueness must be checked before any recovery.");
+          if(missingColonies.length)line("Missing colony records: "+missingColonies.length+". Active-colony limits and colony history must be checked before any recovery.");
+          line("Additional checks still required: ownership, database constraints, ID sequences, relationships, concurrent changes, and test-environment recovery.");
+        }
+        line("READ ONLY. This is not a restore plan. No restore button is enabled; nothing was inserted, updated, deleted, or restored.","strong");
       }catch(error){
         if(token!==previewToken)return;
         host.replaceChildren();
