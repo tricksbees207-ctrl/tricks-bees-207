@@ -100,6 +100,9 @@
     .management .section-status { min-height:1.3em; }
     .management details { margin:12px 0; }
     .management summary { cursor:pointer; font-weight:bold; padding:8px 0; }
+    .followup-complete-form{margin-top:12px;display:grid;gap:8px;max-width:540px}
+    .followup-complete-form button{width:auto;justify-self:start}
+    .followup-complete-form label{display:grid;gap:4px}
     .record-actions{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap}
   .record-actions button{width:auto;min-width:80px;padding:7px 12px}
   button[hidden]{display:none!important}
@@ -136,7 +139,7 @@
           <p class="muted">Dates from saved inspections across your hives. Follow-ups remain listed until their dates are changed or their inspections are updated.</p>
           <div class="toolbar"><button type="button" id="refreshReminders" class="secondary">Refresh Dashboard</button><button type="button" id="exportInspections" class="secondary">Export Inspections (CSV)</button></div>
           <p id="dashboardMessage" class="status" role="status"></p>
-          <div id="treatmentReminders">Loading treatment follow-ups...</div>
+          <div id="treatmentReminders">Loading treatment follow-ups...</div><h4>Completed Follow-Ups</h4><div id="completedFollowUps">Loading completed follow-ups...</div>
         </section>
         <h3>Select a Hive</h3>
         <div id="hiveList">Loading hives...</div>
@@ -381,29 +384,81 @@
         return;
       }
       allInspections=data||[];
-      const {data:extraTreatments,error:treatError}=await supabase.from("Hive_Treatments").select("hive_id,treatment_date,product,follow_up_date").not("follow_up_date","is",null);
+      const {data:extraTreatments,error:treatError}=await supabase.from("Hive_Treatments")
+        .select("id,hive_id,treatment_date,product,follow_up_date,follow_up_completed,follow_up_completed_date,follow_up_notes")
+        .not("follow_up_date","is",null);
       if (request!==dashboardRequest) return;
-      const reminders=allInspections.filter(r=>r.treatment_follow_up_date).map(r=>({...r,reminder_date:r.treatment_follow_up_date,reminder_treatment:r.treatment_applied}));
-      if (!treatError) for(const t of extraTreatments||[]) reminders.push({hive_id:t.hive_id,inspection_date:t.treatment_date,reminder_date:t.follow_up_date,reminder_treatment:t.product});
-      else $("dashboardMessage").textContent="Treatment log reminders unavailable: "+treatError.message;
-      const overdue=reminders.filter(r=>dayDifference(r.reminder_date)<0);
-      const soon=reminders.filter(r=>{const n=dayDifference(r.reminder_date);return n>=0&&n<=7;});
+      const reminders=allInspections.filter(r=>r.treatment_follow_up_date).map(r=>({
+        id:r.id,source:"Hive_Inspections",hive_id:r.hive_id,
+        inspection_date:r.inspection_date,reminder_date:r.treatment_follow_up_date,
+        reminder_treatment:r.treatment_applied,
+        completed:!!r.treatment_follow_up_completed,
+        completed_date:r.treatment_follow_up_completed_date,
+        completed_notes:r.treatment_follow_up_notes
+      }));
+      if (!treatError) for(const t of extraTreatments||[]) reminders.push({
+        id:t.id,source:"Hive_Treatments",hive_id:t.hive_id,
+        inspection_date:t.treatment_date,reminder_date:t.follow_up_date,
+        reminder_treatment:t.product,completed:!!t.follow_up_completed,
+        completed_date:t.follow_up_completed_date,completed_notes:t.follow_up_notes
+      });
+      const active=reminders.filter(r=>!r.completed);
+      const completed=reminders.filter(r=>r.completed);
+      const overdue=active.filter(r=>dayDifference(r.reminder_date)<0);
+      const soon=active.filter(r=>{const n=dayDifference(r.reminder_date);return n>=0&&n<=7;});
       const summary=$("apiarySummary");
       summary.replaceChildren(tile("Registered hives",hives.length),tile("Inspections",allInspections.length),tile("Overdue follow-ups",overdue.length),tile("Due within 7 days",soon.length));
-      const list=$("treatmentReminders"); list.replaceChildren();
-      if (!reminders.length) list.append(make("p","No treatment follow-up dates recorded."));
+      const list=$("treatmentReminders"),doneList=$("completedFollowUps");
+      list.replaceChildren();doneList.replaceChildren();
+      if(!active.length)list.append(make("p",treatError?"No inspection follow-ups outstanding. Treatment log could not load.":"No outstanding treatment follow-ups."));
+      if(!completed.length)doneList.append(make("p","No completed follow-ups recorded yet."));
       const names=new Map(hives.map(h=>[String(h.id),`Hive ${h.hive_number}: ${h.hive_name||"Unnamed"}`]));
-      reminders.sort((a,b)=>a.reminder_date.localeCompare(b.reminder_date));
-      for (const r of reminders) {
+      active.sort((a,b)=>a.reminder_date.localeCompare(b.reminder_date));
+      completed.sort((a,b)=>(b.completed_date||"").localeCompare(a.completed_date||""));
+      for(const r of active){
         const days=dayDifference(r.reminder_date);
         const state=days<0?"overdue":days<=7?"soon":"";
         const status=days<0?`${Math.abs(days)} day(s) overdue`:days===0?"Due today":`Due in ${days} day(s)`;
         const card=make("div",undefined,"reminder "+state);
         card.append(make("strong",`${names.get(String(r.hive_id))||"Hive #"+r.hive_id} | ${formatDate(r.reminder_date)} | ${status}`));
-        card.append(make("small",`Inspection: ${formatDate(r.inspection_date)} | Treatment: ${r.reminder_treatment||"Not specified"}`));
-        list.append(card);
+        card.append(make("small",`Recorded: ${formatDate(r.inspection_date)} | Treatment: ${r.reminder_treatment||"Not specified"} | Source: ${r.source==="Hive_Inspections"?"Inspection":"Treatment Log"}`));
+        const form=make("div",undefined,"followup-complete-form");
+        const dateLabel=make("label","Completed on");
+        const date=document.createElement("input");date.type="date";date.value=localToday();dateLabel.append(date);
+        const notesLabel=make("label","Follow-up results / notes (optional)");
+        const notes=document.createElement("textarea");notes.rows=2;notes.placeholder="Mite count, observations, next action...";notesLabel.append(notes);
+        const btn=make("button","Mark Completed");btn.type="button";
+        const statusEl=make("p", "", "section-status");statusEl.setAttribute("role","status");
+        btn.addEventListener("click",async()=>{
+          if(!date.value){statusEl.textContent="Choose a completion date.";return;}
+          if(date.value>localToday()){statusEl.textContent="Completion date cannot be in the future.";return;}
+          btn.disabled=true;statusEl.textContent="Saving completion...";
+          const fields=r.source==="Hive_Treatments"?{
+            follow_up_completed:true,follow_up_completed_date:date.value,follow_up_notes:notes.value.trim()||null
+          }:{
+            treatment_follow_up_completed:true,treatment_follow_up_completed_date:date.value,treatment_follow_up_notes:notes.value.trim()||null
+          };
+          try{
+            const {data,error}=await supabase.from(r.source).update(fields).eq("id",r.id).eq("hive_id",r.hive_id).select("id");
+            if(error)throw error;
+            if(!data?.length)throw new Error("No record updated. Check your database permissions.");
+            await loadDashboardData();
+            if(String(selectedHiveId)===String(r.hive_id)){
+              await loadInspectionHistory(r.hive_id);
+              await loadManagement(r.hive_id);
+            }
+          }catch(err){statusEl.textContent="Unable to complete follow-up: "+err.message;btn.disabled=false;}
+        });
+        form.append(dateLabel,notesLabel,btn,statusEl);card.append(form);list.append(card);
       }
-      $("dashboardMessage").textContent=`Updated ${new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}. Dates are reminders, not confirmation that treatment remains active.${treatError?" Separate treatment log reminders could not load.":""}`;
+      for(const r of completed){
+        const card=make("div",undefined,"reminder");
+        card.append(make("strong",`${names.get(String(r.hive_id))||"Hive #"+r.hive_id} | Completed ${formatDate(r.completed_date)}`));
+        card.append(make("small",`Follow-up due: ${formatDate(r.reminder_date)} | Treatment: ${r.reminder_treatment||"Not specified"}`));
+        if(r.completed_notes)card.append(make("small","Results: "+r.completed_notes));
+        doneList.append(card);
+      }
+      $("dashboardMessage").textContent=`Updated ${new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}. Completed follow-ups are excluded from overdue and due-soon counts.${treatError?" Treatment log follow-ups could not load: "+treatError.message:""}`;
     }
     async function showDashboard(session) {
       if (!session) {
@@ -457,6 +512,12 @@
           const display=typeof v==="boolean"?(v?"Yes":"No"):
             key==="treatment_follow_up_date"?formatDate(v):v;
           entry.append(make("p",`${label}: ${display}`));
+        }
+        if(inspection.treatment_follow_up_date){
+          entry.append(make("p",inspection.treatment_follow_up_completed
+            ?`Treatment follow-up: Completed ${formatDate(inspection.treatment_follow_up_completed_date)}`
+            :"Treatment follow-up: Outstanding"));
+          if(inspection.treatment_follow_up_notes)entry.append(make("p","Follow-up results: "+inspection.treatment_follow_up_notes));
         }
         history.append(entry);
       }
@@ -565,7 +626,7 @@
         const card=make("div",undefined,"record");
         for (const [label,key] of fields) {
           const v=record[key]; if(v===null||v===undefined||v==="")continue;
-          card.append(make("small",`${label}: ${key.endsWith("_date")?formatDate(v):v}`));
+          card.append(make("small",`${label}: ${key.endsWith("_date")?formatDate(v):typeof v==="boolean"?(v?"Yes":"No"):v}`));
         }
         if(table && record.id!==undefined) {
           const actions=make("div",undefined,"record-actions");
@@ -604,7 +665,7 @@
       if(feed.error) $("feedHistory").textContent="Feeding records unavailable: "+feed.error.message;
       else showRecords("feedHistory",feed.data?.sort((a,b)=>b.feed_date.localeCompare(a.feed_date)),[["Date","feed_date"],["Type","feed_type"],["Quantity","quantity"],["Unit","unit"],["Notes","notes"]],"Hive_Feedings");
       if(treat.error) $("treatHistory").textContent="Treatments unavailable: "+treat.error.message;
-      else showRecords("treatHistory",treat.data?.sort((a,b)=>b.treatment_date.localeCompare(a.treatment_date)),[["Date","treatment_date"],["Product","product"],["Application","application_details"],["Follow-up","follow_up_date"],["Notes","notes"]],"Hive_Treatments");
+      else showRecords("treatHistory",treat.data?.sort((a,b)=>b.treatment_date.localeCompare(a.treatment_date)),[["Date","treatment_date"],["Product","product"],["Application","application_details"],["Follow-up","follow_up_date"],["Completed","follow_up_completed"],["Completion date","follow_up_completed_date"],["Follow-up results","follow_up_notes"],["Notes","notes"]],"Hive_Treatments");
       if(harvest.error) {
         $("harvestHistory").textContent="Harvests unavailable: "+harvest.error.message;
         $("harvestTotals").textContent="Honey totals unavailable: "+harvest.error.message;
