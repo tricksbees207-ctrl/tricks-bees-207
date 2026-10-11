@@ -1287,7 +1287,21 @@
             const fields=retiring?{colony_status:"retired",end_date:new Date().toLocaleDateString("en-CA"),retirement_reason:reason.trim()||null}:{colony_status:"active",end_date:null,retirement_reason:null};
             const {error}=await supabase.from("Hive_Colonies").update(fields).eq("id",c.id);
             if(error){msg.textContent=error.message;return;}await refreshLocations();
-          });controls.append(change);item.append(controls);card.append(item);
+          });controls.append(change);
+          const deleteColony=make("button","Permanently Delete Colony","secondary");deleteColony.type="button";
+          deleteColony.addEventListener("click",async()=>{
+            const key=`DELETE COLONY ${c.id}`;
+            const typed=prompt(`PERMANENT COLONY DELETION\n\nColony: ${c.colony_name}\nPermanent location: ${locationLabel(h)}\n\nThis removes the colony registration, NOT the location or older location-based records. It cannot be undone.\n\nSafety check 1 of 2: Type exactly ${key}`,"");
+            if(typed===null)return;
+            if(typed!==key){msg.textContent="Colony deletion cancelled: deletion key did not match.";return;}
+            if(!confirm(`SAFETY CHECK 2 OF 2\n\nPermanently delete colony record ${c.colony_name} (ID ${c.id})?\n\nThis is irreversible. Keep historical colonies by retiring them instead. Existing location-linked records will remain.`))return;
+            const {data,error}=await supabase.from("Hive_Colonies").delete().eq("id",c.id).eq("hive_id",h.id).select("id");
+            if(error){msg.textContent="Colony deletion blocked: "+error.message;return;}
+            if(!data?.length){msg.textContent="Colony deletion was not permitted or the record was not found.";return;}
+            await refreshLocations();
+            msg.textContent=`Colony record ${c.colony_name} permanently deleted. Location ${h.hive_number} and its older records were preserved.`;
+          });controls.append(deleteColony);
+          item.append(controls);card.append(item);
         }
         history.append(card);
       }
