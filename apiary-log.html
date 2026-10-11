@@ -315,6 +315,7 @@
  </details>
  <p class="muted"><strong>Permanent deletion safeguard:</strong> Only newly added, unused locations (number 9 or higher) can be permanently deleted. Type a location-specific deletion key, then confirm again. Original locations 1–8 are protected. Any linked history prevents deletion.</p>
  <h4>Permanent Locations &amp; Colony History</h4>
+ <p class="muted">Colony transfers retain the colony ID and earlier records. The original hive location remains on past activity.</p>
  <div id="locationHistory">Loading...</div>
 </section>
         <h3>Select a Hive</h3>
@@ -1319,9 +1320,10 @@
     const locationLabel=h=>`Hive ${h.hive_number}: ${h.hive_name||"Unnamed"}`;
     async function refreshLocations(){
       const msg=$("locationMessage");msg.textContent="Loading locations and colonies...";
-      const [locResult,colResult]=await Promise.all([
+      const [locResult,colResult,transferResult]=await Promise.all([
         supabase.from("Hives").select("id,hive_number,hive_name,hive_location,hive_status").order("hive_number"),
-        supabase.from("Hive_Colonies").select("*").order("created_at",{ascending:false})
+        supabase.from("Hive_Colonies").select("*").order("created_at",{ascending:false}),
+        supabase.from("Colony_Transfers").select("*").order("transfer_date",{ascending:false}).limit(500)
       ]);
       if(locResult.error||colResult.error){msg.textContent="Unable to load: "+(locResult.error||colResult.error).message;return;}
       hives=locResult.data||[];colonyRecords=colResult.data||[];
@@ -1404,6 +1406,31 @@
             const {error}=await supabase.from("Hive_Colonies").update(fields).eq("id",c.id);
             if(error){msg.textContent=error.message;return;}await synchronizeHiveViews();
           });controls.append(change);
+          if(c.colony_status==="active"){
+            const transfer=make("button","Transfer Colony","secondary");transfer.type="button";
+            transfer.addEventListener("click",async()=>{
+              const destinations=hives.filter(dest=>String(dest.id)!==String(h.id)&&!activeIds.has(String(dest.id)));
+              if(!destinations.length){msg.textContent="No vacant destination locations are available.";return;}
+              const choice=prompt("Transfer "+c.colony_name+" from "+locationLabel(h)+".\\n\\nAvailable destinations:\\n"+destinations.map(d=>d.hive_number+" — "+(d.hive_name||"Unnamed")).join("\\n")+"\\n\\nEnter destination HIVE NUMBER:","");
+              if(choice===null)return;
+              const dest=destinations.find(d=>String(d.hive_number)===choice.trim());
+              if(!dest){msg.textContent="Choose a valid vacant destination hive number.";return;}
+              const date=prompt("Transfer date (YYYY-MM-DD). Must not precede colony start date.",new Date().toLocaleDateString("en-CA"));
+              if(date===null)return;
+              if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)||Number.isNaN(Date.parse(date))||new Date(date).toISOString().slice(0,10)!==date){msg.textContent="Enter a valid transfer date in YYYY-MM-DD format.";return;}
+              if(c.start_date&&date<c.start_date){msg.textContent="Transfer date cannot precede the colony start date.";return;}
+              if(date>new Date().toLocaleDateString("en-CA")){msg.textContent="Future transfer dates are not supported.";return;}
+              const reason=prompt("Reason for transfer (optional)","");if(reason===null)return;
+              const notes=prompt("Transfer notes (optional)","");if(notes===null)return;
+              if(!confirm("TRANSFER COLONY\\n\\n"+c.colony_name+"\\nFROM: "+locationLabel(h)+"\\nTO: "+locationLabel(dest)+"\\nDATE: "+date+"\\n\\nThe colony will become active at the destination. Historical activity stays associated with its original location. Continue?"))return;
+              msg.textContent="Transferring colony...";
+              const {data,error}=await supabase.rpc("transfer_colony",{p_colony_id:c.id,p_to_hive_id:dest.id,p_transfer_date:date,p_reason:reason.trim()||null,p_notes:notes.trim()||null});
+              if(error){msg.textContent="Transfer was not completed: "+error.message;return;}
+              await synchronizeHiveViews();
+              msg.textContent="Transfer recorded (ID "+data+"). "+c.colony_name+" is now at "+locationLabel(dest)+".";
+            });
+            controls.append(transfer);
+          }
           const deleteColony=make("button","Permanently Delete Colony","secondary");deleteColony.type="button";
           deleteColony.addEventListener("click",async()=>{
             const key=`DELETE COLONY ${c.id}`;
@@ -1419,9 +1446,22 @@
           });controls.append(deleteColony);
           item.append(controls);card.append(item);
         }
+        const transfers=(transferResult.data||[]).filter(t=>String(t.from_hive_id)===String(h.id)||String(t.to_hive_id)===String(h.id));
+        if(transfers.length){
+          const transferList=make("details");
+          transferList.append(make("summary","Transfer history ("+transfers.length+")"));
+          for(const t of transfers){
+            const from=hives.find(x=>String(x.id)===String(t.from_hive_id));
+            const to=hives.find(x=>String(x.id)===String(t.to_hive_id));
+            const col=colonyRecords.find(x=>String(x.id)===String(t.colony_id));
+            transferList.append(make("p",(t.transfer_date||"Unknown date")+" · "+(col?.colony_name||"Colony "+t.colony_id)+" · "+(from?locationLabel(from):"Location "+t.from_hive_id)+" → "+(to?locationLabel(to):"Location "+t.to_hive_id)+(t.transfer_reason?" · Reason: "+t.transfer_reason:"")+(t.transfer_notes?" · Notes: "+t.transfer_notes:"")));
+          }
+          card.append(transferList);
+        }
         history.append(card);
       }
-      msg.textContent="Locations and colony history updated. Older records are associated with locations, not automatically with new colonies.";
+      if(transferResult.error)msg.textContent="Locations loaded, but transfer history could not load: "+transferResult.error.message;
+      else msg.textContent="Locations and colony history updated. Older records are associated with locations, not automatically with new colonies.";
     }
     $("refreshLocations").addEventListener("click",refreshLocations);
     $("addLocation").addEventListener("click",async()=>{
