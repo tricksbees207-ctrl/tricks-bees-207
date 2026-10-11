@@ -432,11 +432,11 @@
 <textarea id="inspectionNotes" rows="5"
   placeholder="Record observations, concerns, and work needed..."></textarea>
 
-<button type="button" id="saveInspection">
-  Save Inspection
-</button>
-
-<p id="inspectionMessage"></p>
+<div class="toolbar">
+  <button type="button" id="saveInspection">Save Inspection</button>
+  <button type="button" id="cancelInspectionEdit" class="secondary" hidden>Cancel Edit</button>
+</div>
+<p id="inspectionMessage" class="section-status" role="status" aria-live="polite"></p>
   <hr>
 <h3>Inspection History</h3>
 <div id="inspectionHistory">
@@ -455,7 +455,13 @@
   </div>
   <label for="hiveEquipment">Hive Equipment</label><textarea id="hiveEquipment" maxlength="2000" placeholder="Boxes, frames, feeder, bottom board, etc."></textarea>
   <label for="hiveProfileNotes">Hive / Queen Notes</label><textarea id="hiveProfileNotes" maxlength="3000" placeholder="Queen replacement, splits, swarm notes, overwintering, etc."></textarea>
-  <button type="button" id="saveHiveProfile">Save Hive Profile</button><p id="hiveProfileMessage" class="section-status" role="status"></p>
+  <div class="toolbar">
+    <button type="button" id="saveHiveProfile">Save Hive Profile</button>
+    <button type="button" id="editHiveProfile" class="secondary" hidden>Edit Saved Profile</button>
+    <button type="button" id="deleteHiveProfile" class="secondary" hidden>Delete Saved Profile</button>
+  </div>
+  <p class="muted">Save Hive Profile creates or updates the current profile. Deleting the profile does not delete a colony or inspection history.</p>
+  <p id="hiveProfileMessage" class="section-status" role="status" aria-live="polite"></p>
 </div>
 <div class="management" id="feedingSection">
   <h3>Feeding Log</h3>
@@ -1053,6 +1059,67 @@
     let allInspections = [];
     let dashboardRequest = 0;
     let historyRequest = 0;
+    let editingInspectionId = null;
+    let editingInspectionColonyId = null;
+    let savedProfileId = null;
+
+    const inspectionFormFields = ["queenSeen","eggsSeen","broodPattern","temperament", "honeyStores", "pollenStores", "colonyStrength", "miteCount", "miteTestMethod", "feedingDetails", "treatmentApplied", "treatmentFollowUpDate", "inspectionNotes"];
+    const inspectionEditMap = {
+      inspectionDate:"inspection_date",queenSeen:"queen_seen",eggsSeen:"eggs_seen",
+      broodPattern:"brood_pattern",temperament:"temperament",honeyStores:"honey_stores",
+      pollenStores:"pollen_stores",colonyStrength:"colony_strength",miteCount:"mite_count",
+      miteTestMethod:"mite_test_method",feedingDetails:"feeding_details",
+      treatmentApplied:"treatment_applied",treatmentFollowUpDate:"treatment_follow_up_date",
+      inspectionNotes:"inspection_notes"
+    };
+    function resetInspectionForm(){
+      editingInspectionId=null;
+      editingInspectionColonyId=null;
+      for(const id of inspectionFormFields) $(id).value="";
+      $("inspectionDate").value=localToday();
+      $("saveInspection").textContent="Save Inspection";
+      $("cancelInspectionEdit").hidden=true;
+    }
+    function startInspectionEdit(inspection){
+      if(String(selectedHiveId)!==String(inspection.hive_id))return;
+      editingInspectionId=inspection.id;
+      editingInspectionColonyId=inspection.colony_id??null;
+      for(const [id,key] of Object.entries(inspectionEditMap)){
+        const data=inspection[key];
+        $(id).value=typeof data==="boolean"?String(data):data??"";
+      }
+      $("saveInspection").textContent="Save Changes";
+      $("cancelInspectionEdit").hidden=false;
+      $("inspectionMessage").textContent=`Editing inspection from ${formatDate(inspection.inspection_date)}. Make changes, then click Save Changes, or Cancel Edit.`;
+      $("inspectionEntry").scrollIntoView({behavior:"smooth",block:"start"});
+      $("inspectionDate").focus({preventScroll:true});
+    }
+    $("cancelInspectionEdit").addEventListener("click",()=>{
+      resetInspectionForm();
+      $("inspectionMessage").textContent="Editing canceled. No inspection changes were saved.";
+    });
+    async function deleteInspectionRecord(inspection){
+      const hiveId=selectedHiveId;
+      if(String(hiveId)!==String(inspection.hive_id))return;
+      const hive=hives.find(h=>String(h.id)===String(hiveId));
+      const label=hive?`Hive ${hive.hive_number}`:"this hive";
+      if(!confirm(`Permanently delete the inspection for ${label} on ${formatDate(inspection.inspection_date)}?\n\nThis cannot be undone. Other inspections and the colony record will be preserved.`))return;
+      const msg=$("inspectionMessage");msg.textContent="Deleting inspection...";
+      try{
+        const {data:{user},error:authError}=await supabase.auth.getUser();
+        if(authError||!user)throw new Error("Please sign in again.");
+        const {data,error}=await supabase.from("Hive_Inspections").delete()
+          .eq("id",inspection.id).eq("hive_id",hiveId).select("id");
+        if(error)throw error;
+        if(!data?.length)throw new Error("No inspection was deleted. Check your account permissions.");
+        if(String(selectedHiveId)===String(hiveId)){
+          if(editingInspectionId===inspection.id)resetInspectionForm();
+          msg.textContent="Inspection permanently deleted.";
+          await loadInspectionHistory(hiveId);
+        }
+        await Promise.all([loadDashboardData(),refreshStats()]);
+      }catch(error){if(String(selectedHiveId)===String(hiveId))msg.textContent="Delete failed: "+error.message;}
+    }
 
     function localToday() {
       const d = new Date();
@@ -1083,6 +1150,10 @@
     function clearSelectedHive() {
       managementRequest++;
       selectedHiveId=null;
+      resetInspectionForm();
+      savedProfileId=null;
+      $("editHiveProfile").hidden=true;
+      $("deleteHiveProfile").hidden=true;
       $("inspectionPanel").style.display="none";
       $("inspectionHistory").replaceChildren();
     }
@@ -1870,9 +1941,8 @@
           $("inspectionTitle").textContent=`Hive ${hive.hive_number}: ${hive.hive_name||"Unnamed"} Inspection`;
           $("inspectionPanel").style.display="block";
           $("inspectionMessage").textContent="";
-          // Reset fields so details from a previously selected hive cannot carry over.
-          for(const id of ["queenSeen","eggsSeen","broodPattern","temperament","honeyStores","pollenStores","colonyStrength","miteCount","miteTestMethod","feedingDetails","treatmentApplied","treatmentFollowUpDate","inspectionNotes"]) $(id).value="";
-          $("inspectionDate").value=localToday();
+          // Do not carry an edit, or its data, into a different hive.
+          resetInspectionForm();
           loadInspectionHistory(hive.id);
           resetManagementForm();
           loadManagement(hive.id);
@@ -1911,6 +1981,13 @@
             :"Treatment follow-up: Outstanding"));
           if(inspection.treatment_follow_up_notes)entry.append(make("p","Follow-up results: "+inspection.treatment_follow_up_notes));
         }
+        const actions=make("div",undefined,"record-actions");
+        const edit=make("button","Edit Inspection","secondary");edit.type="button";
+        edit.addEventListener("click",()=>startInspectionEdit(inspection));
+        const del=make("button","Delete Inspection","secondary");del.type="button";
+        del.addEventListener("click",()=>deleteInspectionRecord(inspection));
+        actions.append(edit,del);
+        entry.append(actions);
         history.append(entry);
       }
     }
@@ -1920,11 +1997,12 @@
       if(!value("inspectionDate")){message.textContent="Please enter an inspection date.";return;}
       const yesNo=id=>value(id)==="true"?true:value(id)==="false"?false:null;
       const hiveId=selectedHiveId;
+      const editId=editingInspectionId;
       const button=$("saveInspection");button.disabled=true;
-      message.textContent="Saving inspection...";
+      message.textContent=editId===null?"Saving inspection...":"Updating inspection...";
       try {
-        const {error}=await supabase.from("Hive_Inspections").insert({
-          hive_id:hiveId,colony_id:selectedRecordColony("inspection"),inspection_date:value("inspectionDate"),
+        const payload={
+          inspection_date:value("inspectionDate"),
           queen_seen:yesNo("queenSeen"),eggs_seen:yesNo("eggsSeen"),
           brood_pattern:value("broodPattern")||null,temperament:value("temperament")||null,
           honey_stores:value("honeyStores")||null,pollen_stores:value("pollenStores")||null,
@@ -1935,12 +2013,29 @@
           treatment_applied:value("treatmentApplied")||null,
           treatment_follow_up_date:value("treatmentFollowUpDate")||null,
           inspection_notes:value("inspectionNotes")||null
-        });
-        if(error) throw error;
-        message.textContent="Inspection saved successfully!";
-        if(String(selectedHiveId)===String(hiveId)) await loadInspectionHistory(hiveId);
-        await loadDashboardData();
-      }catch(error){message.textContent="Save failed: "+error.message;}
+        };
+        const {data:{user},error:authError}=await supabase.auth.getUser();
+        if(authError||!user)throw new Error("Please sign in again.");
+        if(editId===null){
+          const {error}=await supabase.from("Hive_Inspections").insert({
+            ...payload,hive_id:hiveId,colony_id:selectedRecordColony("inspection")
+          });
+          if(error)throw error;
+        }else{
+          // Preserve the inspection's original colony association and completed follow-up details.
+          // RLS checks the signed-in owner; both hive and record ID must match.
+          const {data,error}=await supabase.from("Hive_Inspections").update(payload)
+            .eq("id",editId).eq("hive_id",hiveId).select("id");
+          if(error)throw error;
+          if(!data?.length)throw new Error("No inspection updated. Check your account permissions.");
+        }
+        if(String(selectedHiveId)===String(hiveId)){
+          resetInspectionForm();
+          message.textContent=editId===null?"Inspection saved successfully!":"Inspection updated successfully!";
+          await loadInspectionHistory(hiveId);
+        }
+        await Promise.all([loadDashboardData(),refreshStats()]);
+      }catch(error){if(String(selectedHiveId)===String(hiveId))message.textContent="Save failed: "+error.message;}
       finally{button.disabled=false;}
     });
     $("refreshReminders").addEventListener("click",()=>Promise.all([loadDashboardData(),refreshStats()]));
@@ -2037,6 +2132,9 @@
       for(const id of ["hiveProfileMessage","feedMessage","treatMessage","harvestMessage","queenMessage","splitMessage","lossMessage"]) $(id).textContent="";
       for(const id of ["feedHistory","treatHistory","harvestHistory","queenHistory","splitHistory","lossHistory"]) $(id).textContent="Loading...";
       $("currentHiveProfile").textContent="Loading hive profile...";
+      savedProfileId=null;
+      $("editHiveProfile").hidden=true;
+      $("deleteHiveProfile").hidden=true;
       $("harvestTotals").textContent="Loading honey totals...";
     }
     function showRecords(elementId, records, fields, table=null) {
@@ -2064,6 +2162,9 @@
       const results=await Promise.all(tables.map(t=>supabase.from(t).select("*").eq("hive_id",hiveId)));
       if(request!==managementRequest||String(selectedHiveId)!==String(hiveId))return;
       const [profile,feed,treat,harvest,queen,splits,losses]=results;
+      savedProfileId=profile.error?null:(profile.data?.[0]?.id??null);
+      $("editHiveProfile").hidden=savedProfileId===null;
+      $("deleteHiveProfile").hidden=savedProfileId===null;
       const overview=$("currentHiveProfile"); overview.replaceChildren();
       if(profile.error) {
         $("hiveProfileMessage").textContent="Profile unavailable: "+profile.error.message;
@@ -2081,9 +2182,11 @@
           }
         }
       }
-      if(!profile.error && profile.data?.[0]) {
-        const p=profile.data[0];
-        for(const [id,key] of [["hiveStatus","status"],["queenOrigin","queen_origin"],["queenIntroduced","queen_introduced"],["queenMarked","queen_mark_color"],["hiveEquipment","equipment"],["hiveProfileNotes","notes"]]) $(id).value=p[key]??(id==="hiveStatus"?"Active":"");
+      if(!profile.error){
+        const p=profile.data?.[0];
+        // Clear stale values from any profile deleted or missing on this location.
+        for(const [id,key] of [["hiveStatus","status"],["queenOrigin","queen_origin"],["queenIntroduced","queen_introduced"],["queenMarked","queen_mark_color"],["hiveEquipment","equipment"],["hiveProfileNotes","notes"]])
+          $(id).value=p?.[key]??(id==="hiveStatus"?"Active":"");
       }
       if(feed.error) $("feedHistory").textContent="Feeding records unavailable: "+feed.error.message;
       else showRecords("feedHistory",feed.data?.sort((a,b)=>b.feed_date.localeCompare(a.feed_date)),[["Date","feed_date"],["Type","feed_type"],["Quantity","quantity"],["Unit","unit"],["Notes","notes"]],"Hive_Feedings");
@@ -2149,6 +2252,34 @@
       } catch(error) {msg.textContent="Save failed: "+error.message;}
       finally {button.disabled=false;}
     }
+    $("editHiveProfile").addEventListener("click",()=>{
+      if(savedProfileId===null){$("hiveProfileMessage").textContent="No saved profile exists yet. Enter details and click Save Hive Profile.";return;}
+      $("hiveProfileMessage").textContent="Saved profile fields are loaded above. Edit them and click Save Hive Profile to update.";
+      $("queenOrigin").scrollIntoView({behavior:"smooth",block:"center"});
+      $("queenOrigin").focus({preventScroll:true});
+    });
+    $("deleteHiveProfile").addEventListener("click",async()=>{
+      const hiveId=selectedHiveId,profileId=savedProfileId;
+      if(hiveId===null||profileId===null)return;
+      const hive=hives.find(h=>String(h.id)===String(hiveId));
+      const label=hive?`Hive ${hive.hive_number}`:"this hive";
+      if(!confirm(`Delete the saved Hive Profile for ${label}?\n\nThis clears its queen origin, mark, equipment and profile notes. It does NOT delete the hive location, its colony records or any inspection/history records.\n\nThis cannot be undone.`))return;
+      const btn=$("deleteHiveProfile"),msg=$("hiveProfileMessage");
+      btn.disabled=true;msg.textContent="Deleting saved profile...";
+      try{
+        const {data:{user},error:authError}=await supabase.auth.getUser();
+        if(authError||!user)throw new Error("Please sign in again.");
+        const {data,error}=await supabase.from("Hive_Profiles").delete()
+          .eq("id",profileId).eq("hive_id",hiveId).eq("user_id",user.id).select("id");
+        if(error)throw error;
+        if(!data?.length)throw new Error("No profile deleted. Check your account permissions.");
+        if(String(selectedHiveId)===String(hiveId)){
+          await loadManagement(hiveId);
+          msg.textContent="Hive profile deleted. Colony and history records were preserved.";
+        }
+      }catch(error){if(String(selectedHiveId)===String(hiveId))msg.textContent="Delete failed: "+error.message;}
+      finally{btn.disabled=false;}
+    });
     $("saveHiveProfile").addEventListener("click",()=>saveManagement("saveHiveProfile","Hive_Profiles",()=>({
       status:value("hiveStatus"),queen_origin:value("queenOrigin")||null,queen_introduced:value("queenIntroduced")||null,
       queen_mark_color:value("queenMarked")||null,equipment:value("hiveEquipment")||null,notes:value("hiveProfileNotes")||null
