@@ -544,3 +544,14 @@ html{scroll-behavior:smooth}.big-icon{font-size:32px}.varroa-section{background:
   white-space: normal;
   font-size: 11px;
 }
+
+/* Seasonal honey bee forage guide */
+.forage-seasonal-guide {
+  margin: 24px 0 36px;
+}
+.forage-seasonal-guide h3 {
+  margin: 10px 0 12px;
+}
+.forage-seasonal-guide .grid3 {
+  margin-top: 22px;
+}

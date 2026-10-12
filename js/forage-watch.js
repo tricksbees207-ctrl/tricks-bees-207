@@ -80,6 +80,7 @@
       const seen = new Set();
       const unique = [];
       for (const obs of (data.results || [])) {
+        if (!["species", "subspecies", "variety"].includes(obs.taxon?.rank)) continue;
         const key = obs.taxon?.id || cleanName(obs).toLowerCase();
         if (seen.has(key)) continue;
         seen.add(key);
