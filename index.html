@@ -5,6 +5,7 @@
 <title>Tricks Bees 207 | Maine Apiary Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <link rel="stylesheet" href="css/style.css">
+<style>#varroa [hidden]{display:none!important}</style>
 <script data-goatcounter="https://tricksbees207.goatcounter.com/count"
         async src="https://gc.zgo.at/count.js"></script>
 </head>
@@ -173,22 +174,18 @@
         <div class="mite-gridline g1"><span>1%</span></div>
         <div class="mite-gridline g0"><span>0%</span></div>
 
-        <div class="mite-empty">
+        <div class="mite-empty" id="varroa-empty" role="status">
           <strong>No sample results entered yet</strong>
           <span>Alcohol-wash results from the Tricks Bees 207 apiary will appear here as colonies are sampled.</span>
+        </div>
+        <div id="varroa-chart-container" hidden style="position:absolute;inset:0;z-index:3;background:#fff;min-width:0">
+          <canvas id="varroa-chart" role="img" aria-label="Alcohol-wash mite percentage by hive and sample date"></canvas>
         </div>
       </div>
       <div class="mite-x-title">Hive samples over time</div>
     </div>
 
-    <div class="mite-legend">
-      <span>Hive 1</span>
-      <span>Hive 2</span>
-      <span>Hive 3</span>
-      <span>Hive 4</span>
-      <span>Hive 5</span>
-      <span>Hive 6</span>
-    </div>
+    <p class="mite-legend" id="varroa-status" role="status">Public chart includes only recorded alcohol washes. Results are calculated as mites ÷ bees sampled × 100. Data refreshes every five minutes while this page is open.</p>
   </div>
 </section>
 
@@ -239,6 +236,68 @@
       button.firstChild.nodeValue='☰ ';
     });
   });
+})();
+</script>
+<script>
+(() => {
+  "use strict";
+  const endpoint="https://mkypanucvttinkjggxzv.supabase.co/rest/v1/varroa_watch_readonly?select=hive_number,sample_date,mite_percentage&order=sample_date.asc";
+  const apiKey="sb_publishable_-mN1hBm5z7YCjBzg_LDU4g_5C3N8ejJ";
+  const empty=document.getElementById("varroa-empty");
+  const container=document.getElementById("varroa-chart-container");
+  const status=document.getElementById("varroa-status");
+  const colors=["#b97712","#276d8a","#45803c","#9c4b65","#795a9e","#008577","#a34d23","#637087"];
+  let chart=null;
+  function formatDate(ms){return new Date(ms).toLocaleDateString("en-US",{timeZone:"UTC",month:"short",day:"numeric",year:"numeric"});}
+  async function refreshVarroa(){
+    try {
+      const response=await fetch(endpoint,{headers:{apikey:apiKey,Accept:"application/json"},cache:"no-store"});
+      if(!response.ok)throw new Error("Unable to read public chart data ("+response.status+").");
+      const rows=await response.json();
+      if(!Array.isArray(rows))throw new Error("Unexpected chart data format.");
+      const valid=rows.filter(r=>Number.isInteger(r.hive_number) && /^\d{4}-\d{2}-\d{2}$/.test(r.sample_date) && Number.isFinite(Number(r.mite_percentage)) && Number(r.mite_percentage)>=0);
+      if(valid.length===0){
+        if(chart){chart.destroy();chart=null;}
+        container.hidden=true;
+        document.querySelectorAll("#varroa .mite-gridline").forEach(el=>el.hidden=false);
+        empty.hidden=false;
+        status.textContent="No recorded alcohol-wash results yet. The chart will populate after an inspection is saved.";
+        return;
+      }
+      if(typeof Chart==="undefined")throw new Error("Chart library did not load.");
+      const hiveNumbers=[...new Set(valid.map(r=>r.hive_number))].sort((a,b)=>a-b);
+      const datasets=hiveNumbers.map((number,i)=>({
+        label:"Hive "+number,
+        data:valid.filter(r=>r.hive_number===number).map(r=>({
+          x:Date.parse(r.sample_date+"T12:00:00Z"),y:Number(r.mite_percentage)
+        })).sort((a,b)=>a.x-b.x),
+        borderColor:colors[i%colors.length],backgroundColor:colors[i%colors.length],
+        showLine:true,pointRadius:5,pointHoverRadius:7,borderWidth:2,tension:0.12
+      }));
+      if(chart)chart.destroy();
+      empty.hidden=true;
+      document.querySelectorAll("#varroa .mite-gridline").forEach(el=>el.hidden=true);
+      container.hidden=false;
+      chart=new Chart(document.getElementById("varroa-chart"),{
+        type:"scatter",data:{datasets},
+        options:{responsive:true,maintainAspectRatio:false,interaction:{mode:"nearest",intersect:false},
+          plugins:{legend:{position:"bottom"},tooltip:{callbacks:{
+            title:items=>items.length?formatDate(items[0].parsed.x):"",
+            label:item=>item.dataset.label+": "+item.parsed.y.toFixed(2)+"% mites"
+          }}},
+          scales:{x:{type:"linear",title:{display:true,text:"Sample date"},
+            ticks:{maxTicksLimit:5,callback:value=>formatDate(value)}},
+            y:{beginAtZero:true,title:{display:true,text:"Mites per 100 bees (%)"},ticks:{callback:v=>v+"%"}}}
+        }
+      });
+      status.textContent=valid.length+" alcohol-wash result"+(valid.length===1?"":"s")+" from "+hiveNumbers.length+" hive"+(hiveNumbers.length===1?"":"s")+". Updates automatically after new inspections; refreshes every five minutes.";
+    }catch(error){
+      status.textContent="Varroa Watch could not refresh: "+error.message;
+      if(!chart){empty.hidden=false;empty.querySelector("strong").textContent="Chart temporarily unavailable";}
+    }
+  }
+  refreshVarroa();
+  setInterval(refreshVarroa,5*60*1000);
 })();
 </script>
 <script src="js/camera-selector.js"></script>

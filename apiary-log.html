@@ -411,6 +411,9 @@
   step="1"
   placeholder="Enter number of mites counted"
 >
+  <label for="miteSampleSize">Bees in Sample</label>
+<input type="number" id="miteSampleSize" min="1" max="10000" step="1" value="300" required>
+<p class="muted">300 bees is your usual alcohol-wash sample. Change this if you count a different number. Only alcohol washes with a mite count appear on the public Varroa Watch chart.</p>
   <label for="miteTestMethod">Mite Testing Method</label>
 <select id="miteTestMethod">
   <option value="">Not recorded</option>
@@ -1053,7 +1056,7 @@
       ["Queen Seen", "queen_seen"], ["Eggs Seen", "eggs_seen"],
       ["Brood Pattern", "brood_pattern"], ["Temperament", "temperament"],
       ["Honey Stores", "honey_stores"], ["Pollen Stores", "pollen_stores"],
-      ["Colony Strength", "colony_strength"], ["Varroa Mite Count", "mite_count"],
+      ["Colony Strength", "colony_strength"], ["Varroa Mite Count", "mite_count"], ["Bees in Sample", "mite_sample_size"],
       ["Mite Testing Method", "mite_test_method"], ["Feeding Details", "feeding_details"],
       ["Treatment Applied", "treatment_applied"],
       ["Treatment Follow-Up Date", "treatment_follow_up_date"],
@@ -1068,11 +1071,11 @@
     let editingInspectionColonyId = null;
     let savedProfileId = null;
 
-    const inspectionFormFields = ["queenSeen","eggsSeen","broodPattern","temperament", "honeyStores", "pollenStores", "colonyStrength", "miteCount", "miteTestMethod", "feedingDetails", "treatmentApplied", "treatmentFollowUpDate", "inspectionNotes"];
+    const inspectionFormFields = ["queenSeen","eggsSeen","broodPattern","temperament", "honeyStores", "pollenStores", "colonyStrength", "miteCount", "miteSampleSize", "miteTestMethod", "feedingDetails", "treatmentApplied", "treatmentFollowUpDate", "inspectionNotes"];
     const inspectionEditMap = {
       inspectionDate:"inspection_date",queenSeen:"queen_seen",eggsSeen:"eggs_seen",
       broodPattern:"brood_pattern",temperament:"temperament",honeyStores:"honey_stores",
-      pollenStores:"pollen_stores",colonyStrength:"colony_strength",miteCount:"mite_count",
+      pollenStores:"pollen_stores",colonyStrength:"colony_strength",miteCount:"mite_count",miteSampleSize:"mite_sample_size",
       miteTestMethod:"mite_test_method",feedingDetails:"feeding_details",
       treatmentApplied:"treatment_applied",treatmentFollowUpDate:"treatment_follow_up_date",
       inspectionNotes:"inspection_notes"
@@ -1081,6 +1084,7 @@
       editingInspectionId=null;
       editingInspectionColonyId=null;
       for(const id of inspectionFormFields) $(id).value="";
+      $("miteSampleSize").value="300";
       $("inspectionDate").value=localToday();
       $("saveInspection").textContent="Save Inspection";
       $("cancelInspectionEdit").hidden=true;
@@ -1119,7 +1123,7 @@
         if(!data?.length)throw new Error("No inspection was deleted. Check your account permissions.");
         if(String(selectedHiveId)===String(hiveId)){
           if(editingInspectionId===inspection.id)resetInspectionForm();
-          msg.textContent="Inspection permanently deleted.";
+          msg.textContent="Inspection permanently deleted. Any linked public Varroa Watch result was removed automatically.";
           await loadInspectionHistory(hiveId);
         }
         await Promise.all([loadDashboardData(),refreshStats()]);
@@ -2091,6 +2095,26 @@
         history.append(entry);
       }
     }
+    // Only the summary is shared publicly. Private inspection notes never leave the owner-only table.
+    async function syncPublicVarroaResult(inspectionId,hiveId,inspection){
+      const isWash=inspection.mite_test_method==="Alcohol Wash" && inspection.mite_count!==null;
+      if(!isWash){
+        const {error}=await supabase.from("varroa_watch_results").delete().eq("inspection_id",inspectionId);
+        if(error)throw error;
+        return;
+      }
+      const hive=hives.find(h=>String(h.id)===String(hiveId));
+      if(!hive)throw new Error("Hive number could not be found.");
+      const percentage=Number((100*inspection.mite_count/inspection.mite_sample_size).toFixed(2));
+      const {error}=await supabase.from("varroa_watch_results").upsert({
+        inspection_id:inspectionId,
+        hive_number:hive.hive_number,
+        sample_date:inspection.inspection_date,
+        mite_percentage:percentage,
+        updated_at:new Date().toISOString()
+      },{onConflict:"inspection_id"});
+      if(error)throw error;
+    }
     $("saveInspection").addEventListener("click",async()=>{
       const message=$("inspectionMessage");
       if(selectedHiveId===null){message.textContent="Please select a hive first.";return;}
@@ -2108,19 +2132,26 @@
           honey_stores:value("honeyStores")||null,pollen_stores:value("pollenStores")||null,
           colony_strength:value("colonyStrength")||null,
           mite_count:value("miteCount")===""?null:Number(value("miteCount")),
+          mite_sample_size:Number(value("miteSampleSize")),
           mite_test_method:value("miteTestMethod")||null,
           feeding_details:value("feedingDetails")||null,
           treatment_applied:value("treatmentApplied")||null,
           treatment_follow_up_date:value("treatmentFollowUpDate")||null,
           inspection_notes:value("inspectionNotes")||null
         };
+        if(!Number.isInteger(payload.mite_sample_size) || payload.mite_sample_size < 1 || payload.mite_sample_size > 10000)
+          throw new Error("Bees in Sample must be a whole number between 1 and 10,000.");
+        if(payload.mite_count!==null && (!Number.isInteger(payload.mite_count) || payload.mite_count<0))
+          throw new Error("Mite count must be a whole number of zero or more.");
         const {data:{user},error:authError}=await supabase.auth.getUser();
         if(authError||!user)throw new Error("Please sign in again.");
+        let savedInspectionId;
         if(editId===null){
-          const {error}=await supabase.from("Hive_Inspections").insert({
+          const {data,error}=await supabase.from("Hive_Inspections").insert({
             ...payload,hive_id:hiveId,colony_id:selectedRecordColony("inspection")
-          });
+          }).select("id").single();
           if(error)throw error;
+          savedInspectionId=data.id;
         }else{
           // Preserve the inspection's original colony association and completed follow-up details.
           // RLS checks the signed-in owner; both hive and record ID must match.
@@ -2128,10 +2159,17 @@
             .eq("id",editId).eq("hive_id",hiveId).select("id");
           if(error)throw error;
           if(!data?.length)throw new Error("No inspection updated. Check your account permissions.");
+          savedInspectionId=data[0].id;
+        }
+        let publicChartWarning="";
+        try {
+          await syncPublicVarroaResult(savedInspectionId,hiveId,payload);
+        } catch(syncError) {
+          publicChartWarning=" Public Varroa Watch did not update: "+syncError.message;
         }
         if(String(selectedHiveId)===String(hiveId)){
           resetInspectionForm();
-          message.textContent=editId===null?"Inspection saved successfully!":"Inspection updated successfully!";
+          message.textContent=(editId===null?"Inspection saved successfully!":"Inspection updated successfully!")+publicChartWarning;
           await loadInspectionHistory(hiveId);
         }
         await Promise.all([loadDashboardData(),refreshStats()]);
