@@ -271,7 +271,7 @@
         container.hidden=true;
         document.querySelectorAll("#varroa .mite-gridline").forEach(el=>el.hidden=false);
         empty.hidden=false;
-        status.textContent="No recorded alcohol-wash results yet. The chart will populate after an inspection is saved.";
+        status.textContent="";
         return;
       }
       if(typeof Chart==="undefined")throw new Error("Chart library did not load.");
