@@ -632,7 +632,7 @@
   document.addEventListener('DOMContentLoaded', () => {
     const dashboard = document.getElementById('dashboard');
     if (!dashboard) return;
-    const mainPanel = dashboard.querySelector(':scope > .panel');
+    const mainPanel = dashboard.querySelector(':scope > .panel:not(.mfa-panel)');
     if (!mainPanel) return;
     const hiveList = document.getElementById('hiveList');
     const inspectionPanel = document.getElementById('inspectionPanel');
