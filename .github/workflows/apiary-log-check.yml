@@ -1,0 +1,53 @@
+name: Apiary Log code checks
+
+on:
+  pull_request:
+    paths:
+      - 'apiary-log.html'
+      - '.github/workflows/apiary-log-check.yml'
+  push:
+    paths:
+      - 'apiary-log.html'
+      - '.github/workflows/apiary-log-check.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  check-apiary-log:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check inline JavaScript syntax and MFA element references
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const os = require('node:os');
+          const path = require('node:path');
+          const cp = require('node:child_process');
+          const assert = require('node:assert/strict');
+          const html = fs.readFileSync('apiary-log.html', 'utf8');
+          const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)];
+          let checked = 0;
+          for (const [index, match] of scripts.entries()) {
+            const attributes = match[1];
+            const code = match[2].trim();
+            if (!code || /\bsrc\s*=/.test(attributes)) continue;
+            const file = path.join(os.tmpdir(), 'apiary-script-' + index + ( /type\s*=\s*["']module["']/.test(attributes) ? '.mjs' : '.js'));
+            fs.writeFileSync(file, code);
+            cp.execFileSync(process.execPath, ['--check', file], {stdio: 'inherit'});
+            checked++;
+          }
+          assert.ok(checked > 0, 'No inline scripts found');
+          const ids = [
+            'login', 'dashboard', 'mfaChallenge', 'mfaChallengeForm',
+            'mfaChallengeCode', 'mfaChallengeMessage', 'mfaChallengeSignOut',
+            'mfaSettingsStatus', 'mfaStartEnroll', 'mfaEnrollment',
+            'mfaEnrollQR', 'mfaEnrollSecret', 'mfaEnrollForm',
+            'mfaEnrollCode', 'mfaCancelEnroll', 'mfaEnrollMessage'
+          ];
+          for (const id of ids) {
+            assert.ok(html.includes('id="' + id + '"'), 'Missing MFA element: ' + id);
+          }
+          console.log('Syntax passed for ' + checked + ' scripts; all ' + ids.length + ' MFA elements found.');
+          NODE

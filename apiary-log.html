@@ -44,6 +44,13 @@
       font-weight: bold;
     }
     .hidden { display: none; }
+    .mfa-qr { display:block; max-width:220px; width:100%; margin:14px auto; }
+    .mfa-panel { border:1px solid #e8dcbf; border-radius:10px; padding:16px; margin:12px 0; background:#fffaf0; }
+    .mfa-panel label { display:block; margin:10px 0 4px; font-weight:bold; }
+    .mfa-panel input { width:100%; }
+    .mfa-panel button { max-width:100%; }
+    .mfa-panel .secondary { background:#eee5cf; }
+    .mfa-panel code { overflow-wrap:anywhere; user-select:all; }
     .error { color: #a32626; }
     .muted { color: #686052; }
  #inspectionPanel label {
@@ -191,7 +198,37 @@
         role="status"></p>
     </section>
 
+    <section id="mfaChallenge" class="panel hidden" aria-labelledby="mfaChallengeHeading">
+      <h2 id="mfaChallengeHeading">Verify your sign-in</h2>
+      <p>Enter the six-digit code from your authenticator app to open your Apiary Log.</p>
+      <form id="mfaChallengeForm">
+        <label for="mfaChallengeCode">Authenticator code</label>
+        <input id="mfaChallengeCode" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required>
+        <button type="submit">Verify and Open Apiary Log</button>
+      </form>
+      <p id="mfaChallengeMessage" class="error" role="status" aria-live="polite"></p>
+      <button type="button" id="mfaChallengeSignOut" class="secondary">Sign Out</button>
+    </section>
+
     <section id="dashboard" class="hidden">
+      <div class="panel mfa-panel" aria-labelledby="mfaSettingsHeading">
+        <h2 id="mfaSettingsHeading">Sign-in Security</h2>
+        <p id="mfaSettingsStatus" role="status">Checking authenticator protection...</p>
+        <button type="button" id="mfaStartEnroll" class="secondary hidden">Set Up Authenticator App</button>
+        <div id="mfaEnrollment" class="hidden">
+          <p>Scan this QR code with an authenticator app on your phone. Keep your phone and its recovery options secure.</p>
+          <img id="mfaEnrollQR" class="mfa-qr" alt="Authenticator app enrollment QR code">
+          <p>If scanning is unavailable, enter this secret manually in your authenticator app:</p>
+          <p><code id="mfaEnrollSecret"></code></p>
+          <form id="mfaEnrollForm">
+            <label for="mfaEnrollCode">Six-digit code from your app</label>
+            <input id="mfaEnrollCode" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required>
+            <button type="submit">Verify and Enable Two-Factor Authentication</button>
+          </form>
+          <button type="button" id="mfaCancelEnroll" class="secondary">Cancel Setup</button>
+        </div>
+        <p id="mfaEnrollMessage" role="status" aria-live="polite"></p>
+      </div>
       <div class="panel">
         <h2>Apiary Dashboard</h2>
         <p class="muted">Permanent hive locations and registered colony occupancy</p>
@@ -730,6 +767,116 @@
       "Apiary_Activities","Apiary_Expenses","Apiary_Income"
     ];
     let selectedValidBackup=null;
+    let mfaEnrollFactorId=null;
+    let authGateVersion=0;
+    const mfaCode=id=>$(id).value.trim();
+    function showAuthOnly(section){
+      for(const id of ["login","mfaChallenge","dashboard"])$(id).classList.toggle("hidden",id!==section);
+    }
+    async function refreshMfaSettings(){
+      const status=$("mfaSettingsStatus"),button=$("mfaStartEnroll");
+      button.classList.add("hidden");
+      const {data,error}=await supabase.auth.mfa.listFactors();
+      if(error){status.textContent="Cannot check authenticator status: "+error.message;return;}
+      const enabled=(data?.totp||[]).some(f=>f.status==="verified");
+      status.textContent=enabled?"Authenticator protection is enabled. You will need a code on future sign-ins.":"Authenticator protection is not yet enabled.";
+      if(!enabled&&!mfaEnrollFactorId)button.classList.remove("hidden");
+    }
+    async function verifyMfaCode(factorId,code){
+      const {data:challenge,error:challengeError}=await supabase.auth.mfa.challenge({factorId});
+      if(challengeError)throw challengeError;
+      const {error:verifyError}=await supabase.auth.mfa.verify({factorId,challengeId:challenge.id,code});
+      if(verifyError)throw verifyError;
+    }
+    async function guardMfa(session){
+      const version=++authGateVersion;
+      if(!session){showAuthOnly("login");return false;}
+      // Never display private panels while checking the second factor.
+      showAuthOnly(null);
+      const {data,error}=await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if(version!==authGateVersion)return false;
+      if(error){
+        showAuthOnly("mfaChallenge");
+        $("mfaChallengeMessage").textContent="Unable to check sign-in security: "+error.message;
+        return false;
+      }
+      if(data.currentLevel==="aal1"&&data.nextLevel==="aal2"){
+        showAuthOnly("mfaChallenge");
+        $("mfaChallengeMessage").textContent="";
+        return false;
+      }
+      if(data.nextLevel!=="aal1"&&data.currentLevel!=="aal2"){
+        showAuthOnly("mfaChallenge");
+        $("mfaChallengeMessage").textContent="Sign-in security could not be verified. Please sign out and try again.";
+        return false;
+      }
+      showAuthOnly("dashboard");
+      refreshMfaSettings();
+      return true;
+    }
+    $("mfaChallengeForm").addEventListener("submit",async event=>{
+      event.preventDefault();
+      const message=$("mfaChallengeMessage");
+      message.textContent="Verifying code...";
+      try{
+        const {data,error}=await supabase.auth.mfa.listFactors();
+        if(error)throw error;
+        const factor=(data?.totp||[]).find(f=>f.status==="verified");
+        if(!factor)throw Error("No verified authenticator found. Contact the account administrator.");
+        await verifyMfaCode(factor.id,mfaCode("mfaChallengeCode"));
+        $("mfaChallengeCode").value="";
+        message.textContent="";
+        const {data:sessionData}=await supabase.auth.getSession();
+        await showDashboard(sessionData.session);
+      }catch(error){message.textContent=error.message;}
+    });
+    $("mfaChallengeSignOut").addEventListener("click",()=>supabase.auth.signOut());
+    $("mfaStartEnroll").addEventListener("click",async()=>{
+      const msg=$("mfaEnrollMessage");
+      msg.textContent="Preparing authenticator setup...";
+      $("mfaStartEnroll").disabled=true;
+      try{
+        const {data,error}=await supabase.auth.mfa.enroll({factorType:"totp",friendlyName:"Tricks Bees 207 Apiary Log"});
+        if(error)throw error;
+        mfaEnrollFactorId=data.id;
+        $("mfaEnrollQR").src=data.totp.qr_code;
+        $("mfaEnrollSecret").textContent=data.totp.secret;
+        $("mfaEnrollment").classList.remove("hidden");
+        $("mfaStartEnroll").classList.add("hidden");
+        msg.textContent="Scan the code, then verify the six-digit number to activate protection.";
+      }catch(error){msg.textContent="Setup failed: "+error.message;}
+      finally{$("mfaStartEnroll").disabled=false;}
+    });
+    $("mfaEnrollForm").addEventListener("submit",async event=>{
+      event.preventDefault();
+      const msg=$("mfaEnrollMessage");
+      if(!mfaEnrollFactorId)return;
+      msg.textContent="Verifying authenticator...";
+      try{
+        await verifyMfaCode(mfaEnrollFactorId,mfaCode("mfaEnrollCode"));
+        mfaEnrollFactorId=null;
+        $("mfaEnrollment").classList.add("hidden");
+        $("mfaEnrollQR").removeAttribute("src");
+        $("mfaEnrollSecret").textContent="";
+        $("mfaEnrollCode").value="";
+        msg.textContent="Two-factor authentication enabled successfully.";
+        await refreshMfaSettings();
+      }catch(error){msg.textContent="Verification failed: "+error.message;}
+    });
+    $("mfaCancelEnroll").addEventListener("click",async()=>{
+      const msg=$("mfaEnrollMessage"),id=mfaEnrollFactorId;
+      if(id){
+        const {error}=await supabase.auth.mfa.unenroll({factorId:id});
+        if(error){msg.textContent="Could not cancel setup: "+error.message;return;}
+      }
+      mfaEnrollFactorId=null;
+      $("mfaEnrollment").classList.add("hidden");
+      $("mfaEnrollQR").removeAttribute("src");
+      $("mfaEnrollSecret").textContent="";
+      $("mfaEnrollCode").value="";
+      msg.textContent="Setup cancelled. Your current sign-in still works.";
+      await refreshMfaSettings();
+    });
     let previewToken=0;
     function showBackupPreview(file){
       const token=++previewToken;
@@ -2024,10 +2171,10 @@
       if (!session) {
         dashboardRequest++;historyRequest++;
         hives=[];allInspections=[];clearSelectedHive();
-        $("login").classList.remove("hidden");$("dashboard").classList.add("hidden");
+        await guardMfa(null);
         return;
       }
-      $("login").classList.add("hidden");$("dashboard").classList.remove("hidden");
+      if(!await guardMfa(session))return;
       const list=$("hiveList");list.textContent="Loading hives...";
       const {data,error}=await supabase.from("Hives")
         .select("id,hive_number,hive_name,hive_location").order("hive_number");
