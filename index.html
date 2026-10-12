@@ -166,6 +166,16 @@
       </div>
       <span class="mite-chart-note">Varroa monitoring</span>
     </div>
+    <style>
+      /* The chart draws its own axes when data exists; hide the old placeholder axes. */
+      #varroa .mite-chart-wrap { padding-left: 0; }
+      #varroa .mite-y-title, #varroa .mite-x-title, #varroa .mite-gridline { display: none !important; }
+      #varroa .mite-chart-area { border: 0; background: #f7f3e8; border-radius: 10px; overflow: hidden; }
+      #varroa .mite-empty { padding: 28px; gap: 4px; }
+      #varroa .mite-empty[hidden] { display: none !important; }
+      #varroa #varroa-chart-container[hidden] { display: none !important; }
+      #varroa #varroa-chart-container:not([hidden]) { padding: 12px; box-sizing: border-box; border-radius: 10px; }
+    </style>
     <div class="mite-chart-wrap">
       <div class="mite-y-title">Mites per 100 bees (%)</div>
       <div class="mite-chart-area">
