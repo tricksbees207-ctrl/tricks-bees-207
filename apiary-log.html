@@ -156,6 +156,11 @@
     #manageLocationsSection input,#manageLocationsSection select,#manageLocationsSection textarea{display:block;width:100%;box-sizing:border-box;padding:11px;border:1px solid #aaa;border-radius:6px;font:inherit}
     #manageLocationsSection textarea{min-height:70px}
     #manageLocationsSection .two-col{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+    .deletion-check { margin:9px 0 0; padding:10px 12px; border-radius:7px; background:#fff8e5; border:1px solid #e4cf9f; overflow-wrap:anywhere; }
+    .deletion-check[hidden] { display:none; }
+    .deletion-check.blocked { border-left:4px solid #a32626; }
+    .deletion-check ul { margin:7px 0 0; padding-left:22px; }
+    .deletion-check li { margin:5px 0; }
 
     @media(max-width:560px) { .section-tabs { gap:6px; padding:8px; } .section-tabs button { font-size:13px; padding:9px 10px; } }
 
@@ -313,7 +318,7 @@
   <label for="newColonyNotes">Historical concerns / initial notes (optional)</label><textarea id="newColonyNotes" placeholder="Things to watch at this location..."></textarea>
   <button type="button" id="addColony">Register New Colony</button>
  </details>
- <p class="muted"><strong>Permanent deletion safeguard:</strong> Only newly added, unused locations (number 9 or higher) can be permanently deleted. Type a location-specific deletion key, then confirm again. Original locations 1–8 are protected. Any linked history prevents deletion.</p>
+ <p class="muted"><strong>Permanent deletion safeguard:</strong> Only newly added, unused locations (number 9 or higher) can be permanently deleted. Check Linked Records shows anything you must address first. Type a location-specific deletion key, then confirm again. Original locations 1–8 are protected. Any linked history prevents deletion.</p>
  <h4>Permanent Locations &amp; Colony History</h4>
  <p class="muted">Colony transfers retain the colony ID and earlier records. The original hive location remains on past activity.</p>
  <div id="locationHistory">Loading...</div>
@@ -1734,6 +1739,60 @@
       panel.prepend(make("p",total+" linked activity record(s) found across the available sections. Historical location-only records are not included."));
     }
     const locationLabel=h=>`Hive ${h.hive_number}: ${h.hive_name||"Unnamed"}`;
+    // Read-only counts for every table that references Hives through a foreign key.
+    // Check both sides of transfers and splits, including references to daughter hives.
+    const locationDependencyChecks=[
+      {table:"Hive_Colonies",label:"Colony registrations",where:"Manage Hives → colony history"},
+      {table:"Hive_Profiles",label:"Hive profiles",where:"Hives → Hive Profile"},
+      {table:"Hive_Inspections",label:"Inspections",where:"Hives → Inspection"},
+      {table:"Hive_Feedings",label:"Feedings",where:"Hives → Feedings"},
+      {table:"Hive_Treatments",label:"Treatments",where:"Hives → Treatments"},
+      {table:"Hive_Harvests",label:"Honey harvests",where:"Hives → Harvests"},
+      {table:"Hive_Queen_Replacements",label:"Queen replacement records",where:"Hives → Queens"},
+      {table:"Hive_Splits",label:"Colony splits (parent or daughter)",where:"Hives → Splits",fields:["hive_id","daughter_hive_id"]},
+      {table:"Hive_Losses",label:"Colony losses",where:"Hives → Losses"},
+      {table:"Apiary_Activities",label:"Apiary activities",where:"Check activity history"},
+      {table:"Apiary_Expenses",label:"Expenses",where:"Expenses tab"},
+      {table:"Apiary_Income",label:"Income",where:"Income tab"},
+      {table:"Colony_Transfers",label:"Colony transfers (from or to)",where:"Manage Hives → transfer history",fields:["from_hive_id","to_hive_id"]}
+    ];
+    async function inspectLocationDependencies(hiveId){
+      const results=await Promise.all(locationDependencyChecks.map(async check=>{
+        const filters=check.fields||["hive_id"];
+        let query=supabase.from(check.table).select("id",{count:"exact",head:true});
+        if(filters.length===1)query=query.eq(filters[0],hiveId);
+        else query=query.or(filters.map(field=>`${field}.eq.${hiveId}`).join(","));
+        try{
+          const {count,error}=await query;
+          if(error)throw error;
+          if(!Number.isInteger(count)||count<0)throw new Error("Record count unavailable");
+          return {...check,count};
+        }catch(error){return {...check,error:error?.message||"Unknown error"};}
+      }));
+      return {blockers:results.filter(r=>r.count>0),failures:results.filter(r=>r.error)};
+    }
+    function renderLocationDeletionCheck(host,h,report){
+      host.replaceChildren();host.hidden=false;host.classList.remove("blocked");
+      if(report.blockers.length){
+        host.classList.add("blocked");
+        const count=report.blockers.reduce((sum,r)=>sum+r.count,0);
+        host.append(make("strong",`Cannot delete Hive ${h.hive_number}: ${count} linked record${count===1?"":"s"} remain.`));
+        const list=make("ul");
+        for(const entry of report.blockers){
+          list.append(make("li",`${entry.label}: ${entry.count} record${entry.count===1?"":"s"} — ${entry.where}`));
+        }
+        host.append(list,make("p","Review the records listed above. Keep genuine history; remove only mistaken test entries. Nothing was deleted."));
+      }else if(!report.failures.length){
+        host.append(make("strong","No linked records found."),make("p","All linked sections were checked. Final deletion still requires two confirmations and database approval."));
+      }
+      if(report.failures.length){
+        host.classList.add("blocked");
+        host.append(make("strong","Safety check incomplete. Deletion is disabled."));
+        const list=make("ul");
+        for(const entry of report.failures)list.append(make("li",`${entry.label}: ${entry.error}`));
+        host.append(list,make("p","Please try again later. No deletion was attempted."));
+      }
+    }
     async function refreshLocations(){
       const msg=$("locationMessage");msg.textContent="Loading locations and colonies...";
       const [locResult,colResult,transferResult]=await Promise.all([
@@ -1779,25 +1838,66 @@
           await synchronizeHiveViews();
           msg.textContent=`Location number changed from ${h.hive_number} to ${newNumber}.`;
         });actions.append(renumber);
-        if(Number(h.hive_number)>8){
+        if(Number(h.hive_number)>8 && Number(h.id)>8){
+          // Both number and original database ID must be new, protecting Hives 1–8 even after renumbering.
+          const check=make("button","Check Linked Records","secondary");check.type="button";
           const erase=make("button","Permanently Delete Unused Location","secondary");erase.type="button";
+          const feedback=make("div",undefined,"deletion-check");
+          feedback.hidden=true;
+          feedback.setAttribute("role","status");
+          feedback.setAttribute("aria-live","polite");
+          let checking=false;
+          const setBusy=busy=>{checking=busy;check.disabled=busy;erase.disabled=busy;};
+          const showMessage=(message,blocked=false)=>{
+            feedback.replaceChildren(make("p",message));feedback.hidden=false;
+            feedback.classList.toggle("blocked",blocked);
+          };
+          async function performSafetyCheck(){
+            if(checking)return null;
+            setBusy(true);showMessage(`Checking records linked to Hive ${h.hive_number}...`);
+            try{
+              const report=await inspectLocationDependencies(h.id);
+              if(!card.isConnected)return null;
+              renderLocationDeletionCheck(feedback,h,report);
+              return report;
+            }catch(error){
+              if(card.isConnected)showMessage("Could not check linked records: "+error.message+". Nothing was deleted.",true);
+              return null;
+            }finally{setBusy(false);}
+          }
+          check.addEventListener("click",performSafetyCheck);
           erase.addEventListener("click",async()=>{
-            const current=colonyRecords.filter(c=>String(c.hive_id)===String(h.id));
-            if(current.length){msg.textContent="Cannot delete this location: it has colony history. Retire colonies instead.";return;}
+            if(checking)return;
+            // A fresh read-only check occurs BEFORE prompting or attempting deletion.
+            const report=await performSafetyCheck();
+            if(!report||report.blockers.length||report.failures.length)return;
             const key=`DELETE HIVE ${h.hive_number}`;
             const typed=prompt(`PERMANENT DELETION: This cannot be undone. Only use for a mistaken, unused location.\n\nSafety check 1 of 2: Type exactly ${key}`,"");
             if(typed===null)return;
-            if(typed!==key){msg.textContent="Deletion cancelled: deletion key did not match.";return;}
-            if(!confirm(`SAFETY CHECK 2 OF 2\n\nPermanently delete ${locationLabel(h)}? This cannot be undone. Any linked records should block deletion.`))return;
-            // The database's foreign keys are the final safeguard for all linked history.
-            const {data,error}=await supabase.from("Hives").delete().eq("id",h.id).select("id");
-            if(error){msg.textContent="Deletion blocked. This location may have linked records or lack delete permission: "+error.message;return;}
-            if(!data?.length){msg.textContent="Deletion was not permitted or no matching location was found. No deletion confirmed.";return;}
-            await synchronizeHiveViews();
-            msg.textContent=`Unused location ${h.hive_number} permanently deleted.`;
-          });actions.append(erase);
-        }
-        card.append(actions);
+            if(typed!==key){showMessage("Deletion cancelled: deletion key did not match.");return;}
+            if(!confirm(`SAFETY CHECK 2 OF 2\n\nPermanently delete ${locationLabel(h)}? This cannot be undone. Any newly linked records will still block deletion.`))return;
+            setBusy(true);showMessage("Performing final database deletion check...");
+            try{
+              // Foreign keys remain the final safeguard if records change after the read-only check.
+              const {data,error}=await supabase.from("Hives").delete().eq("id",h.id).select("id");
+              if(error||!data?.length){
+                // A linked record could have appeared after the preflight check.
+                const newReport=await inspectLocationDependencies(h.id);
+                if(card.isConnected){
+                  if(newReport.blockers.length||newReport.failures.length)renderLocationDeletionCheck(feedback,h,newReport);
+                  else showMessage("Deletion was not completed. "+(error?.message||"Check your delete permission or whether the location still exists.")+" No records were removed.",true);
+                }
+                return;
+              }
+              await synchronizeHiveViews();
+              msg.textContent=`Unused location ${h.hive_number} permanently deleted.`;
+            }catch(error){
+              if(card.isConnected)showMessage("Deletion was not completed: "+error.message,true);
+            }finally{setBusy(false);}
+          });
+          actions.append(check,erase);
+          card.append(actions,feedback);
+        }else card.append(actions);
         if(!at.length)card.append(make("p","No colony records registered. Existing location records remain available under Hives.","muted"));
         for(const c of at){
           const item=make("div",undefined,"record");
