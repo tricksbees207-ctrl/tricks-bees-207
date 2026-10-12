@@ -130,7 +130,21 @@
   <div class="grid3" id="forage-cards">
     <article class="panel forage-card forage-loading"><div class="flower">🌼</div><h3>Loading local bloom data</h3><p>Looking for recent plant observations specifically marked with flowers.</p></article>
   </div>
-  <p class="forage-note" id="forage-note">Source: iNaturalist community observations. Flowering status uses the iNaturalist Flowers and Fruits annotation set to Flowers. Results depend on what people have recently observed and reported nearby.</p>
+  <div class="forage-potential-section">
+  <div class="eyebrow">RECENT LOCAL PLANT SIGHTINGS</div>
+  <h3>Recently Observed Potential Bee Forage</h3>
+  <p class="section-intro">Plants recently observed around Ellsworth that may provide nectar or pollen during their typical flowering season. These sightings do not confirm that the plants are currently blooming.</p>
+  <p class="forage-live-status" id="forage-potential-status">Checking recent plant sightings…</p>
+  <div class="grid3" id="forage-potential-cards">
+    <article class="panel forage-card forage-loading">
+      <div class="flower">🌿</div>
+      <h3>Checking nearby plants</h3>
+      <p>Looking for potential honey bee forage.</p>
+    </article>
+  </div>
+</div>
+
+<p class="forage-note" id="forage-note">Source: iNaturalist community observations. Flowering status uses the iNaturalist Flowers and Fruits annotation set to Flowers. Results depend on what people have recently observed and reported nearby.</p>
 </section>
 
 
@@ -234,4 +248,5 @@
 <script src="js/forage-watch.js"></script>
 <script src="js/forage-seasonal.js"></script>
 
+<script src="js/forage-potential.js"></script>
 </body></html>
