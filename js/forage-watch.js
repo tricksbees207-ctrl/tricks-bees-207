@@ -85,7 +85,7 @@
         if (seen.has(key)) continue;
         seen.add(key);
         unique.push(obs);
-        if (unique.length === 3) break;
+        if (unique.length === 6) break;
       }
       if (!unique.length) {
         cards.innerHTML = `<article class="panel forage-card forage-empty"><div class="flower">🌱</div><h3>No recent reports found</h3><p>No verifiable flowering observations were returned for the last ${DAYS_BACK} days within about ${ELLSWORTH.radiusKm} km of Ellsworth.</p></article>`;
