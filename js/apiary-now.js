@@ -23,3 +23,36 @@ const apiaryNowData = {
   document.getElementById("apiary-now-watch").innerHTML =
     `<strong>What we're watching:</strong>` + d.watching.map(item => `<span>${item}</span>`).join("");
 })();
+
+// Automatically display the current month's hive-management recommendations.
+(function () {
+  function showMonthlyTasks() {
+    const guide = apiaryMonthlyTasks[new Date().getMonth()];
+    if (!guide) return;
+
+    document.getElementById("apiary-now-eyebrow").textContent =
+      guide.month.toUpperCase() + " IN COASTAL MAINE";
+
+    document.getElementById("apiary-now-intro").textContent =
+      "Recommended beekeeping tasks for " + guide.month +
+      " in coastal Maine. Adjust these recommendations to weather and actual hive conditions.";
+
+    document.getElementById("apiary-now-updated").textContent =
+      "Seasonal guide: " + guide.month +
+      " | Guidance last reviewed: October 12, 2026";
+
+    document.getElementById("apiary-now-cards").innerHTML =
+      guide.tasks.map(task =>
+        '<article class="season-card"><span>' + task[0] +
+        '</span><h3>' + task[1] +
+        '</h3><p>' + task[2] + '</p></article>'
+      ).join("");
+
+    document.getElementById("apiary-now-watch").innerHTML =
+      "<strong>Monthly priorities:</strong>" +
+      guide.tasks.map(task => "<span>" + task[1] + "</span>").join("");
+  }
+
+  showMonthlyTasks();
+  setInterval(showMonthlyTasks, 60 * 60 * 1000);
+})();
