@@ -1,15 +1,15 @@
 // Edit this one object whenever the seasonal apiary update changes.
 const apiaryNowData = {
-  eyebrow: "LATE SEPTEMBER IN MAINE",
-  updated: "September 29, 2026",
-  intro: "The apiary is shifting from summer production toward winter survival. Colonies are tightening their brood nests, protecting stores, and making the most of the final dependable forage before cold weather settles in.",
+  eyebrow: "MID-OCTOBER IN MAINE",
+  updated: "October 12, 2026",
+  intro: "Coastal Maine honey bee colonies are preparing for winter. Brood rearing is generally declining, dependable nectar sources are fading, and colonies are increasingly relying on stored food. Weather and the timing of the first hard frosts affect how quickly this transition occurs.",
   cards: [
-    { icon: "🐝", title: "Winter bees are taking over", text: "Brood production is contracting and the long-lived workers that carry the colony through winter are increasingly important." },
-    { icon: "🍯", title: "Stores matter now", text: "Colonies need substantial food reserves for a Maine winter. Hive weight and stored honey become especially useful things to watch as the season closes." },
-    { icon: "🔬", title: "Varroa pressure matters", text: "Late-season colony health has an outsized effect on winter survival. Mite monitoring and properly timed management remain important as winter bees develop." },
-    { icon: "🚪", title: "Guarding gets serious", text: "As forage declines, robbing pressure and yellowjacket activity can become more noticeable around weaker colonies." }
+    { icon: "🐝", title: "Winter cluster preparation", text: "Colonies are shifting toward winter survival. Brood nests typically shrink, and healthy winter bees become increasingly important as temperatures fall." },
+    { icon: "🍯", title: "Check winter food reserves", text: "Stored honey and overall hive weight are especially important now. Colonies need adequate accessible food to survive the long Maine winter." },
+    { icon: "🔬", title: "Varroa and colony health", text: "Varroa control remains critical to winter survival. Review mite monitoring and treatment history, and follow product labels and temperature requirements for any remaining treatments." },
+    { icon: "🍂", title: "The final fall forage", text: "Asters and goldenrod may still offer nectar or pollen during mild periods, but frost and shorter days are bringing the main forage season to a close." }
   ],
-  watching: ["Hive weight", "Food stores", "Varroa levels", "Brood contraction", "Entrance activity"]
+  watching: ["Hive weight", "Winter food reserves", "Varroa management", "Brood reduction", "Fall forage and frost"]
 };
 
 (function renderApiaryNow() {
