@@ -240,6 +240,16 @@
           <p id="dashboardMessage" class="status" role="status"></p>
           <div id="treatmentReminders">Loading treatment follow-ups...</div><h4>Completed Follow-Ups</h4><div id="completedFollowUps">Loading completed follow-ups...</div>
         </section>
+        <section aria-labelledby="splitDashboardHeading" class="management">
+          <h3 id="splitDashboardHeading">Colony Split Follow-Up Dashboard</h3>
+          <p class="muted">All parent hives in one place. Completed split inspections remain in history.</p>
+          <button type="button" class="secondary" id="refreshSplitDashboard">Refresh Split Follow-Ups</button>
+          <div class="summary-grid" id="splitDashboardSummary" aria-live="polite"></div>
+          <p id="splitDashboardMessage" class="section-status" role="status"></p>
+          <div id="splitDashboardPending">Loading split follow-ups...</div>
+          <h4>Recently Completed Split Follow-Ups</h4>
+          <div id="splitDashboardCompleted">Loading completed split follow-ups...</div>
+        </section>
 <section aria-labelledby="statsHeading" id="statisticsSection">
   <h3 id="statsHeading">Apiary Statistics &amp; Reports</h3>
   <p class="muted">Summary of your saved records. Select a year or view all years. Empty categories show zero, not estimated activity.</p>
@@ -666,6 +676,8 @@
     if (summary) overview.appendChild(summary);
     const reminders = document.getElementById('reminderHeading')?.closest('section');
     if (reminders) overview.appendChild(reminders);
+    const splitDashboard = document.getElementById("splitDashboardHeading")?.closest("section");
+    if (splitDashboard) overview.appendChild(splitDashboard);
 
     const manageSection = document.getElementById('manageLocationsSection');
     if(manageSection) mainPanel.insertBefore(manageSection,hivePage);
@@ -767,6 +779,7 @@
 
   <script type="module">
     import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+    import { setupSplitFollowups } from "./js/split-followups-dashboard.js";
     const supabase = createClient("https://mkypanucvttinkjggxzv.supabase.co", "sb_publishable_-mN1hBm5z7YCjBzg_LDU4g_5C3N8ejJ");
     const $ = id => document.getElementById(id);
     const value = id => $(id).value;
@@ -1313,6 +1326,10 @@
       el.append(make("strong",number),make("span",label));
       return el;
     }
+    const refreshSplitFollowups=setupSplitFollowups({
+      supabase,make,tile,formatDate,dayDifference,localToday,
+      getHives:()=>hives,getSelectedHiveId:()=>selectedHiveId,loadManagement
+    });
     function clearSelectedHive() {
       managementRequest++;
       selectedHiveId=null;
@@ -1420,6 +1437,7 @@
         doneList.append(card);
       }
       $("dashboardMessage").textContent=`Updated ${new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}. Completed follow-ups are excluded from overdue and due-soon counts.${treatError?" Treatment log follow-ups could not load: "+treatError.message:""}`;
+      await refreshSplitFollowups();
     }
     let statsRows=[];
     let expenseRecords=[],receiptRecords=[],receiptListAvailable=false,editingExpenseId=null;
@@ -2057,6 +2075,9 @@
       hives=locResult.data||[];colonyRecords=colResult.data||[];
       renderSelectedHiveColonyHistory();
       updateRecordColonySelector();
+      const priorDaughter=value("splitDaughter"),priorDaughterColony=value("splitDaughterColony");
+      refreshSplitDaughterOptions(priorDaughter);
+      refreshSplitDaughterColonyOptions(priorDaughterColony);
       const active=colonyRecords.filter(c=>c.colony_status==="active");
       const activeIds=new Set(active.map(c=>String(c.hive_id)));
       $("locationSummary").replaceChildren(tile("Permanent locations",hives.length),tile("Registered active colonies",active.length),tile("Vacant locations",hives.filter(h=>!activeIds.has(String(h.id))).length),tile("Retired colony records",colonyRecords.filter(c=>c.colony_status==="retired").length));
@@ -2478,6 +2499,7 @@
       if(done&&!value("splitFollowUpCompletedDate"))throw new Error("Enter the date the follow-up was completed.");
       if(!done&&(value("splitFollowUpCompletedDate")||value("splitFollowUpNotes").trim()))throw new Error("Mark follow-up Completed before recording completion details.");
       if(done&&value("splitFollowUpCompletedDate")<value("splitDate"))throw new Error("Follow-up completion cannot be earlier than the split date.");
+      if(done&&value("splitFollowUpCompletedDate")>localToday())throw new Error("Follow-up completion cannot be in the future.");
     }
     const mgmtIds = ["hiveStatus","queenOrigin","queenIntroduced","queenMarked","hiveEquipment","hiveProfileNotes","feedDate","feedType","feedQuantity","feedUnit","feedNotes","treatDate","treatProduct","treatAmount","treatFollowUp","treatNotes","harvestDate","harvestPounds","harvestNotes","queenReplaceDate","queenReason","queenReplaceOrigin","queenReplaceMark","queenIntroMethod","queenAcceptance","queenEggsDate","queenReplaceNotes","splitDate","splitDaughter","splitDaughterColony","splitMethod","splitBrood","splitFood","splitBees","splitParentQueen","splitDaughterQueen","splitFollowUp","splitFollowUpCompleted","splitFollowUpCompletedDate","splitFollowUpNotes","splitNotes","lossDate","lossCause","lossCondition","lossQueenStatus","lossEquipment","lossEvidence","lossNotes"];
     const editConfig = {
@@ -2514,6 +2536,7 @@
         msg.textContent="Record deleted.";
         if(String(selectedHiveId)===String(hiveId))await loadManagement(hiveId);
         if(table==="Hive_Treatments")await loadDashboardData();
+        if(table==="Hive_Splits")await refreshSplitFollowups();
         await refreshStats();
       }catch(error){msg.textContent="Delete failed: "+error.message;}
     }
@@ -2701,6 +2724,7 @@
         msg.textContent="Saved successfully!";
         if(String(selectedHiveId)===String(hiveId)) await loadManagement(hiveId);
         if(table==="Hive_Treatments") await loadDashboardData();
+        if(table==="Hive_Splits") await refreshSplitFollowups();
         await refreshStats();
       } catch(error) {msg.textContent="Save failed: "+error.message;}
       finally {button.disabled=false;}
