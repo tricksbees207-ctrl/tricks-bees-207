@@ -676,6 +676,8 @@
     if (summary) overview.appendChild(summary);
     const reminders = document.getElementById('reminderHeading')?.closest('section');
     if (reminders) overview.appendChild(reminders);
+    const splitDashboard = document.getElementById("splitDashboardHeading")?.closest("section");
+    if (splitDashboard) overview.appendChild(splitDashboard);
 
     const manageSection = document.getElementById('manageLocationsSection');
     if(manageSection) mainPanel.insertBefore(manageSection,hivePage);
