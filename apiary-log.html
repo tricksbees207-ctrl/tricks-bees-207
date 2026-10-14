@@ -2082,7 +2082,7 @@
       refreshSplitDaughterColonyOptions(priorDaughterColony);
       const active=colonyRecords.filter(c=>c.colony_status==="active");
       const activeIds=new Set(active.map(c=>String(c.hive_id)));
-      $("locationSummary").replaceChildren(tile("Registered hive numbers",new Set(colonyRecords.map(c=>String(c.hive_id))).size),tile("Active colonies",active.length),tile("Retired colonies",colonyRecords.filter(c=>c.colony_status==="retired").length));
+      $("locationSummary").replaceChildren(tile("Active colonies",active.length),tile("Retired colonies",colonyRecords.filter(c=>c.colony_status==="retired").length));
       refreshNewColonyAreaOptions();
       updateNewColonyHiveHint();
       const history=$("locationHistory");history.replaceChildren();
