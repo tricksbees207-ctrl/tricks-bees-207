@@ -369,6 +369,7 @@
   <div class="two-col"><div><label for="newColonyDate">Start date (optional)</label><input id="newColonyDate" type="date"></div><div><label for="newColonyOrigin">Origin (optional)</label><input id="newColonyOrigin" placeholder="Nuc, swarm, split..."></div></div>
   <label for="newColonyNotes">Historical concerns / initial notes (optional)</label><textarea id="newColonyNotes" placeholder="Things to watch at this hive..."></textarea>
   <button type="button" id="addColony">Register New Colony</button>
+  <p id="newColonyFeedback" class="status" role="status" aria-live="polite">Enter the hive number, hive name, and colony name above, then select Register New Colony.</p>
  </section>
  <h4>Colony History</h4>
  <p class="muted">Colony history remains linked to its original hive number. Retire or transfer an active colony before registering another at that hive.</p>
@@ -2081,7 +2082,7 @@
       refreshSplitDaughterColonyOptions(priorDaughterColony);
       const active=colonyRecords.filter(c=>c.colony_status==="active");
       const activeIds=new Set(active.map(c=>String(c.hive_id)));
-      $("locationSummary").replaceChildren(tile("Hive numbers",hives.length),tile("Active colonies",active.length),tile("Vacant hive numbers",hives.filter(h=>!activeIds.has(String(h.id))).length),tile("Retired colonies",colonyRecords.filter(c=>c.colony_status==="retired").length));
+      $("locationSummary").replaceChildren(tile("Registered hive numbers",new Set(colonyRecords.map(c=>String(c.hive_id))).size),tile("Active colonies",active.length),tile("Retired colonies",colonyRecords.filter(c=>c.colony_status==="retired").length));
       refreshNewColonyAreaOptions();
       updateNewColonyHiveHint();
       const history=$("locationHistory");history.replaceChildren();
@@ -2202,7 +2203,7 @@
     $("newColonyArea").addEventListener("change",()=>{$("newColonyNewAreaWrap").hidden=$("newColonyArea").value!=="__new__";});
     $("refreshLocations").addEventListener("click",refreshLocations);
     $("addColony").addEventListener("click",async()=>{
-      const msg=$("locationMessage"),raw=$("newColonyHiveNumber").value.trim(),number=Number(raw);
+      const msg=$("newColonyFeedback"),raw=$("newColonyHiveNumber").value.trim(),number=Number(raw);
       const hiveName=$("newColonyHiveName").value.trim(),colonyName=$("newColonyName").value.trim();
       if(!/^\d+$/.test(raw)||!Number.isSafeInteger(number)||number<1||number>32767){msg.textContent="Enter a whole hive number between 1 and 32767.";return;}
       if(!hiveName||hiveName.length>120||!colonyName||colonyName.length>120){msg.textContent="Enter a hive name and colony name (each up to 120 characters).";return;}
@@ -2214,10 +2215,14 @@
       const changeArea=areaChoice!=="__keep__",nameChanged=!!existing&&existing.hive_name!==hiveName;
       const areaChanged=!!existing&&changeArea&&String(existing.hive_location||"")!==String(area||"");
       if(nameChanged||areaChanged){
+        msg.textContent="Confirm the existing hive details in the confirmation dialog.";
         const changes=[nameChanged?`hive name to "${hiveName}"`:null,areaChanged?`apiary description to "${area}"`:null].filter(Boolean).join(" and ");
-        if(!confirm(`Hive ${number} already exists. Update its ${changes}? Existing history stays linked to this hive.`))return;
+        if(!confirm(`Hive ${number} already exists. Update its ${changes}? Existing history stays linked to this hive.`)){msg.textContent="Registration cancelled. No colony was added.";return;}
       }
-      if(!existing&&!confirm(`Create Hive ${number} named "${hiveName}" and register "${colonyName}" there?`))return;
+      if(!existing){
+        msg.textContent="Confirm creation of the new hive number in the confirmation dialog.";
+        if(!confirm(`Create Hive ${number} named "${hiveName}" and register "${colonyName}" there?`)){msg.textContent="Registration cancelled. No colony was added.";return;}
+      }
       const button=$("addColony");button.disabled=true;msg.textContent="Registering colony...";
       try{
         const {data,error}=await supabase.rpc("register_colony_with_hive",{
@@ -2231,7 +2236,7 @@
         try{await synchronizeHiveViews();}
         catch(refreshError){msg.textContent=`Colony "${colonyName}" was saved (ID ${data}), but the screen could not refresh: ${refreshError.message}. Refresh the page. Do not register it again.`;return;}
         msg.textContent=`Colony "${colonyName}" registered at Hive ${number} (colony ID ${data}).`;
-      }catch(error){msg.textContent="Could not register colony: "+error.message;}
+      }catch(error){msg.textContent="Could not register colony: "+(error?.message||String(error));}
       finally{button.disabled=false;}
     });
 
