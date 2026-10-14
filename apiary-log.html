@@ -1465,7 +1465,7 @@
         remove.addEventListener("click",()=>deleteReceipt(receipt));area.append(view,remove);
       }
       const attach=make("button","Attach receipt");attach.type="button";attach.className="secondary";
-      const picker=document.createElement("input");picker.type="file";picker.multiple=true;picker.hidden=true;
+      const picker=document.createElement("input");picker.type="file";picker.multiple=true;picker.hidden=true;picker.style.display="none";
       picker.accept=$("expenseReceiptFiles").accept;
       attach.addEventListener("click",()=>picker.click());
       picker.addEventListener("change",async()=>{
