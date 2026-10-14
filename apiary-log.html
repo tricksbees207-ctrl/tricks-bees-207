@@ -292,6 +292,9 @@
     </select></div>
   </div>
   <label for="expenseNotes">Notes</label><textarea id="expenseNotes" placeholder="Quantities, receipts, or other details"></textarea>
+  <label for="expenseReceiptFiles" style="display:block;font-weight:bold;margin-top:12px">Receipts (optional)</label>
+  <input type="file" id="expenseReceiptFiles" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif">
+  <p class="muted">Attach PDF or photo receipts (10 MB maximum per file). Files stay private. Add more from Expense History.</p>
   <button type="button" id="saveExpense">Save Expense</button>
   <button type="button" id="cancelExpenseEdit" hidden>Cancel Edit</button>
   <p id="expenseMessage" class="section-status" role="status"></p>
@@ -1191,7 +1194,7 @@
         a.href=url;a.download="tricks-bees-207-backup-"+new Date().toISOString().slice(0,10)+".json";
         document.body.append(a);a.click();a.remove();
         setTimeout(()=>URL.revokeObjectURL(url),60000);
-        message.textContent="Backup prepared: "+Object.values(collected).reduce((n,rows)=>n+rows.length,0)+" records across "+backupTables.length+" tables. Store this file somewhere private. Restore is not implemented.";
+        message.textContent="Backup prepared: "+Object.values(collected).reduce((n,rows)=>n+rows.length,0)+" records across "+backupTables.length+" tables. Receipt files and receipt metadata are NOT included in this JSON backup. Download them separately. Store this file somewhere private. Restore is not implemented.";
       }catch(error){
         message.textContent="Backup not downloaded: "+error.message+". No database records were changed.";
       }finally{button.disabled=false;}
@@ -1412,7 +1415,73 @@
       $("dashboardMessage").textContent=`Updated ${new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}. Completed follow-ups are excluded from overdue and due-soon counts.${treatError?" Treatment log follow-ups could not load: "+treatError.message:""}`;
     }
     let statsRows=[];
-    let expenseRecords=[],editingExpenseId=null;
+    let expenseRecords=[],receiptRecords=[],editingExpenseId=null;
+    const RECEIPT_BUCKET="apiary-receipts";
+    const receiptExtensions={"application/pdf":"pdf","image/jpeg":"jpg","image/png":"png","image/webp":"webp","image/heic":"heic","image/heif":"heif"};
+    function receiptFiles(files){
+      const chosen=Array.from(files||[]);
+      for(const file of chosen){
+        if(!receiptExtensions[file.type])throw new Error(file.name+": use PDF, JPG, PNG, WebP or HEIC.");
+        if(!file.size||file.size>10*1024*1024)throw new Error(file.name+": file must be between 1 byte and 10 MB.");
+      }
+      return chosen;
+    }
+    async function uploadReceipts(files,expenseId,user){
+      for(const file of receiptFiles(files)){
+        const path=`${user.id}/${expenseId}/${crypto.randomUUID()}.${receiptExtensions[file.type]}`;
+        const {error:uploadError}=await supabase.storage.from(RECEIPT_BUCKET).upload(path,file,{contentType:file.type,upsert:false});
+        if(uploadError)throw uploadError;
+        const {error:recordError}=await supabase.from("Apiary_Expense_Receipts").insert({
+          expense_id:expenseId,user_id:user.id,storage_path:path,original_name:file.name,mime_type:file.type,file_size:file.size
+        });
+        if(recordError){await supabase.storage.from(RECEIPT_BUCKET).remove([path]);throw recordError;}
+      }
+    }
+    async function viewReceipt(receipt){
+      const {data,error}=await supabase.storage.from(RECEIPT_BUCKET).createSignedUrl(receipt.storage_path,60);
+      if(error){$("expenseMessage").textContent="Cannot view receipt: "+error.message;return;}
+      const a=document.createElement("a");a.href=data.signedUrl;a.target="_blank";a.rel="noopener noreferrer";
+      document.body.append(a);a.click();a.remove();
+    }
+    async function deleteReceipt(receipt){
+      if(!confirm("Delete receipt "+receipt.original_name+" permanently?"))return;
+      const msg=$("expenseMessage");msg.textContent="Removing receipt...";
+      try{
+        const {data:{user},error:authError}=await supabase.auth.getUser();
+        if(authError||!user)throw new Error("Please sign in again.");
+        const {error:storageError}=await supabase.storage.from(RECEIPT_BUCKET).remove([receipt.storage_path]);
+        if(storageError)throw storageError;
+        const {data,error}=await supabase.from("Apiary_Expense_Receipts").delete().eq("id",receipt.id).eq("user_id",user.id).select("id");
+        if(error||!data?.length)throw error||new Error("Receipt record could not be deleted.");
+        await refreshStats();msg.textContent="Receipt removed.";
+      }catch(e){msg.textContent="Receipt removal failed: "+e.message;}
+    }
+    function receiptControls(expense){
+      const area=make("div",undefined,"record-actions");
+      for(const receipt of receiptRecords.filter(r=>String(r.expense_id)===String(expense.id))){
+        const view=make("button","View "+receipt.original_name);view.type="button";view.className="secondary";
+        view.addEventListener("click",()=>viewReceipt(receipt));
+        const remove=make("button","Remove receipt");remove.type="button";
+        remove.addEventListener("click",()=>deleteReceipt(receipt));area.append(view,remove);
+      }
+      const attach=make("button","Attach receipt");attach.type="button";attach.className="secondary";
+      const picker=document.createElement("input");picker.type="file";picker.multiple=true;picker.hidden=true;
+      picker.accept=$("expenseReceiptFiles").accept;
+      attach.addEventListener("click",()=>picker.click());
+      picker.addEventListener("change",async()=>{
+        if(!picker.files?.length)return;
+        attach.disabled=true;const msg=$("expenseMessage");msg.textContent="Uploading receipt...";
+        try{
+          const files=receiptFiles(picker.files);
+          const {data:{user},error:authError}=await supabase.auth.getUser();
+          if(authError||!user)throw new Error("Please sign in again.");
+          await uploadReceipts(files,expense.id,user);
+          await refreshStats();msg.textContent="Receipt attached.";
+        }catch(e){msg.textContent="Receipt upload failed: "+e.message;}
+        finally{attach.disabled=false;picker.value="";}
+      });
+      area.append(attach,picker);return area;
+    }
     const expenseFields=["expenseDate","expenseCategory","expenseDescription","expenseVendor","expenseAmount","expenseHive","expensePayment","expenseNotes"];
     const money=n=>"$"+Number(n||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
     function populateExpenseHives(selected=""){
@@ -1423,6 +1492,7 @@
     function resetExpenseForm(){
       editingExpenseId=null;
       expenseFields.forEach(id=>$(id).value="");
+      $("expenseReceiptFiles").value="";
       $("expenseDate").value=localToday();
       $("saveExpense").textContent="Save Expense";
       $("cancelExpenseEdit").hidden=true;
@@ -1454,6 +1524,7 @@
         if(r.vendor)card.append(make("small",`Vendor: ${r.vendor}`));
         if(r.payment_method)card.append(make("small",`Payment: ${r.payment_method}`));
         if(r.notes)card.append(make("small",`Notes: ${r.notes}`));
+        card.append(receiptControls(r));
         const actions=make("div",undefined,"record-actions");
         const edit=make("button","Edit");edit.type="button";edit.addEventListener("click",()=>{
           editingExpenseId=r.id;
@@ -1474,6 +1545,11 @@
       try{
         const {data:{user},error:authError}=await supabase.auth.getUser();
         if(authError||!user)throw new Error("Please sign in again.");
+        const files=receiptRecords.filter(r=>String(r.expense_id)===String(record.id));
+        if(files.length){
+          const {error:removeError}=await supabase.storage.from(RECEIPT_BUCKET).remove(files.map(r=>r.storage_path));
+          if(removeError)throw new Error("Could not delete receipt files: "+removeError.message);
+        }
         const {data,error}=await supabase.from("Apiary_Expenses").delete().eq("id",record.id).eq("user_id",user.id).select("id");
         if(error)throw error;
         if(!data?.length)throw new Error("No expense deleted.");
@@ -1490,6 +1566,9 @@
       if(!amountText.trim()||!/^\d+(?:\.\d{1,2})?$/.test(amountText)||!Number.isFinite(Number(amountText))){
         msg.textContent="Enter a valid nonnegative amount with up to two decimal places.";return;
       }
+      let selectedReceipts;
+      try{selectedReceipts=receiptFiles($("expenseReceiptFiles").files);}
+      catch(e){msg.textContent=e.message;return;}
       const btn=$("saveExpense");btn.disabled=true;msg.textContent="Saving...";
       try{
         const {data:{user},error:authError}=await supabase.auth.getUser();
@@ -1498,15 +1577,25 @@
           description:value("expenseDescription").trim(),vendor:value("expenseVendor")||null,
           amount:Number(amountText),hive_id:value("expenseHive")?Number(value("expenseHive")):null,
           payment_method:value("expensePayment")||null,notes:value("expenseNotes")||null};
-        let error;
+        let expenseId=editingExpenseId;
         if(editingExpenseId!==null){
-          const {data,error:e}=await supabase.from("Apiary_Expenses").update(payload).eq("id",editingExpenseId).eq("user_id",user.id).select("id");
-          error=e;if(!error&&!data?.length)throw new Error("No expense updated.");
-        }else ({error}=await supabase.from("Apiary_Expenses").insert(payload));
-        if(error)throw error;
+          const {data,error}=await supabase.from("Apiary_Expenses").update(payload).eq("id",editingExpenseId).eq("user_id",user.id).select("id");
+          if(error)throw error;
+          if(!data?.length)throw new Error("No expense updated.");
+        }else{
+          const {data,error}=await supabase.from("Apiary_Expenses").insert(payload).select("id").single();
+          if(error)throw error;
+          expenseId=data.id;
+        }
+        let receiptFailure=null;
+        if(selectedReceipts.length){
+          msg.textContent="Expense saved. Uploading receipts...";
+          try{await uploadReceipts(selectedReceipts,expenseId,user);}
+          catch(e){receiptFailure=e;}
+        }
         resetExpenseForm();
         await refreshStats();
-        msg.textContent="Expense saved successfully!";
+        msg.textContent=receiptFailure?"Expense saved but receipt upload failed: "+receiptFailure.message+". Check Expense History before retrying.":"Expense saved successfully"+(selectedReceipts.length?" with receipt(s)!":"!");
       }catch(e){msg.textContent="Save failed: "+e.message;}
       finally{btn.disabled=false;}
     });
@@ -1745,7 +1834,11 @@
       if(colonyResult.error)$("statsMessage").textContent+=" Colony occupancy unavailable: "+colonyResult.error.message;
       renderFinancial();
       expenseRecords=statsCache[7]||[];
+      const {data:receipts,error:receiptError}=await supabase.from("Apiary_Expense_Receipts").select("*").order("created_at",{ascending:false});
+      if(req!==statsRequest)return;
+      receiptRecords=receiptError?[]:(receipts||[]);
       renderExpenses();
+      if(receiptError)$("expenseMessage").textContent="Receipt list unavailable: "+receiptError.message;
       incomeRecords=statsCache[8]||[];
       renderIncome();
     }
