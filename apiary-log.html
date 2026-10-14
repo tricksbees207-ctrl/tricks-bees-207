@@ -592,7 +592,8 @@
   <button type="button" id="cancelSplitEdit" hidden>Cancel Edit</button>
   <p id="splitMessage" class="section-status" role="status"></p>
   <div id="splitFollowUpSummary" class="profile-overview" aria-live="polite">Select a hive to see split follow-ups.</div>
-  <h4>Colony Split History</h4><div id="splitHistory">Select a hive.</div>
+  <h4>Splits Made From This Hive</h4><div id="splitHistory">Select a hive.</div>
+  <h4>Splits Received at This Location</h4><div id="splitOrigins">Select a hive.</div>
 </div>
 
 <div class="management" id="lossSection">
@@ -2540,7 +2541,7 @@
       $("hiveStatus").value="Active"; $("feedUnit").value="gallon"; $("queenAcceptance").value="Pending"; refreshSplitDaughterOptions();$("splitFollowUpCompleted").value="false";
       for(const id of ["feedDate","treatDate","harvestDate","queenReplaceDate","splitDate","lossDate"]) $(id).value=localToday();
       for(const id of ["hiveProfileMessage","feedMessage","treatMessage","harvestMessage","queenMessage","splitMessage","lossMessage"]) $(id).textContent="";
-      for(const id of ["feedHistory","treatHistory","harvestHistory","queenHistory","splitHistory","lossHistory"]) $(id).textContent="Loading...";
+      for(const id of ["feedHistory","treatHistory","harvestHistory","queenHistory","splitHistory","splitOrigins","lossHistory"]) $(id).textContent="Loading...";
       $("currentHiveProfile").textContent="Loading hive profile...";
       savedProfileId=null;
       $("editHiveProfile").hidden=true;
@@ -2570,9 +2571,27 @@
     async function loadManagement(hiveId) {
       const request=++managementRequest;
       const tables=["Hive_Profiles","Hive_Feedings","Hive_Treatments","Hive_Harvests","Hive_Queen_Replacements","Hive_Splits","Hive_Losses"];
-      const results=await Promise.all(tables.map(t=>supabase.from(t).select("*").eq("hive_id",hiveId)));
+      const [results,originResult]=await Promise.all([
+        Promise.all(tables.map(t=>supabase.from(t).select("*").eq("hive_id",hiveId))),
+        supabase.from("Hive_Splits").select("*").eq("daughter_hive_id",hiveId)
+      ]);
       if(request!==managementRequest||String(selectedHiveId)!==String(hiveId))return;
       const [profile,feed,treat,harvest,queen,splits,losses]=results;
+      if(originResult.error)$("splitOrigins").textContent="Origin history unavailable: "+originResult.error.message;
+      else{
+        const parentLabels=new Map(hives.map(h=>[String(h.id),`Hive ${h.hive_number}: ${h.hive_name||"Unnamed"}`]));
+        const origins=(originResult.data||[]).sort((a,b)=>b.split_date.localeCompare(a.split_date));
+        const host=$("splitOrigins");host.replaceChildren();
+        if(!origins.length)host.textContent="No splits have been linked to this daughter location.";
+        for(const origin of origins){
+          const card=make("div",undefined,"record");
+          card.append(make("strong",`Split from ${parentLabels.get(String(origin.hive_id))||"Parent hive ID "+origin.hive_id} · ${formatDate(origin.split_date)}`));
+          card.append(make("small",`Parent colony: ${origin.colony_id?colonyNameFor(origin.colony_id):"Not linked"}`));
+          card.append(make("small",`Daughter colony: ${origin.daughter_colony_id?colonyNameFor(origin.daughter_colony_id):"Not linked"}`));
+          if(origin.split_method)card.append(make("small","Method: "+origin.split_method));
+          host.append(card);
+        }
+      }
       savedProfileId=profile.error?null:(profile.data?.[0]?.id??null);
       $("editHiveProfile").hidden=savedProfileId===null;
       $("deleteHiveProfile").hidden=savedProfileId===null;
