@@ -700,7 +700,7 @@
     const topPages = [
       ['Overview', overview],
       ['Hives', hivePage],
-      ['Manage Hives', document.getElementById('manageLocationsSection')],
+      ['Manage Colonies', document.getElementById('manageLocationsSection')],
       ['Statistics', document.getElementById('statisticsSection')],
       ['Profit & Loss', document.getElementById('financialSection')],
       ['Expenses', document.getElementById('expensesSection')],
@@ -2194,7 +2194,7 @@
       selector.value=[...selector.options].some(o=>o.value===previous)?previous:"__keep__";
       $("newColonyNewAreaWrap").hidden=selector.value!=="__new__";
     }
-    $("newColonyHiveNumber").addEventListener("input",()=>{updateNewColonyHiveHint();refreshNewColonyAreaOptions();});
+    $("newColonyHiveNumber").addEventListener("input",()=>{$("newColonyArea").value="__keep__";updateNewColonyHiveHint();refreshNewColonyAreaOptions();});
     $("newColonyArea").addEventListener("change",()=>{$("newColonyNewAreaWrap").hidden=$("newColonyArea").value!=="__new__";});
     $("refreshLocations").addEventListener("click",refreshLocations);
     $("addColony").addEventListener("click",async()=>{
@@ -2224,7 +2224,8 @@
         if(error)throw error;
         for(const id of ["newColonyHiveNumber","newColonyHiveName","newColonyName","newColonyDate","newColonyOrigin","newColonyNotes","newColonyNewArea"])$(id).value="";
         $("newColonyArea").value="__keep__";
-        await synchronizeHiveViews();
+        try{await synchronizeHiveViews();}
+        catch(refreshError){msg.textContent=`Colony "${colonyName}" was saved (ID ${data}), but the screen could not refresh: ${refreshError.message}. Refresh the page. Do not register it again.`;return;}
         msg.textContent=`Colony "${colonyName}" registered at Hive ${number} (colony ID ${data}).`;
       }catch(error){msg.textContent="Could not register colony: "+error.message;}
       finally{button.disabled=false;}
