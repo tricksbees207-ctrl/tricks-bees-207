@@ -2085,12 +2085,16 @@
       refreshNewColonyAreaOptions();
       updateNewColonyHiveHint();
       const history=$("locationHistory");history.replaceChildren();
+      // Show only hive numbers with a registered colony (active or retired).
+      // Unregistered permanent hive records remain untouched for existing inspections and future registrations.
+      const registeredHiveIds=new Set(colonyRecords.map(c=>String(c.hive_id)));
+      if(!registeredHiveIds.size)history.append(make("p","No colonies registered yet. Register your first colony above to see it here.","muted"));
       for(const h of hives){
+        if(!registeredHiveIds.has(String(h.id)))continue;
         const card=make("div",undefined,"location-card");
         const at=colonyRecords.filter(c=>String(c.hive_id)===String(h.id));
         const current=at.find(c=>c.colony_status==="active");
         card.append(make("h4",locationLabel(h)),make("p",`${h.hive_location||"No area specified"} · ${current?"Occupied: "+current.colony_name:"Vacant"}`));
-        if(!at.length)card.append(make("p","No colony records registered. Existing location records remain available under Hives.","muted"));
         for(const c of at){
           const item=make("div",undefined,"record");
           item.append(make("strong",`${c.colony_name} · ${c.colony_status}`),make("small",`Start: ${c.start_date||"Not recorded"} · End: ${c.end_date||"—"} · Origin: ${c.origin||"—"}`));
