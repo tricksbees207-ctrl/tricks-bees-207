@@ -2057,6 +2057,9 @@
       hives=locResult.data||[];colonyRecords=colResult.data||[];
       renderSelectedHiveColonyHistory();
       updateRecordColonySelector();
+      const priorDaughter=value("splitDaughter"),priorDaughterColony=value("splitDaughterColony");
+      refreshSplitDaughterOptions(priorDaughter);
+      refreshSplitDaughterColonyOptions(priorDaughterColony);
       const active=colonyRecords.filter(c=>c.colony_status==="active");
       const activeIds=new Set(active.map(c=>String(c.hive_id)));
       $("locationSummary").replaceChildren(tile("Permanent locations",hives.length),tile("Registered active colonies",active.length),tile("Vacant locations",hives.filter(h=>!activeIds.has(String(h.id))).length),tile("Retired colony records",colonyRecords.filter(c=>c.colony_status==="retired").length));
@@ -2478,6 +2481,7 @@
       if(done&&!value("splitFollowUpCompletedDate"))throw new Error("Enter the date the follow-up was completed.");
       if(!done&&(value("splitFollowUpCompletedDate")||value("splitFollowUpNotes").trim()))throw new Error("Mark follow-up Completed before recording completion details.");
       if(done&&value("splitFollowUpCompletedDate")<value("splitDate"))throw new Error("Follow-up completion cannot be earlier than the split date.");
+      if(done&&value("splitFollowUpCompletedDate")>localToday())throw new Error("Follow-up completion cannot be in the future.");
     }
     const mgmtIds = ["hiveStatus","queenOrigin","queenIntroduced","queenMarked","hiveEquipment","hiveProfileNotes","feedDate","feedType","feedQuantity","feedUnit","feedNotes","treatDate","treatProduct","treatAmount","treatFollowUp","treatNotes","harvestDate","harvestPounds","harvestNotes","queenReplaceDate","queenReason","queenReplaceOrigin","queenReplaceMark","queenIntroMethod","queenAcceptance","queenEggsDate","queenReplaceNotes","splitDate","splitDaughter","splitDaughterColony","splitMethod","splitBrood","splitFood","splitBees","splitParentQueen","splitDaughterQueen","splitFollowUp","splitFollowUpCompleted","splitFollowUpCompletedDate","splitFollowUpNotes","splitNotes","lossDate","lossCause","lossCondition","lossQueenStatus","lossEquipment","lossEvidence","lossNotes"];
     const editConfig = {
