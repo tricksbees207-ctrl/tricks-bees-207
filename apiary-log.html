@@ -362,7 +362,16 @@
   <button type="button" id="addLocation">Add Permanent Location</button>
  </details>
  <details><summary><strong>Register New Colony</strong></summary>
-  <label for="newColonyLocation">Vacant location</label><select id="newColonyLocation"></select>
+  <label for="newColonyLocation">Vacant hive location</label><select id="newColonyLocation"></select>
+  <label for="newColonyArea">Apiary / location description</label>
+  <select id="newColonyArea">
+    <option value="">Choose a vacant hive location first</option>
+  </select>
+  <div id="newColonyNewAreaWrap" hidden>
+    <label for="newColonyNewArea">New apiary / location description</label>
+    <input id="newColonyNewArea" maxlength="120" placeholder="Mias Way Apiary">
+  </div>
+  <p class="muted">This description belongs to the permanent hive location. Selecting or entering a different area will update that location when you register the colony.</p>
   <label for="newColonyName">Colony name</label><input id="newColonyName" placeholder="2027 Spring Nuc" maxlength="120">
   <div class="two-col"><div><label for="newColonyDate">Start date (optional)</label><input id="newColonyDate" type="date"></div><div><label for="newColonyOrigin">Origin (optional)</label><input id="newColonyOrigin" placeholder="Nuc, swarm, split..."></div></div>
   <label for="newColonyNotes">Historical concerns / initial notes (optional)</label><textarea id="newColonyNotes" placeholder="Things to watch at this location..."></textarea>
@@ -2084,6 +2093,7 @@
       const selector=$("newColonyLocation");const old=selector.value;selector.replaceChildren(new Option("Select vacant location",""));
       for(const h of hives.filter(h=>!activeIds.has(String(h.id))))selector.add(new Option(locationLabel(h),String(h.id)));
       if([...selector.options].some(o=>o.value===old))selector.value=old;
+      refreshNewColonyAreaOptions();
       const history=$("locationHistory");history.replaceChildren();
       for(const h of hives){
         const card=make("div",undefined,"location-card");
@@ -2253,6 +2263,31 @@
       if(transferResult.error)msg.textContent="Locations loaded, but transfer history could not load: "+transferResult.error.message;
       else msg.textContent="Locations and colony history updated. Older records are associated with locations, not automatically with new colonies.";
     }
+    function refreshNewColonyAreaOptions(){
+      const areaSelect=$("newColonyArea"),hive=hives.find(h=>String(h.id)===$("newColonyLocation").value);
+      const previous=areaSelect.value;
+      areaSelect.replaceChildren();
+      if(!hive){
+        areaSelect.add(new Option("Choose a vacant hive location first",""));
+        areaSelect.disabled=true;
+      }else{
+        areaSelect.disabled=false;
+        areaSelect.add(new Option(hive.hive_location?`Keep current: ${hive.hive_location}`:"Keep current: No area specified","__keep__"));
+        const areas=[...new Set(hives.map(h=>String(h.hive_location||"").trim()).filter(Boolean))]
+          .sort((a,b)=>a.localeCompare(b));
+        for(const area of areas)areaSelect.add(new Option(area,area));
+        areaSelect.add(new Option("Add a new apiary / location...","__new__"));
+        areaSelect.value=[...areaSelect.options].some(o=>o.value===previous)?previous:"__keep__";
+      }
+      $("newColonyNewAreaWrap").hidden=areaSelect.value!=="__new__";
+    }
+    $("newColonyLocation").addEventListener("change",()=>{
+      $("newColonyArea").value="";
+      refreshNewColonyAreaOptions();
+    });
+    $("newColonyArea").addEventListener("change",()=>{
+      $("newColonyNewAreaWrap").hidden=$("newColonyArea").value!=="__new__";
+    });
     $("refreshLocations").addEventListener("click",refreshLocations);
     $("addLocation").addEventListener("click",async()=>{
       const number=Number($("newLocationNumber").value),name=$("newLocationName").value.trim(),area=$("newLocationArea").value.trim();
@@ -2268,11 +2303,30 @@
     $("addColony").addEventListener("click",async()=>{
       const hiveId=$("newColonyLocation").value,name=$("newColonyName").value.trim(),msg=$("locationMessage");
       if(!hiveId||!name){msg.textContent="Select a vacant location and enter a colony name.";return;}
+      const hive=hives.find(h=>String(h.id)===String(hiveId));
+      if(!hive||colonyRecords.some(c=>String(c.hive_id)===String(hiveId)&&c.colony_status==="active")){
+        msg.textContent="This location is no longer vacant. Refresh locations and try again.";return;
+      }
+      const areaChoice=$("newColonyArea").value;
+      if(!areaChoice){msg.textContent="Choose an apiary / location description option.";return;}
+      const newArea=areaChoice==="__new__"?$("newColonyNewArea").value.trim():areaChoice==="__keep__"?(hive.hive_location||null):areaChoice;
+      if(areaChoice==="__new__"&&!newArea){msg.textContent="Enter the new apiary / location description.";return;}
+      if(newArea&&newArea.length>120){msg.textContent="Apiary description must be 120 characters or fewer.";return;}
+      const areaChanged=areaChoice!=="__keep__"&&String(newArea||"")!==String(hive.hive_location||"");
+      if(areaChanged&&!confirm(`Update the permanent location ${locationLabel(hive)} to "${newArea}" when registering this colony?`))return;
       const {data:authData,error:authError}=await supabase.auth.getUser();
       if(authError||!authData?.user){msg.textContent="Please sign in again.";return;}
-      const {error}=await supabase.from("Hive_Colonies").insert({hive_id:Number(hiveId),colony_name:name,colony_status:"active",user_id:authData.user.id,start_date:$("newColonyDate").value||null,origin:$("newColonyOrigin").value.trim()||null,historical_notes:$("newColonyNotes").value.trim()||null});
+      const {data:created,error}=await supabase.from("Hive_Colonies").insert({hive_id:Number(hiveId),colony_name:name,colony_status:"active",user_id:authData.user.id,start_date:$("newColonyDate").value||null,origin:$("newColonyOrigin").value.trim()||null,historical_notes:$("newColonyNotes").value.trim()||null}).select("id").single();
       if(error){msg.textContent="Could not register colony: "+error.message;return;}
-      for(const id of ["newColonyName","newColonyDate","newColonyOrigin","newColonyNotes"])$(id).value="";
+      if(areaChanged){
+        const {error:areaError}=await supabase.from("Hives").update({hive_location:newArea}).eq("id",hiveId);
+        if(areaError){
+          msg.textContent="Colony registered, but location description could not be updated: "+areaError.message+". Update the location separately; do not register the colony again.";
+          await synchronizeHiveViews();
+          return;
+        }
+      }
+      for(const id of ["newColonyName","newColonyDate","newColonyOrigin","newColonyNotes","newColonyNewArea"])$(id).value="";
       await synchronizeHiveViews();
     });
 
