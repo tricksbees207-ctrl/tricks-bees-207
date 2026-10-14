@@ -1415,7 +1415,7 @@
       $("dashboardMessage").textContent=`Updated ${new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}. Completed follow-ups are excluded from overdue and due-soon counts.${treatError?" Treatment log follow-ups could not load: "+treatError.message:""}`;
     }
     let statsRows=[];
-    let expenseRecords=[],receiptRecords=[],editingExpenseId=null;
+    let expenseRecords=[],receiptRecords=[],receiptListAvailable=false,editingExpenseId=null;
     const RECEIPT_BUCKET="apiary-receipts";
     const receiptExtensions={"application/pdf":"pdf","image/jpeg":"jpg","image/png":"png","image/webp":"webp","image/heic":"heic","image/heif":"heif"};
     function receiptFiles(files){
@@ -1540,7 +1540,8 @@
       });
     }
     async function deleteExpense(record){
-      if(!window.confirm("Permanently delete this expense? This cannot be undone."))return;
+      if(!receiptListAvailable){$("expenseMessage").textContent="Cannot safely delete expenses while receipt records are unavailable. Refresh and try again.";return;}
+      if(!window.confirm("Permanently delete this expense and all attached receipts? This cannot be undone."))return;
       const msg=$("expenseMessage");msg.textContent="Deleting...";
       try{
         const {data:{user},error:authError}=await supabase.auth.getUser();
@@ -1836,6 +1837,7 @@
       expenseRecords=statsCache[7]||[];
       const {data:receipts,error:receiptError}=await supabase.from("Apiary_Expense_Receipts").select("*").order("created_at",{ascending:false});
       if(req!==statsRequest)return;
+      receiptListAvailable=!receiptError;
       receiptRecords=receiptError?[]:(receipts||[]);
       renderExpenses();
       if(receiptError)$("expenseMessage").textContent="Receipt list unavailable: "+receiptError.message;
