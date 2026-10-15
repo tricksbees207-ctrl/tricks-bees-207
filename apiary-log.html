@@ -364,7 +364,7 @@
     </select></div>
   </div>
   <label for="incomeNotes">Notes</label><textarea id="incomeNotes" placeholder="Quantities, receipts, or other details"></textarea>
-  <button type="button" id="saveIncome">Save Income</button>
+  <label for="incomeReceiptFiles">Income receipts (PDF/images, up to 10 MB each)</label><input type="file" id="incomeReceiptFiles" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif"><button type="button" id="saveIncome">Save Income</button>
   <button type="button" id="cancelIncomeEdit" hidden>Cancel Edit</button>
   <p id="incomeMessage" class="section-status" role="status"></p>
   <h4>Income Summary</h4><div id="incomeTotals">Loading...</div>
@@ -1668,7 +1668,45 @@
       a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
     });
     $("expenseDate").value=localToday();
-    let incomeRecords=[],editingIncomeId=null;
+    let incomeRecords=[],incomeReceiptRecords=[],incomeReceiptsAvailable=false,editingIncomeId=null;
+const INCOME_BUCKET="apiary-income-receipts";
+async function uploadIncome(files,id,user){
+ for(const f of receiptFiles(files)){
+  const path=`${user.id}/${id}/${crypto.randomUUID()}.${receiptExtensions[f.type]}`;
+  const {error:e}=await supabase.storage.from(INCOME_BUCKET).upload(path,f,{contentType:f.type,upsert:false});if(e)throw e;
+  const {error:db}=await supabase.from("Apiary_Income_Receipts").insert({income_id:id,user_id:user.id,storage_path:path,original_name:f.name,mime_type:f.type,file_size:f.size});
+  if(db){await supabase.storage.from(INCOME_BUCKET).remove([path]);throw db;}
+ }
+}
+function incomeReceiptControls(record){
+ const area=make("div",undefined,"record-actions");
+ for(const r of incomeReceiptRecords.filter(x=>String(x.income_id)===String(record.id))){
+  const view=make("button","View "+r.original_name);view.type="button";view.className="secondary";
+  view.addEventListener("click",async()=>{
+   const {data,error}=await supabase.storage.from(INCOME_BUCKET).createSignedUrl(r.storage_path,60);
+   if(error){$("incomeMessage").textContent="Cannot view receipt: "+error.message;return;}
+   const a=document.createElement("a");a.href=data.signedUrl;a.target="_blank";a.rel="noopener noreferrer";document.body.append(a);a.click();a.remove();
+  });
+  const remove=make("button","Remove receipt");remove.type="button";remove.addEventListener("click",async()=>{
+   if(!confirm("Permanently remove "+r.original_name+"?"))return;
+   const msg=$("incomeMessage");msg.textContent="Removing receipt...";
+   try{
+    const {data:{user},error:authError}=await supabase.auth.getUser();if(authError||!user)throw new Error("Sign in again.");
+    const {error:e}=await supabase.storage.from(INCOME_BUCKET).remove([r.storage_path]);if(e)throw e;
+    const {data,error}=await supabase.from("Apiary_Income_Receipts").delete().eq("id",r.id).eq("user_id",user.id).select("id");
+    if(error||!data?.length)throw error||new Error("Could not remove receipt record.");
+    await refreshStats();msg.textContent="Receipt removed.";
+   }catch(e){msg.textContent="Remove failed: "+e.message;}
+  });area.append(view,remove);
+ }
+ const attach=make("button","Attach receipt");attach.type="button";attach.className="secondary";
+ const picker=document.createElement("input");picker.type="file";picker.multiple=true;picker.hidden=true;picker.style.display="none";picker.accept=$("incomeReceiptFiles").accept;
+ attach.addEventListener("click",()=>picker.click());picker.addEventListener("change",async()=>{
+  if(!picker.files?.length)return;attach.disabled=true;const msg=$("incomeMessage");msg.textContent="Uploading...";
+  try{const files=receiptFiles(picker.files);const {data:{user},error}=await supabase.auth.getUser();if(error||!user)throw new Error("Sign in again.");await uploadIncome(files,record.id,user);await refreshStats();msg.textContent="Receipt attached.";}
+  catch(e){msg.textContent="Upload failed: "+e.message;}finally{attach.disabled=false;picker.value="";}
+ });area.append(attach,picker);return area;
+}
     const incomeFields=["incomeDate","incomeCategory","incomeDescription","incomeCustomer","incomeAmount","incomeHive","incomePayment","incomeNotes"];
 
     function populateIncomeHives(selected=""){
@@ -1678,7 +1716,7 @@
     }
     function resetIncomeForm(){
       editingIncomeId=null;
-      incomeFields.forEach(id=>$(id).value="");
+      incomeFields.forEach(id=>$(id).value="");$("incomeReceiptFiles").value="";
       $("incomeDate").value=localToday();
       $("saveIncome").textContent="Save Income";
       $("cancelIncomeEdit").hidden=true;
@@ -1720,17 +1758,17 @@
           $("incomeMessage").textContent="Editing existing income.";
           $("saveIncome").scrollIntoView({behavior:"smooth",block:"center"});
         });
-        const del=make("button","Delete");del.type="button";del.addEventListener("click",()=>deleteIncome(r));
+        card.append(incomeReceiptControls(r));const del=make("button","Delete");del.type="button";del.addEventListener("click",()=>deleteIncome(r));
         actions.append(edit,del);card.append(actions);host.append(card);
       });
     }
     async function deleteIncome(record){
-      if(!window.confirm("Permanently delete this income? This cannot be undone."))return;
+      if(!incomeReceiptsAvailable){$("incomeMessage").textContent="Receipt list unavailable; cannot safely delete income.";return;}if(!window.confirm("Permanently delete this income and its receipts? This cannot be undone."))return;
       const msg=$("incomeMessage");msg.textContent="Deleting...";
       try{
         const {data:{user},error:authError}=await supabase.auth.getUser();
         if(authError||!user)throw new Error("Please sign in again.");
-        const {data,error}=await supabase.from("Apiary_Income").delete().eq("id",record.id).eq("user_id",user.id).select("id");
+        const files=incomeReceiptRecords.filter(x=>String(x.income_id)===String(record.id));if(files.length){const {error:e}=await supabase.storage.from(INCOME_BUCKET).remove(files.map(x=>x.storage_path));if(e)throw e;}const {data,error}=await supabase.from("Apiary_Income").delete().eq("id",record.id).eq("user_id",user.id).select("id");
         if(error)throw error;
         if(!data?.length)throw new Error("No income deleted.");
         if(editingIncomeId===record.id)resetIncomeForm();
@@ -1746,7 +1784,7 @@
       if(!amountText.trim()||!/^\d+(?:\.\d{1,2})?$/.test(amountText)||!Number.isFinite(Number(amountText))){
         msg.textContent="Enter a valid nonnegative amount with up to two decimal places.";return;
       }
-      const btn=$("saveIncome");btn.disabled=true;msg.textContent="Saving...";
+      let files;try{files=receiptFiles($("incomeReceiptFiles").files);}catch(e){msg.textContent=e.message;return;}const btn=$("saveIncome");btn.disabled=true;msg.textContent="Saving...";
       try{
         const {data:{user},error:authError}=await supabase.auth.getUser();
         if(authError||!user)throw new Error("Please sign in again.");
@@ -1754,15 +1792,12 @@
           description:value("incomeDescription").trim(),customer:value("incomeCustomer")||null,
           amount:Number(amountText),hive_id:value("incomeHive")?Number(value("incomeHive")):null,
           payment_method:value("incomePayment")||null,notes:value("incomeNotes")||null};
-        let error;
+        let error;let incomeId=editingIncomeId;
         if(editingIncomeId!==null){
           const {data,error:e}=await supabase.from("Apiary_Income").update(payload).eq("id",editingIncomeId).eq("user_id",user.id).select("id");
           error=e;if(!error&&!data?.length)throw new Error("No income updated.");
-        }else ({error}=await supabase.from("Apiary_Income").insert(payload));
-        if(error)throw error;
-        resetIncomeForm();
-        await refreshStats();
-        msg.textContent="Income saved successfully!";
+        }else {const {data,error:e}=await supabase.from("Apiary_Income").insert(payload).select("id").single();error=e;if(!e)incomeId=data.id;}
+        if(error)throw error;let uploadError=null;if(files.length){msg.textContent="Income saved. Uploading receipts...";try{await uploadIncome(files,incomeId,user);}catch(e){uploadError=e;}}resetIncomeForm();await refreshStats();msg.textContent=uploadError?"Income saved but receipt upload failed: "+uploadError.message+". Check Income History before retrying.":"Income saved successfully"+(files.length?" with receipt(s)!":"!");
       }catch(e){msg.textContent="Save failed: "+e.message;}
       finally{btn.disabled=false;}
     });
@@ -1896,7 +1931,8 @@
       renderExpenses();
       if(receiptError)$("expenseMessage").textContent="Receipt list unavailable: "+receiptError.message;
       incomeRecords=statsCache[8]||[];
-      renderIncome();
+      const {data:ir,error:ie}=await supabase.from("Apiary_Income_Receipts").select("*").order("created_at",{ascending:false});if(req!==statsRequest)return;incomeReceiptsAvailable=!ie;incomeReceiptRecords=ie?[]:(ir||[]);
+      renderIncome();if(ie)$("incomeMessage").textContent="Income receipt list unavailable: "+ie.message;
     }
     function renderStats(){
       if(!statsCache)return;
