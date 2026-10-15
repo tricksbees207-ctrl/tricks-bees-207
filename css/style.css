@@ -555,3 +555,12 @@ html{scroll-behavior:smooth}.big-icon{font-size:32px}.varroa-section{background:
 .forage-seasonal-guide .grid3 {
   margin-top: 22px;
 }
+
+
+/* Distinct visual separation between hive data and apiary weather */
+#dashboard{background:#e8efe8;border-top:5px solid #9bb5a0;border-bottom:5px solid #9bb5a0}
+#dashboard>.eyebrow{color:#365f43}
+#now{background:#e9f1f7;border-top:5px solid #8fb6cc;border-bottom:5px solid #8fb6cc}
+#now>.eyebrow{color:#315d79}
+#now .weather-current,#now .flight-card,#now .forecast-panel{background:#fff;border:1px solid #bfd4e2;box-shadow:0 5px 16px rgba(35,73,97,.07)}
+#dashboard h2,#now h2{margin-top:10px}
