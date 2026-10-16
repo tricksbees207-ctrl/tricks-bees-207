@@ -562,3 +562,8 @@ html{scroll-behavior:smooth}.big-icon{font-size:32px}.varroa-section{background:
 #now{background:#f7f3e8;border-bottom:1px solid #d8d0bc}
 #dashboard .eyebrow,#now .eyebrow{color:#8b6a16}
 #now .weather-current,#now .flight-card,#now .forecast-panel{background:#fff;border:1px solid #ddd5c1}
+
+/* Dated apiary update and monthly checklist remain visually separate. */
+.apiary-monthly-guide{margin-top:28px;padding-top:23px;border-top:1px solid #d8d0bc}
+.apiary-monthly-guide h3{margin:0 0 9px;color:#263a2a;font-family:Georgia,serif;font-size:23px}
+.apiary-monthly-guide .section-intro{margin-bottom:20px}
