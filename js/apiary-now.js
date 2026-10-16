@@ -12,47 +12,63 @@ const apiaryNowData = {
   watching: ["Hive weight", "Winter food reserves", "Varroa management", "Brood reduction", "Fall forage and frost"]
 };
 
+// Keep the dated apiary report and the automatically selected monthly guide separate.
+// A dated report appears as current only during the month it was written for.
 (function renderApiaryNow() {
-  const d = apiaryNowData;
-  document.getElementById("apiary-now-eyebrow").textContent = d.eyebrow;
-  document.getElementById("apiary-now-intro").textContent = d.intro;
-  document.getElementById("apiary-now-updated").textContent = `Last updated: ${d.updated}`;
-  document.getElementById("apiary-now-cards").innerHTML = d.cards.map(card =>
-    `<article class="season-card"><span>${card.icon}</span><h3>${card.title}</h3><p>${card.text}</p></article>`
+  const $ = id => document.getElementById(id);
+  const cards = items => items.map(item =>
+    '<article class="season-card"><span>' + item.icon +
+    '</span><h3>' + item.title + '</h3><p>' + item.text + '</p></article>'
   ).join("");
-  document.getElementById("apiary-now-watch").innerHTML =
-    `<strong>What we're watching:</strong>` + d.watching.map(item => `<span>${item}</span>`).join("");
-})();
+  const tasks = items => cards(items.map(task => ({
+    icon: task[0], title: task[1], text: task[2]
+  })));
+  const pills = (label, items) =>
+    "<strong>" + label + "</strong>" +
+    items.map(item => "<span>" + item + "</span>").join("");
 
-// Automatically display the current month's hive-management recommendations.
-(function () {
-  function showMonthlyTasks() {
-    const guide = apiaryMonthlyTasks[new Date().getMonth()];
+  function updateSeasonalContent() {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York", year: "numeric", month: "numeric"
+    }).formatToParts(new Date());
+    const month = Number(parts.find(part => part.type === "month").value);
+    const year = Number(parts.find(part => part.type === "year").value);
+    const guide = apiaryMonthlyTasks[month - 1];
     if (!guide) return;
 
-    document.getElementById("apiary-now-eyebrow").textContent =
-      guide.month.toUpperCase() + " IN COASTAL MAINE";
+    const editorialIsCurrent = year === 2026 && month === 10;
+    const extra = $("apiary-monthly-guide");
 
-    document.getElementById("apiary-now-intro").textContent =
-      "Recommended beekeeping tasks for " + guide.month +
-      " in coastal Maine. Adjust these recommendations to weather and actual hive conditions.";
+    if (editorialIsCurrent) {
+      const d = apiaryNowData;
+      $("apiary-now-eyebrow").textContent = d.eyebrow;
+      $("apiary-now-intro").textContent = d.intro;
+      $("apiary-now-updated").textContent = "Last updated: " + d.updated;
+      $("apiary-now-cards").innerHTML = cards(d.cards);
+      $("apiary-now-watch").innerHTML = pills("What we're watching:", d.watching);
 
-    document.getElementById("apiary-now-updated").textContent =
-      "Seasonal guide: " + guide.month +
-      " | Guidance last reviewed: October 12, 2026";
-
-    document.getElementById("apiary-now-cards").innerHTML =
-      guide.tasks.map(task =>
-        '<article class="season-card"><span>' + task[0] +
-        '</span><h3>' + task[1] +
-        '</h3><p>' + task[2] + '</p></article>'
-      ).join("");
-
-    document.getElementById("apiary-now-watch").innerHTML =
-      "<strong>Monthly priorities:</strong>" +
-      guide.tasks.map(task => "<span>" + task[1] + "</span>").join("");
+      $("apiary-monthly-title").textContent = guide.month + " hive management checklist";
+      $("apiary-monthly-intro").textContent =
+        "General tasks for " + guide.month +
+        " in coastal Maine. Adapt them to weather and actual hive conditions.";
+      $("apiary-monthly-cards").innerHTML = tasks(guide.tasks);
+      extra.hidden = false;
+    } else {
+      // After the dated report's month has passed, display evergreen monthly guidance
+      // as the main section rather than presenting an old report as current.
+      $("apiary-now-eyebrow").textContent = guide.month.toUpperCase() + " IN COASTAL MAINE";
+      $("apiary-now-intro").textContent =
+        "Recommended beekeeping tasks for " + guide.month +
+        " in coastal Maine. Adjust these recommendations to weather and actual hive conditions.";
+      $("apiary-now-updated").textContent =
+        "Seasonal guide: " + guide.month + " | Guidance last reviewed: October 12, 2026";
+      $("apiary-now-cards").innerHTML = tasks(guide.tasks);
+      $("apiary-now-watch").innerHTML =
+        pills("Monthly priorities:", guide.tasks.map(task => task[1]));
+      extra.hidden = true;
+    }
   }
 
-  showMonthlyTasks();
-  setInterval(showMonthlyTasks, 60 * 60 * 1000);
+  updateSeasonalContent();
+  setInterval(updateSeasonalContent, 60 * 60 * 1000);
 })();
