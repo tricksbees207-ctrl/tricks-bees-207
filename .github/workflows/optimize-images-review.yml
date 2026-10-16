@@ -19,7 +19,7 @@ jobs:
         run: |
           python3 -m pip install --user pillow
           sudo apt-get update -qq
-          sudo apt-get install -y -qq optipng
+          sudo apt-get install -y -qq optipng pngquant
       - name: Optimize images and verify identical pixels
         shell: bash
         run: |
@@ -59,9 +59,30 @@ jobs:
                               assert result.convert('RGBA').tobytes() == expected_rgba, 'Changed pixels'
                           if len(data) < len(best[1]):
                               best = (label, data)
+                      # Optional high-quality palette PNG: use it only when differences
+                      # are extremely small and alpha is effectively unchanged.
+                      quant_file = tmp / 'quantized.png'
+                      quant = subprocess.run(
+                          ['pngquant', '--quality=86-100', '--speed=1', '--force',
+                           '--output', str(quant_file), str(source)],
+                          capture_output=True, text=True,
+                      )
+                      if quant.returncode == 0 and quant_file.exists():
+                          from PIL import ImageChops, ImageStat
+                          with Image.open(quant_file) as quant_img:
+                              quant_img.load()
+                              assert quant_img.size == dimensions
+                              diff = ImageChops.difference(img.convert('RGBA'), quant_img.convert('RGBA'))
+                              rms = ImageStat.Stat(diff).rms
+                          quant_bytes = quant_file.read_bytes()
+                          print(f'CANDIDATE {source}: pngquant={len(quant_bytes)} bytes; RGBA RMS={[round(x, 3) for x in rms]}', flush=True)
+                          if max(rms[:3]) <= 5.5 and rms[3] <= 0.2 and len(quant_bytes) < len(best[1]) * 0.85:
+                              best = ('high-quality PNG quantization', quant_bytes)
+                      else:
+                          print(f'CANDIDATE {source}: high-quality pngquant unavailable (exit {quant.returncode})', flush=True)
                       if best[0] != 'original':
                           source.write_bytes(best[1])
-                      print(f'RESULT {source}: {len(baseline)} -> {len(best[1])} bytes; method={best[0]}; dimensions={dimensions}; pixel-for-pixel identical', flush=True)
+                      print(f'RESULT {source}: {len(baseline)} -> {len(best[1])} bytes; method={best[0]}; dimensions={dimensions}', flush=True)
           PY
       - name: Commit optimized files to review branch
         shell: bash
