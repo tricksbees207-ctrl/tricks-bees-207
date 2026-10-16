@@ -152,11 +152,33 @@ async function loadWeather(){
   const fc=document.getElementById("forecast");
   fc.innerHTML="";
 
-  periods.slice(0,5).forEach(p=>{
+  // NWS divides each day into daytime and nighttime forecast periods.
+  // Group those periods by Maine calendar date so five cards mean five days.
+  const forecastDays = new Map();
+  for (const period of periods) {
+    const date = period.startTime?.slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+    if (!forecastDays.has(date)) forecastDays.set(date, { date, day: null, night: null });
+    forecastDays.get(date)[period.isDaytime ? "day" : "night"] = period;
+  }
+
+  [...forecastDays.values()].slice(0, 5).forEach(({date, day, night}) => {
+    const primary = day || night;
+    const label = new Date(date + "T12:00:00Z").toLocaleDateString("en-US", {
+      timeZone: "UTC", weekday: "short", month: "short", day: "numeric"
+    });
+    const temperatures = [
+      day ? "High " + day.temperature + "°" + day.temperatureUnit : "",
+      night ? "Low " + night.temperature + "°" + night.temperatureUnit : ""
+    ].filter(Boolean).join(" / ");
+    const summary = primary.shortForecast || "Forecast available";
+    const forecastIcon = !day && /clear|sunny/i.test(summary) ? "🌙" : iconFor(summary);
+
     fc.insertAdjacentHTML("beforeend",
-      `<div class="forecast-day"><b>${p.name}</b><span class="fi">${iconFor(p.shortForecast)}</span><span class="temps">${p.temperature}°${p.temperatureUnit}</span><small>${p.shortForecast}</small></div>`
+      `<div class="forecast-day"><b>${label}</b><span class="fi">${forecastIcon}</span><span class="temps">${temperatures}</span><small>${summary}</small></div>`
     );
   });
+  if (!forecastDays.size) fc.textContent = "Daily forecast temporarily unavailable.";
 
  }catch(e){
   console.error(e);
