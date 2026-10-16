@@ -1,0 +1,77 @@
+name: Temporary lossless image optimization review
+
+on:
+  push:
+    branches:
+      - image-optimization-review-20261016
+    paths:
+      - '.github/workflows/optimize-images-review.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  optimize-images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install lossless PNG tools
+        run: |
+          python3 -m pip install --user pillow
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq optipng
+      - name: Optimize images and verify identical pixels
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import shutil
+          import subprocess
+          import tempfile
+
+          paths = [
+              Path('assets/tricks-bees-207-logo.png'),
+              Path('assets/tricks-bees-207-hero.png'),
+          ]
+          for source in paths:
+              baseline = source.read_bytes()
+              with Image.open(source) as img:
+                  img.load()
+                  dimensions = img.size
+                  expected_rgba = img.convert('RGBA').tobytes()
+                  with tempfile.TemporaryDirectory() as temporary:
+                      tmp = Path(temporary)
+                      pillow_file = tmp / 'pillow.png'
+                      optipng_file = tmp / 'optipng.png'
+                      img.save(pillow_file, format='PNG', optimize=True, compress_level=9)
+                      shutil.copy2(pillow_file, optipng_file)
+                      subprocess.run(
+                          ['optipng', '-quiet', '-o5', str(optipng_file)],
+                          check=True,
+                      )
+                      best = ('original', baseline)
+                      for label, candidate in [('Pillow', pillow_file), ('OptiPNG', optipng_file)]:
+                          data = candidate.read_bytes()
+                          with Image.open(candidate) as result:
+                              result.load()
+                              assert result.size == dimensions, 'Changed dimensions'
+                              assert result.convert('RGBA').tobytes() == expected_rgba, 'Changed pixels'
+                          if len(data) < len(best[1]):
+                              best = (label, data)
+                      if best[0] != 'original':
+                          source.write_bytes(best[1])
+                      print(f'RESULT {source}: {len(baseline)} -> {len(best[1])} bytes; method={best[0]}; dimensions={dimensions}; pixel-for-pixel identical', flush=True)
+          PY
+      - name: Commit optimized files to review branch
+        shell: bash
+        run: |
+          git add -- assets/tricks-bees-207-logo.png assets/tricks-bees-207-hero.png
+          if git diff --cached --quiet; then
+            echo 'No lossless reductions possible.'
+          else
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'Losslessly optimize original homepage logo and banner'
+            git push origin HEAD:image-optimization-review-20261016
+          fi
