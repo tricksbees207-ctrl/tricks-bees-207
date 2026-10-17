@@ -6,6 +6,8 @@ on:
       - 'apiary-log.html'
       - 'recovery-test.html'
       - 'js/recurring-expenses.js'
+      - 'database/migrations/20261018_automatic_recurring_core.sql'
+      - 'database/migrations/20261018_automatic_recurring_schedule.sql'
       - 'js/apiary-backup-verifier.js'
       - 'js/apiary-complete-backup.js'
       - 'tests/recurring-ui.test.mjs'
@@ -17,6 +19,8 @@ on:
       - 'apiary-log.html'
       - 'recovery-test.html'
       - 'js/recurring-expenses.js'
+      - 'database/migrations/20261018_automatic_recurring_core.sql'
+      - 'database/migrations/20261018_automatic_recurring_schedule.sql'
       - 'js/apiary-backup-verifier.js'
       - 'js/apiary-complete-backup.js'
       - 'tests/recurring-ui.test.mjs'
@@ -76,9 +80,20 @@ jobs:
           const html = fs.readFileSync('apiary-log.html', 'utf8');
           const recovery = fs.readFileSync('recovery-test.html', 'utf8');
           const sql = fs.readFileSync('database/migrations/20261017_recurring_expenses.sql', 'utf8');
+          const auto = fs.readFileSync('database/migrations/20261018_automatic_recurring_core.sql', 'utf8');
+          const cron = fs.readFileSync('database/migrations/20261018_automatic_recurring_schedule.sql', 'utf8');
           const backup = fs.readFileSync('js/apiary-complete-backup.js', 'utf8');
           const verifier = fs.readFileSync('js/apiary-backup-verifier.js', 'utf8');
           assert.match(html, /setupRecurringExpenses/);
+          assert.match(html, /id="expenseRepeat"/);
+          assert.match(html, /id="expenseRepeatFrequency"/);
+          assert.match(html, /recurringManager\.enableFromExpense/);
+          assert.match(auto, /enable_auto_recurring_expense/);
+          assert.match(auto, /post_due_auto_recurring_expenses/);
+          assert.match(auto, /ON CONFLICT \(recurring_template_id, recurring_due_date\) DO NOTHING/);
+          assert.match(auto, /REVOKE ALL ON FUNCTION public\.post_due_auto_recurring_expenses/);
+          assert.match(cron, /cron\.schedule/);
+          assert.match(cron, /post_due_auto_recurring_expenses/);
           assert.match(html, /recurringManager\.refresh/);
           assert.match(recovery, /getTables/);
           assert.match(recovery, /xvthtxcinwbopoixaggv/);
@@ -91,7 +106,7 @@ jobs:
           NODE
       - name: Install DOM test dependency
         run: npm install --no-save --no-package-lock --ignore-scripts jsdom@26 playwright@1.56.1
-      - name: Test recurring payment review and backup compatibility
+      - name: Test automatic recurring entries and backup compatibility
         run: node --test tests/recurring-ui.test.mjs tests/recurring-backup.test.mjs
       - name: Test recurring UI in headless Chrome browser
         run: node tests/recurring-browser-smoke.mjs
