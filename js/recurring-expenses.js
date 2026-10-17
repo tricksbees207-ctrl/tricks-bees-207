@@ -7,7 +7,7 @@ export function setupRecurringExpenses({supabase,expenseSection,categorySource,p
   const $=id=>panel.querySelector("#"+id),info=s=>{$("recurringMessage").textContent=s;};
   let schedules=[],editId=null,review=null;
   const today=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");};
-  const validDate=s=>/^\d{4}-\d{2}-\d{2}$/.test(s)&&!Number.isNaN(Date.parse(s+"T12:00:00"));
+  const validDate=s=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return false;const[y,m,d]=s.split("-").map(Number);const date=new Date(Date.UTC(y,m-1,d));return date.getUTCFullYear()===y&&date.getUTCMonth()+1===m&&date.getUTCDate()===d;};
   const validAmount=s=>/^\d+(?:\.\d{1,2})?$/.test(s)&&Number.isFinite(Number(s))&&Number(s)<=9999999999.99;
   const money=v=>"$"+Number(v||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
   function options(){
