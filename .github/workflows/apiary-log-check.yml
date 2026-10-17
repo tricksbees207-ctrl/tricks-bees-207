@@ -7,6 +7,7 @@ on:
       - 'recovery-test.html'
       - 'js/recurring-expenses.js'
       - 'database/migrations/20261018_automatic_recurring_core.sql'
+      - 'database/migrations/20261018_automatic_recurring_schedule.sql'
       - 'js/apiary-backup-verifier.js'
       - 'js/apiary-complete-backup.js'
       - 'tests/recurring-ui.test.mjs'
@@ -19,6 +20,7 @@ on:
       - 'recovery-test.html'
       - 'js/recurring-expenses.js'
       - 'database/migrations/20261018_automatic_recurring_core.sql'
+      - 'database/migrations/20261018_automatic_recurring_schedule.sql'
       - 'js/apiary-backup-verifier.js'
       - 'js/apiary-complete-backup.js'
       - 'tests/recurring-ui.test.mjs'
@@ -79,6 +81,7 @@ jobs:
           const recovery = fs.readFileSync('recovery-test.html', 'utf8');
           const sql = fs.readFileSync('database/migrations/20261017_recurring_expenses.sql', 'utf8');
           const auto = fs.readFileSync('database/migrations/20261018_automatic_recurring_core.sql', 'utf8');
+          const cron = fs.readFileSync('database/migrations/20261018_automatic_recurring_schedule.sql', 'utf8');
           const backup = fs.readFileSync('js/apiary-complete-backup.js', 'utf8');
           const verifier = fs.readFileSync('js/apiary-backup-verifier.js', 'utf8');
           assert.match(html, /setupRecurringExpenses/);
@@ -88,6 +91,9 @@ jobs:
           assert.match(auto, /enable_auto_recurring_expense/);
           assert.match(auto, /post_due_auto_recurring_expenses/);
           assert.match(auto, /ON CONFLICT \(recurring_template_id, recurring_due_date\) DO NOTHING/);
+          assert.match(auto, /REVOKE ALL ON FUNCTION public\.post_due_auto_recurring_expenses/);
+          assert.match(cron, /cron\.schedule/);
+          assert.match(cron, /post_due_auto_recurring_expenses/);
           assert.match(html, /recurringManager\.refresh/);
           assert.match(recovery, /getTables/);
           assert.match(recovery, /xvthtxcinwbopoixaggv/);
