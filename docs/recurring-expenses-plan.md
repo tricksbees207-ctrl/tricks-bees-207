@@ -6,6 +6,8 @@
 
 **Headless Chrome user-flow test passed:** The actual recurring expense module was exercised in headless Google Chrome with synthetic mock data, including creating a schedule without posting an expense, cancelling review, confirming changed paid amount, attaching a synthetic PDF receipt, rolling a January 31 due date into February 28, and pausing without deleting history. This is not a real authenticated/test-project browser session. GitHub Actions run 39054379844 passed.
 
+**RLS impersonation test passed:** A rolled-back authenticated-role SQL test on Recovery Test Supabase proved another identity cannot read, edit, or forge a schedule belonging to the test owner, and cannot invoke the recording function to post that owner's payment. The original test owner still had the original schedule and amount in the transaction. After rollback, counts remained 15 expenses, 15 expense receipts, 3 income receipts and 0 saved recurring schedules. This is a database-permission simulation, not a browser sign-in test.
+
 **Backup changes (branch only):** new full ZIP version 2 saves 18 tables (including the recurring schedule table); verifier accepts version 1 archives with 17 tables and new version 2 archives with 18 tables. The recovery lab UI and test-only import function have been updated for v2, but a complete v2 ZIP upload/download-and-restore (including actual receipt file bytes) in an empty test project has NOT yet been performed. Release blocker. A successful rolled-back database-import rehearsal is not the same as a fresh-project, complete archive restoration.
 
 ## Expected behavior
