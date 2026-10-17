@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<title>Tricks Bees 207 | Recovery Test Lab (TEST ONLY)</title>
+<style>
+:root{color-scheme:light;--cream:#fbf7ed;--paper:#fff;--ink:#29251e;--muted:#60584d;--gold:#e9ac19;--border:#e5d9bf;--green:#286f53;--red:#ad372f}
+*{box-sizing:border-box}
+body{margin:0;background:var(--cream);color:var(--ink);font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+header{background:#28231b;color:#fff;border-bottom:6px solid var(--gold);padding:24px max(18px,calc((100vw - 920px)/2))}
+header h1{font-size:clamp(1.4rem,3vw,2rem);margin:8px 0 0}
+header p{color:#e8ddca;margin:5px 0}
+main{max-width:920px;margin:0 auto;padding:20px 14px 55px;display:grid;gap:16px}
+.panel{background:var(--paper);border:1px solid var(--border);border-radius:13px;padding:21px;box-shadow:0 2px 6px #241b1108}
+.panel h2{font-size:1.17rem;margin:0 0 9px}
+p{margin:7px 0 13px}
+.small{color:var(--muted);font-size:.92rem}
+.banner{display:inline-block;background:#f1c753;color:#292217;border-radius:30px;padding:4px 11px;font-size:.83rem;font-weight:800;letter-spacing:.04em}
+label{display:block;font-weight:650;margin:9px 0 5px}
+input[type=email],input[type=password],input[type=text],input[type=file]{font:inherit;max-width:100%;width:100%;padding:10px;border:1px solid #b5a98e;border-radius:7px;background:white}
+input[type=file]{padding:9px}
+button{padding:10px 15px;border:0;border-radius:7px;background:var(--gold);font:inherit;font-weight:750;color:#292217;cursor:pointer}
+button:hover:not(:disabled){filter:brightness(.96)}
+button:disabled{opacity:.43;cursor:not-allowed}
+button.secondary{background:#eee6d7}
+button.danger{background:var(--red);color:white}
+button:focus-visible,input:focus-visible{outline:3px solid var(--green);outline-offset:2px}
+.row{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.row button{min-width:155px}
+#log{white-space:pre-wrap;overflow-wrap:anywhere;background:#f5f0e5;border-left:4px solid var(--green);border-radius:5px;padding:15px;min-height:65px;font-family:ui-monospace,Menlo,monospace;font-size:.88rem}
+#session{font-size:.94rem;overflow-wrap:anywhere}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(115px,1fr));gap:10px;margin:12px 0}
+.stats div{background:#f8f4eb;border:1px solid var(--border);border-radius:8px;padding:10px}
+.stats strong{display:block;font-size:1.4rem}
+.warning{border-left:4px solid var(--red);padding:9px 12px;background:#fff3ee;color:#71322a;margin:12px 0}
+.note{border-left:4px solid var(--green);padding:9px 12px;background:#ecf8f1;margin:12px 0}
+code{font-family:Menlo,monospace;font-size:.86em}
+a{color:var(--green)}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header><span class="banner">🧪 SEPARATE RECOVERY TEST PROJECT ONLY</span>
+<h1>🐝 Tricks Bees 207 | Restore Test Lab</h1>
+<p>A controlled rehearsal that never connects to your live Apiary Log database.</p></header>
+<main>
+<section class="panel">
+<h2>1. Sign into the Recovery Test account</h2>
+<p class="small">Use the test user you created in the <strong>Tricks Bees 207 Recovery Test</strong> Supabase project. Your live Apiary Log account is completely separate.</p>
+<div id="signedOut">
+<form id="loginForm">
+<label for="email">Test account email</label><input type="email" id="email" autocomplete="username" required>
+<label for="password">Test account password</label><input type="password" id="password" autocomplete="current-password" required>
+<p><button type="submit" id="signIn">Sign in to TEST</button></p>
+</form>
+</div>
+<div id="signedIn" hidden><p id="session">Signed into test account.</p><button id="signOut" class="secondary" type="button">Sign out of TEST</button></div>
+</section>
+<section class="panel">
+<h2>2. Select your verified records-and-receipts ZIP</h2>
+<p class="small">Choose <code>tricks-bees-207-records-and-receipts-2026-10-17.zip</code> from your full-backup folder. The ZIP is checked locally before any test operation. It is never uploaded wholesale to the website.</p>
+<label for="file">Select your backup ZIP</label><input id="file" type="file" accept=".zip,application/zip">
+<div class="stats" id="stats" hidden>
+<div><strong id="nrecords">0</strong>Records</div>
+<div><strong id="ntables">0</strong>Tables</div>
+<div><strong id="nreceipts">0</strong>Receipts</div>
+</div>
+<p id="fileStatus" class="small" role="status">No ZIP selected.</p>
+</section>
+<section class="panel">
+<h2>3. Preview the restore (no changes)</h2>
+<p class="small">Checks the archive against the <strong>test database only</strong>, confirming that it is empty and ready for the 17 tables. Preview does not restore or upload anything.</p>
+<div class="row"><button type="button" id="preview" disabled>Run TEST preview</button></div>
+<p id="previewStatus" class="small">Select a valid ZIP and sign in first.</p>
+</section>
+<section class="panel">
+<h2>4. Restore records into TEST only</h2>
+<p class="warning"><strong>This step writes to the separate test database.</strong> It inserts a copy of your records there, changes owner identifiers to your test account, and never overwrites an existing record. It does not change production.</p>
+<label for="confirmation">To enable, type <code>RESTORE TEST</code></label>
+<input type="text" id="confirmation" placeholder="RESTORE TEST" autocomplete="off" spellcheck="false">
+<p><button type="button" id="restore" class="danger" disabled>Restore records to TEST</button></p>
+<p id="restoreStatus" class="small">Complete the preview first.</p>
+</section>
+<section class="panel">
+<h2>5. Copy and verify the 18 receipts in TEST</h2>
+<p class="small">This step copies receipt files from the selected ZIP directly to the private receipt buckets in the <strong>test project</strong>, with test-account paths. Original receipts are not moved or deleted. It downloads each restored receipt to verify its SHA-256 checksum.</p>
+<div class="row">
+<button type="button" id="upload" disabled>Restore receipts to TEST</button>
+<button type="button" id="recheck" class="secondary" disabled>Recheck recovered data</button>
+</div>
+<p id="uploadStatus" class="small">Restore the records first.</p>
+</section>
+<section class="panel">
+<h2>Recovery test status</h2>
+<div id="log" role="status" aria-live="polite">Ready. Sign in to the separate Recovery Test project, then choose your ZIP.</div>
+<p class="small"><strong>Safety boundary:</strong> This page is hardwired exclusively to Supabase project <code>xvthtxcinwbopoixaggv</code>. It has no production project URL or production API key. All database and receipt writes require your test login. Do not upload this private ZIP to a public GitHub repository or a file-sharing website.</p>
+<p class="small"><strong>Limitations:</strong> This verifies the database records and receipt files. It does not clone Supabase account passwords, MFA enrollment, project API keys, or every hosted-project configuration. Existing production data remains unchanged.</p>
+</section>
+</main>
+<script type="module">
+import {createClient} from 'https://esm.sh/@supabase/supabase-js@2';
+import {readVerifiedApiaryZip} from './js/apiary-backup-verifier.js';
+const TEST_URL='https://xvthtxcinwbopoixaggv.supabase.co';
+const TEST_KEY='sb_publishable_tSxLXZmgyA7M2ybZIHsdZA_jOREMSxN';
+const client=createClient(TEST_URL,TEST_KEY,{auth:{detectSessionInUrl:false}});
+const tables=['Hives','Hive_Colonies','Colony_Transfers','Hive_Profiles','Hive_Inspections','Hive_Feedings','Hive_Treatments','Hive_Harvests','Hive_Queen_Replacements','Hive_Splits','Hive_Losses','Apiary_Activities','Apiary_Expenses','Apiary_Income','Apiary_Expense_Receipts','Apiary_Income_Receipts','varroa_watch_results'];
+const $=name=>document.getElementById(name);
+const log=text=>{$('log').textContent=text;};
+const errorText=err=>err?.message||String(err);
+let user=null,archive=null,ready=false,recordsRestored=false,busy=false,generation=0;
+const key=x=>String(x.id);
+function controls(){
+  $('signIn').disabled=busy;
+  $('signOut').disabled=busy;
+  $('preview').disabled=busy||!user||!archive;
+  $('restore').disabled=busy||!user||!archive||!ready||recordsRestored||$('confirmation').value.trim()!=='RESTORE TEST';
+  $('upload').disabled=busy||!user||!archive||!recordsRestored;
+  $('recheck').disabled=busy||!user||!archive;
+}
+function requireUser(){
+ if(!user)throw new Error('Sign in to the Recovery Test account first.');
+ return user;
+}
+async function verifiedUser(){
+ const expected=requireUser().id;
+ const {data,error}=await client.auth.getUser();
+ if(error||!data?.user||data.user.id!==expected)throw new Error('Recovery Test sign-in changed. Sign in again.');
+ return data.user;
+}
+function getMappedReceipt(receipt){
+ const path=receipt.storage_path;
+ const parts=path.split('/');
+ if(parts.length!==3||!/^[0-9a-f-]{36}$/i.test(parts[0]))throw new Error('Invalid receipt path.');
+ return user.id+'/'+parts[1]+'/'+parts[2];
+}
+async function hash(blob){
+ const ab=await blob.arrayBuffer();
+ const digest=await crypto.subtle.digest('SHA-256',ab);
+ return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function verifiedRecordComparison(){
+ await verifiedUser();
+ const rows=archive.data.tables,counts={};
+ let total=0;
+ for(const name of tables){
+   const expected=rows[name];
+   const actual=[];
+   for(let start=0;;start+=500){
+     const {data,error}=await client.from(name).select('*').order(name==='varroa_watch_results'?'inspection_id':'id',{ascending:true}).range(start,start+499);
+     if(error)throw new Error('Cannot read '+name+': '+error.message);
+     actual.push(...data);
+     if(data.length<500)break;
+   }
+   counts[name]=actual.length; total+=actual.length;
+   if(actual.length!==expected.length)throw new Error(name+': restored count '+actual.length+' does not match ZIP count '+expected.length+'.');
+   const ids=new Set(actual.map(r=>String(name==='varroa_watch_results'?r.inspection_id:r.id)));
+   if(expected.some(r=>!ids.has(String(name==='varroa_watch_results'?r.inspection_id:r.id))))
+     throw new Error(name+': a backup record ID is missing from the test database.');
+   const actualById=new Map(actual.map(row=>[String(name==='varroa_watch_results'?row.inspection_id:row.id),row]));
+   for(const original of expected){
+     const originalId=String(name==='varroa_watch_results'?original.inspection_id:original.id);
+     const recovered=actualById.get(originalId);
+     if(!recovered)throw new Error(name+': record '+originalId+' was not recovered.');
+     for(const [field,value] of Object.entries(original)){
+       const wanted=field==='user_id'?user.id:
+         field==='storage_path'?getMappedReceipt({storage_path:value}):value;
+       const got=recovered[field];
+       const equal=got===wanted ||
+         (got!=null&&wanted!=null&&
+           (typeof got==='number'||typeof wanted==='number')&&String(got)===String(wanted)) ||
+         (typeof got==='string'&&typeof wanted==='string'&&
+           field.endsWith('_at')&&Date.parse(got)===Date.parse(wanted));
+       if(!equal)throw new Error(name+': recovered field '+field+' differs for record '+originalId+'.');
+     }
+     if('user_id' in recovered&&recovered.user_id!==user.id)
+       throw new Error(name+': restored record owner is not the test user.');
+   }
+ }
+ if(total!==archive.summary.records)throw new Error('Record total differs from ZIP.');
+ return total;
+}
+async function readReceiptFromTest(r){
+ const target=getMappedReceipt(r);
+ const {data,error}=await client.storage.from(r.bucket).download(target);
+ if(error||!data)return null;
+ if(data.size!==Number(r.bytes)||await hash(data)!==r.sha256)
+   throw new Error('Restored receipt checksum differs from backup: '+r.receipt_table+' #'+r.receipt_id);
+ return data;
+}
+async function compareReceipts(){
+ await verifiedUser();
+ let found=0;
+ for(const r of archive.manifest.receipt_files){
+   const data=await readReceiptFromTest(r);
+   if(!data)throw new Error('A restored receipt is missing: '+r.receipt_table+' #'+r.receipt_id);
+   found++;
+ }
+ return found;
+}
+$('loginForm').addEventListener('submit',async event=>{
+ event.preventDefault();
+ if(busy)return;
+ busy=true;controls();log('Signing in to the separate Recovery Test project...');
+ try{
+   const email=$('email').value.trim();
+   const {data,error}=await client.auth.signInWithPassword({email,password:$('password').value});
+   $('password').value='';
+   if(error||!data?.user)throw new Error(error?.message||'Test login failed.');
+   user=data.user;ready=false;recordsRestored=false;
+   $('signedOut').hidden=true;$('signedIn').hidden=false;
+   $('session').textContent='Signed into test account: '+user.email;
+   log('Recovery Test login confirmed. Choose the ZIP, then run the preview.');
+ }catch(err){$('password').value='';log('TEST login failed: '+errorText(err));}
+ finally{busy=false;controls();}
+});
+$('signOut').addEventListener('click',async()=>{
+ if(busy)return;busy=true;controls();
+ try{await client.auth.signOut();user=null;ready=false;recordsRestored=false;
+ $('signedOut').hidden=false;$('signedIn').hidden=true;
+ $('previewStatus').textContent='Sign in to run a preview.';
+ log('Signed out of the Recovery Test project. No live records were affected.');
+ }finally{busy=false;controls();}
+});
+$('file').addEventListener('change',async event=>{
+ if(busy)return;
+ const file=event.target.files?.[0];const select=++generation;
+ archive=null;ready=false;recordsRestored=false;
+ $('stats').hidden=true;$('confirmation').value='';
+ $('restoreStatus').textContent='Complete the preview first.';
+ $('uploadStatus').textContent='Restore the records first.';
+ if(!file){$('fileStatus').textContent='No ZIP selected.';controls();return;}
+ busy=true;controls();log('Verifying ZIP entirely on this Mac...');
+ try{
+   const checked=await readVerifiedApiaryZip(file);
+   if(select!==generation)return;
+   archive=checked;
+   $('stats').hidden=false;$('nrecords').textContent=checked.summary.records;
+   $('ntables').textContent=checked.summary.tables;
+   $('nreceipts').textContent=checked.summary.receipts;
+   $('fileStatus').textContent='ZIP integrity passed. Records and receipt SHA-256 hashes match.';
+   $('previewStatus').textContent='Ready to check the empty Recovery Test database.';
+   log('Backup ZIP verified locally: '+checked.summary.records+' records, '+checked.summary.tables+' tables, '+checked.summary.receipts+' receipts. No data was transmitted.');
+ }catch(err){$('fileStatus').textContent='ZIP check failed: '+errorText(err);log('ZIP rejected: '+errorText(err));}
+ finally{busy=false;controls();}
+});
+$('preview').addEventListener('click',async()=>{
+ if(busy||!archive)return;
+ busy=true;ready=false;recordsRestored=false;controls();
+ log('Checking Recovery Test database. No data is being restored...');
+ try{
+   await verifiedUser();
+   const {data,error}=await client.rpc('recovery_test_import',{p_tables:archive.data.tables,p_apply:false});
+   if(error)throw new Error(error.message);
+   if(data?.mode!=='preview'||data.rows!==archive.summary.records||data.receipts!==archive.summary.receipts)
+     throw new Error('The test database did not return the expected record/receipt counts.');
+   for(const name of tables)if(data.table_counts?.[name]!==archive.data.tables[name].length)
+     throw new Error('Table count mismatch in preview: '+name);
+   ready=true;
+   $('previewStatus').textContent='TEST PREVIEW PASSED: empty test database, '+data.rows+' records across 17 tables and '+data.receipts+' receipt records ready.';
+   $('restoreStatus').textContent='Type RESTORE TEST above to enable the test-only record import.';
+   log('PREVIEW PASSED. Only the separate test project was checked. No records or files have been changed.');
+ }catch(err){
+   $('previewStatus').textContent='Preview did not pass: '+errorText(err);
+   log('TEST preview stopped: '+errorText(err)+'\nIf you restored earlier, use Recheck recovered data instead.');
+ }
+ finally{busy=false;controls();}
+});
+$('confirmation').addEventListener('input',controls);
+$('restore').addEventListener('click',async()=>{
+ if(busy||!ready||!archive||$('confirmation').value.trim()!=='RESTORE TEST')return;
+ if(!window.confirm('RESTORE TEST PROJECT ONLY: Copy the verified ZIP records into the separate Recovery Test database? Production is NOT affected.'))return;
+ busy=true;controls();log('Restoring records to the separate Recovery Test database...');
+ try{
+   await verifiedUser();
+   const {data,error}=await client.rpc('recovery_test_import',{p_tables:archive.data.tables,p_apply:true});
+   if(error)throw new Error(error.message);
+   if(data?.mode!=='applied'||data.rows!==archive.summary.records)
+     throw new Error('Unexpected restore result. Run Recheck recovered data.');
+   await verifiedRecordComparison();
+   recordsRestored=true;ready=false;
+   $('restoreStatus').textContent='Record restore passed: '+data.rows+' records inserted and re-read from TEST. Original IDs and test owner verified.';
+   $('uploadStatus').textContent='Ready to restore '+archive.summary.receipts+' receipt files into private TEST storage.';
+   log('RECORDS RESTORED IN TEST: '+data.rows+' rows match expected counts and IDs. No production data was changed. Next, copy and verify receipt files.');
+ }catch(err){
+   ready=false;
+   $('restoreStatus').textContent='Restore stopped: '+errorText(err);
+   log('TEST record restore issue: '+errorText(err)+'\nUse Recheck recovered data to see whether records were inserted.');
+ }
+ finally{busy=false;controls();}
+});
+$('upload').addEventListener('click',async()=>{
+ if(busy||!archive||!recordsRestored)return;
+ if(!window.confirm('COPY RECEIPTS TO TEST ONLY: Upload '+archive.summary.receipts+' files from your ZIP into the private storage of the separate Recovery Test project?'))return;
+ busy=true;controls();
+ try{
+   await verifiedUser();await verifiedRecordComparison();
+   const m=archive.manifest.receipt_files;
+   for(let i=0;i<m.length;i++){
+     const r=m[i];
+     log('TEST receipt '+(i+1)+' of '+m.length+': checking stored copy...');
+     if(await readReceiptFromTest(r))continue;
+     const bytes=archive.entries.get(r.archive_path);
+     if(!bytes)throw new Error('Receipt not in verified archive.');
+     const tbl=archive.data.tables[r.receipt_table];
+     const receiptRow=tbl.find(x=>String(x.id)===String(r.receipt_id));
+     if(!receiptRow)throw new Error('Receipt record is missing from ZIP.');
+     const blob=new Blob([bytes],{type:receiptRow.mime_type||'application/octet-stream'});
+     const mapped=getMappedReceipt(r);
+     const {error}=await client.storage.from(r.bucket).upload(mapped,blob,{upsert:false,contentType:blob.type});
+     if(error){
+       if(!await readReceiptFromTest(r))throw new Error('Receipt upload failed: '+error.message);
+     }
+     if(!await readReceiptFromTest(r))throw new Error('Receipt download or hash verification failed.');
+     log('TEST receipt '+(i+1)+' of '+m.length+' verified.');
+   }
+   const found=await compareReceipts();
+   $('uploadStatus').textContent='RECEIPTS VERIFIED: '+found+' original files restored into private TEST buckets and SHA-256 hashes match.';
+   log('RECOVERY TEST PASSED: '+archive.summary.records+' database records and '+found+' private receipt files have been restored and independently re-read in the separate TEST project. Production was never modified.');
+ }catch(err){
+   $('uploadStatus').textContent='Incomplete TEST receipt recovery: '+errorText(err)+'. Retry is safe: existing matching files will be skipped.';
+   log('TEST receipt recovery stopped: '+errorText(err)+'\nAny confirmed uploaded files remain in TEST; use Restore receipts to TEST to resume.');
+ }
+ finally{busy=false;controls();}
+});
+$('recheck').addEventListener('click',async()=>{
+ if(busy||!archive)return;
+ busy=true;controls();log('Verifying TEST records and files without modifying anything...');
+ try{
+   const n=await verifiedRecordComparison();
+   recordsRestored=true;ready=false;
+   const found=await compareReceipts();
+   $('restoreStatus').textContent='TEST record counts, IDs, and owner verified: '+n+'.';
+   $('uploadStatus').textContent='TEST receipt hashes verified: '+found+'.';
+   log('RECOVERY RECHECK PASSED: '+n+' records and '+found+' original receipts verified in TEST. Nothing was changed.');
+ }catch(err){
+   $('uploadStatus').textContent='Recheck incomplete: '+errorText(err);
+   log('TEST recovery recheck: '+errorText(err)+'\nIf only receipts are missing, you can use Restore receipts to TEST.');
+ }
+ finally{busy=false;controls();}
+});
+(async()=>{
+ try{
+   const {data}=await client.auth.getUser();
+   if(data?.user){
+     user=data.user;$('signedOut').hidden=true;$('signedIn').hidden=false;
+     $('session').textContent='Signed into test account: '+user.email;
+     log('Recovery Test session active. Choose your verified ZIP.');
+   }
+ }catch(err){log('Test session unavailable: '+errorText(err));}
+ finally{controls();}
+})();
+</script>
+</body>
+</html>
