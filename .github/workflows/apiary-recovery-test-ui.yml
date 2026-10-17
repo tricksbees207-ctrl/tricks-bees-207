@@ -1,0 +1,28 @@
+name: Apiary recovery test page safety
+on:
+  pull_request:
+    paths:
+      - 'recovery-test.html'
+      - 'js/apiary-backup-verifier.js'
+      - 'tests/apiary-recovery-test-ui.test.mjs'
+      - '.github/workflows/apiary-recovery-test-ui.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'recovery-test.html'
+      - 'js/apiary-backup-verifier.js'
+      - 'tests/apiary-recovery-test-ui.test.mjs'
+      - '.github/workflows/apiary-recovery-test-ui.yml'
+jobs:
+  recovery-test-ui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check syntax and project isolation
+        run: |
+          node --check js/apiary-backup-verifier.js
+          node tests/apiary-recovery-test-ui.test.mjs
