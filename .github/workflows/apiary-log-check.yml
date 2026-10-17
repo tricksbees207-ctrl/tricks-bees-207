@@ -4,10 +4,32 @@ on:
   pull_request:
     paths:
       - 'apiary-log.html'
+      - 'recovery-test.html'
+      - 'js/recurring-expenses.js'
+      - 'js/apiary-backup-verifier.js'
+      - 'js/apiary-complete-backup.js'
+      - 'tests/recurring-ui.test.mjs'
+      - 'tests/recurring-backup.test.mjs'
+      - 'tests/recurring-browser-smoke.mjs'
+      - 'recurring-expenses-test-preview.html'
+      - 'tests/recurring-preview-file.test.mjs'
+      - 'recurring-expenses-backup-test.html'
+      - 'tests/recurring-backup-preview.test.mjs'
       - '.github/workflows/apiary-log-check.yml'
   push:
     paths:
       - 'apiary-log.html'
+      - 'recovery-test.html'
+      - 'js/recurring-expenses.js'
+      - 'js/apiary-backup-verifier.js'
+      - 'js/apiary-complete-backup.js'
+      - 'tests/recurring-ui.test.mjs'
+      - 'tests/recurring-backup.test.mjs'
+      - 'tests/recurring-browser-smoke.mjs'
+      - 'recurring-expenses-test-preview.html'
+      - 'tests/recurring-preview-file.test.mjs'
+      - 'recurring-expenses-backup-test.html'
+      - 'tests/recurring-backup-preview.test.mjs'
       - '.github/workflows/apiary-log-check.yml'
 
 permissions:
@@ -51,3 +73,37 @@ jobs:
           }
           console.log('Syntax passed for ' + checked + ' scripts; all ' + ids.length + ' MFA elements found.');
           NODE
+      - name: Check recurring-payment, backup, and recovery modules
+        run: |
+          for file in js/recurring-expenses.js js/apiary-backup-verifier.js js/apiary-complete-backup.js; do
+            node --input-type=module --check < "$file"
+          done
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const fs = require('node:fs');
+          const html = fs.readFileSync('apiary-log.html', 'utf8');
+          const recovery = fs.readFileSync('recovery-test.html', 'utf8');
+          const sql = fs.readFileSync('database/drafts/recurring-expenses.sql', 'utf8');
+          const backup = fs.readFileSync('js/apiary-complete-backup.js', 'utf8');
+          const verifier = fs.readFileSync('js/apiary-backup-verifier.js', 'utf8');
+          assert.match(html, /setupRecurringExpenses/);
+          assert.match(html, /recurringManager\.refresh/);
+          assert.match(recovery, /getTables/);
+          assert.match(recovery, /xvthtxcinwbopoixaggv/);
+          assert.doesNotMatch(recovery, /mkypanucvttinkjggxzv/, 'Recovery lab must not reference production');
+          assert.match(sql, /record_recurring_expense/);
+          assert.match(sql, /UNIQUE \(recurring_template_id, recurring_due_date\)/);
+          assert.match(backup, /'Apiary_Recurring_Expenses'/);
+          assert.match(verifier, /manifest\.version===1\|\|manifest\.version===2/);
+          console.log('Recurring and recovery static safety checks passed.');
+          NODE
+      - name: Install DOM test dependency
+        run: npm install --no-save --no-package-lock --ignore-scripts jsdom@26 playwright@1.56.1
+      - name: Test recurring payment review and backup compatibility
+        run: node --test tests/recurring-ui.test.mjs tests/recurring-backup.test.mjs
+      - name: Test recurring UI in headless Chrome browser
+        run: node tests/recurring-browser-smoke.mjs
+      - name: Test local TEST-only HTML preview in Chrome
+        run: node tests/recurring-preview-file.test.mjs
+      - name: Test complete TEST backup preview with MFA in Chrome
+        run: node tests/recurring-backup-preview.test.mjs
