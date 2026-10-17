@@ -10,6 +10,7 @@ on:
       - 'js/apiary-complete-backup.js'
       - 'tests/recurring-ui.test.mjs'
       - 'tests/recurring-backup.test.mjs'
+      - 'tests/recurring-browser-smoke.mjs'
       - '.github/workflows/apiary-log-check.yml'
   push:
     paths:
@@ -20,6 +21,7 @@ on:
       - 'js/apiary-complete-backup.js'
       - 'tests/recurring-ui.test.mjs'
       - 'tests/recurring-backup.test.mjs'
+      - 'tests/recurring-browser-smoke.mjs'
       - '.github/workflows/apiary-log-check.yml'
 
 permissions:
@@ -88,6 +90,8 @@ jobs:
           console.log('Recurring and recovery static safety checks passed.');
           NODE
       - name: Install DOM test dependency
-        run: npm install --no-save --no-package-lock --ignore-scripts jsdom@26
+        run: npm install --no-save --no-package-lock --ignore-scripts jsdom@26 playwright@1.56.1
       - name: Test recurring payment review and backup compatibility
         run: node --test tests/recurring-ui.test.mjs tests/recurring-backup.test.mjs
+      - name: Test recurring UI in headless Chrome browser
+        run: node tests/recurring-browser-smoke.mjs
