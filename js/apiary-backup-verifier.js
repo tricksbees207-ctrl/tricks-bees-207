@@ -19,7 +19,8 @@ const relationships = {
   Hive_Splits:[['hive_id','Hives'],['daughter_hive_id','Hives'],['colony_id','Hive_Colonies'],['daughter_colony_id','Hive_Colonies']],
   Hive_Losses:[['hive_id','Hives'],['colony_id','Hive_Colonies']],
   Apiary_Activities:[['hive_id','Hives'],['colony_id','Hive_Colonies']],
-  Apiary_Expenses:[['hive_id','Hives']],
+  Apiary_Expenses:[['hive_id','Hives'],['recurring_template_id','Apiary_Recurring_Expenses']],
+  Apiary_Recurring_Expenses:[['hive_id','Hives']],
   Apiary_Income:[['hive_id','Hives']],
   Apiary_Expense_Receipts:[['expense_id','Apiary_Expenses']],
   Apiary_Income_Receipts:[['income_id','Apiary_Income']],
@@ -87,13 +88,14 @@ export async function verifyApiaryBackup(file){
   demand(file&&file.size>0&&file.size<=300*1024*1024,'Choose a backup ZIP smaller than 300 MB.');
   const files=unzipStore(await file.arrayBuffer());
   const manifest=json(files,'manifest.json'),data=json(files,'apiary-data.json');
-  demand(manifest.format==='tricks-bees-207-records-and-receipts'&&manifest.version===1,'This is not the expected receipt-backup ZIP.');
-  demand(data.format==='tricks-bees-207-apiary-backup'&&data.version===2,'The database backup format is unexpected.');
+  demand(manifest.format==='tricks-bees-207-records-and-receipts'&&(manifest.version===1||manifest.version===2),'This is not a supported receipt-backup ZIP.');
+  demand(data.format==='tricks-bees-207-apiary-backup'&&data.version===(manifest.version===1?2:3),'The database backup format is unexpected.');
+  const expectedTables=manifest.version===2?[...tables,'Apiary_Recurring_Expenses']:tables;
   demand(manifest.exported_at===data.exported_at,'Backup dates disagree.');
   demand(data.tables&&typeof data.tables==='object'&&!Array.isArray(data.tables),'The tables section is invalid.');
   demand(manifest.table_counts&&typeof manifest.table_counts==='object','Manifest table counts are missing.');
   const ids={};let recordCount=0;
-  for(const name of tables){
+  for(const name of expectedTables){
     const rows=data.tables[name];
     demand(Array.isArray(rows),'Missing database table: '+name);
     demand(manifest.table_counts[name]===rows.length,'Record count mismatch: '+name);
@@ -108,10 +110,10 @@ export async function verifyApiaryBackup(file){
     }
     ids[name]=seen;recordCount+=rows.length;
   }
-  demand(Object.keys(data.tables).length===tables.length,'Unexpected database tables.');
-  demand(Object.keys(manifest.table_counts).length===tables.length,'Unexpected manifest table counts.');
+  demand(Object.keys(data.tables).length===expectedTables.length,'Unexpected database tables.');
+  demand(Object.keys(manifest.table_counts).length===expectedTables.length,'Unexpected manifest table counts.');
   for(const [table,fields] of Object.entries(relationships)){
-    for(const row of data.tables[table]){
+    for(const row of (data.tables[table]||[])){
       for(const [key,parent] of fields){
         demand(row[key]==null||ids[parent].has(String(row[key])),table+' has a missing '+parent+' reference.');
       }
@@ -150,7 +152,7 @@ export async function verifyApiaryBackup(file){
   demand(stored.length===seenPaths.size&&stored.every(n=>seenPaths.has(n)),'Unexpected or unlisted receipt file.');
   demand(totalBytes===manifest.receipt_bytes,'Receipt byte count mismatch.');
   demand(files.has('README.txt'),'Backup instructions are missing.');
-  return {records:recordCount,tables:tables.length,receipts:seenReceipts.size,
+  return {records:recordCount,tables:expectedTables.length,receipts:seenReceipts.size,
     expenses:data.tables.Apiary_Expenses.length,income:data.tables.Apiary_Income.length};
 }
 export async function verifyApiaryBackupOnPage(file,status){
@@ -161,7 +163,7 @@ export async function verifyApiaryBackupOnPage(file,status){
     status.textContent='ZIP INTEGRITY PASSED: '+result.records+' records across '+result.tables+
       ' tables; '+result.receipts+' receipt files; '+result.expenses+' expenses and '+result.income+
       ' income entries. ZIP checksums, receipt hashes and database relationships match. '+
-      'No data was uploaded or changed. An isolated live-database restoration is still untested.';
+      'No data was uploaded or changed. V2 recurring schedules require an updated recovery importer for restoration.';
   }catch(error){
     status.textContent='ZIP VERIFICATION FAILED: '+(error?.message||String(error))+
       '. No data was uploaded or changed.';
