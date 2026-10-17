@@ -1693,8 +1693,9 @@
           catch(e){receiptFailure=e;}
         }
         resetExpenseForm();
-        await refreshStats();
-        msg.textContent="Expense #"+expenseId+" saved"+(selectedReceipts.length&&!receiptFailure?" with receipt(s)":"")+"."+repetitionResult+(repetitionError?" "+repetitionError:"")+(receiptFailure?" Receipt upload failed: "+receiptFailure.message+". Attach it from Expense History rather than saving another expense.":"");
+        let refreshError=null;
+        try{await refreshStats();}catch(e){refreshError=e;}
+        msg.textContent="Expense #"+expenseId+" saved"+(selectedReceipts.length&&!receiptFailure?" with receipt(s)":"")+"."+repetitionResult+(repetitionError?" "+repetitionError:"")+(receiptFailure?" Receipt upload failed: "+receiptFailure.message+". Attach it from Expense History rather than saving another expense.":"")+(refreshError?" The screen could not refresh: "+refreshError.message+". Reload the page; do not save the expense again.":"");
       }catch(e){msg.textContent="Save failed: "+e.message;}
       finally{btn.disabled=false;}
     });
