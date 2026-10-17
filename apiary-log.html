@@ -712,7 +712,7 @@
     if(manageSection) mainPanel.insertBefore(manageSection,hivePage);
     const backupSection=document.createElement('section');
     backupSection.id='backupSection';
-    backupSection.innerHTML='<h3>Apiary Data Backup</h3><p class="muted">Save both financial records and receipt attachments together. The ZIP is assembled locally on your device. Keep it private.</p><button type="button" id="downloadCompleteBackup">Download Records &amp; Receipts (ZIP)</button><p id="completeBackupMessage" class="status" role="status" aria-live="polite"></p><p class="muted">The ZIP is a backup, not a one-click restore. Authentication settings and database definitions require separate recovery copies.</p><h4>Verify Your ZIP Backup (Read Only)</h4><p class="muted">Choose your saved ZIP to check receipt checksums and record relationships on this device. No files are uploaded, and nothing is restored or changed.</p><label for="verifyApiaryZipFile">Select your records-and-receipts ZIP</label><input id="verifyApiaryZipFile" type="file" accept=".zip,application/zip"><p id="verifyApiaryZipStatus" class="status" role="status" aria-live="polite"></p><details><summary>Legacy database-only backup (JSON)</summary><p class="muted">This older export excludes receipt attachments and receipt metadata. Use the ZIP above for record-and-receipt coverage.</p><button type="button" id="downloadApiaryBackup">Download Database-Only JSON</button><p id="backupMessage" class="status" role="status" aria-live="polite"></p></details>';
+    backupSection.innerHTML='<h3>Apiary Data Backup</h3><p class="muted">Save both financial records and receipt attachments together. The ZIP is assembled locally on your device. Keep it private.</p><button type="button" id="downloadCompleteBackup">Download Records &amp; Receipts (ZIP)</button><p id="completeBackupMessage" class="status" role="status" aria-live="polite"></p><p class="muted">The ZIP is a backup, not a one-click restore. Authentication settings and database definitions require separate recovery copies.</p><h4>Verify Your ZIP Backup (Read Only)</h4><p class="muted">Choose your saved ZIP to check receipt checksums and record relationships on this device. No files are uploaded, and nothing is restored or changed.</p><label for="verifyApiaryZipFile">Select your records-and-receipts ZIP</label><input id="verifyApiaryZipFile" type="file" accept=".zip,application/zip"><p id="verifyApiaryZipStatus" class="status" role="status" aria-live="polite"></p><details><summary>Legacy database-only backup (JSON)</summary><p class="muted">This legacy JSON export excludes receipt attachments, receipt metadata and recurring-payment schedules. Use the complete ZIP above for all three.</p><button type="button" id="downloadApiaryBackup">Download Database-Only JSON</button><p id="backupMessage" class="status" role="status" aria-live="polite"></p></details>';
     backupSection.insertAdjacentHTML('beforeend', `
       <hr><h3>Restore Preview &amp; Safety Audit (Read Only)</h3>
       <p class="muted">Choose a JSON backup saved on this device. The file is inspected locally in your browser; it is not uploaded or restored.</p>
@@ -812,6 +812,7 @@
     import { setupSplitFollowups } from "./js/split-followups-dashboard.js";
     import { downloadCompleteBackup } from "./js/apiary-complete-backup.js";
     import { verifyApiaryBackupOnPage } from "./js/apiary-backup-verifier.js";
+    import { setupRecurringExpenses } from "./js/recurring-expenses.js";
     const supabase = createClient("https://mkypanucvttinkjggxzv.supabase.co", "sb_publishable_-mN1hBm5z7YCjBzg_LDU4g_5C3N8ejJ");
     const $ = id => document.getElementById(id);
     const value = id => $(id).value;
@@ -1584,6 +1585,9 @@
         const card=make("div",undefined,"record");
         card.append(make("strong",`${formatDate(r.expense_date)} · ${money(r.amount)} · ${r.category}`));
         card.append(make("small",r.description));
+        if(r.recurring_template_id!=null&&r.recurring_due_date){
+          card.append(make("small",`Confirmed recurring payment · scheduled for ${formatDate(r.recurring_due_date)} · schedule #${r.recurring_template_id}`));
+        }
         card.append(make("small",`Hive: ${r.hive_id?hiveNames.get(String(r.hive_id))||"Unknown":"Shared / Entire apiary"}`));
         if(r.vendor)card.append(make("small",`Vendor: ${r.vendor}`));
         if(r.payment_method)card.append(make("small",`Payment: ${r.payment_method}`));
@@ -1678,6 +1682,7 @@
       a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
     });
     $("expenseDate").value=localToday();
+    const recurringManager=setupRecurringExpenses({supabase,expenseSection:$("expensesSection"),categorySource:$("expenseCategory"),paymentSource:$("expensePayment"),getHives:()=>hives,uploadReceipts,receiptFiles,refreshExpenses:refreshStats});
     let incomeRecords=[],incomeReceiptRecords=[],incomeReceiptsAvailable=false,editingIncomeId=null;
 const INCOME_BUCKET="apiary-income-receipts";
 async function uploadIncome(files,id,user){
@@ -2360,6 +2365,7 @@ function incomeReceiptControls(record){
       populateIncomeHives();
       refreshSplitDaughterOptions();
       await Promise.all([loadDashboardData(),refreshStats(),refreshLocations()]);
+      await recurringManager.refresh();
     }
     async function loadInspectionHistory(hiveId) {
       const request=++historyRequest;
