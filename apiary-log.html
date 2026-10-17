@@ -332,6 +332,12 @@
   <label for="expenseReceiptFiles" style="display:block;font-weight:bold;margin-top:12px">Receipts (optional)</label>
   <input type="file" id="expenseReceiptFiles" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif">
   <p class="muted">Attach PDF or photo receipts (10 MB maximum per file). Files stay private. Add more from Expense History.</p>
+  <label for="expenseRepeat" style="display:block;margin-top:12px"><input type="checkbox" id="expenseRepeat" style="width:auto;display:inline-block;vertical-align:middle"> Repeat this expense automatically</label>
+  <div id="expenseRepeatFields" hidden>
+    <label for="expenseRepeatFrequency">Repeat every</label>
+    <select id="expenseRepeatFrequency"><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="yearly">Yearly</option></select>
+    <p id="expenseRepeatHint" class="muted">Future entries are automatically recorded on their due date, without reminders or confirmation. This does not charge your payment method. Receipts are not repeated.</p>
+  </div>
   <button type="button" id="saveExpense">Save Expense</button>
   <button type="button" id="cancelExpenseEdit" hidden>Cancel Edit</button>
   <p id="expenseMessage" class="section-status" role="status"></p>
@@ -1558,6 +1564,11 @@
       editingExpenseId=null;
       expenseFields.forEach(id=>$(id).value="");
       $("expenseReceiptFiles").value="";
+      $("expenseRepeat").checked=false;
+      $("expenseRepeatFrequency").value="monthly";
+      $("expenseRepeatFrequency").disabled=false;
+      $("expenseRepeatFields").hidden=true;
+      $("expenseRepeatHint").textContent="Future entries are automatically recorded on their due date, without reminders or confirmation. This does not charge your payment method. Receipts are not repeated.";
       $("expenseDate").value=localToday();
       $("saveExpense").textContent="Save Expense";
       $("cancelExpenseEdit").hidden=true;
@@ -1599,6 +1610,12 @@
           const values={expenseDate:r.expense_date,expenseCategory:r.category,expenseDescription:r.description,
             expenseVendor:r.vendor,expenseAmount:r.amount,expenseHive:r.hive_id||"",expensePayment:r.payment_method,expenseNotes:r.notes};
           for(const [id,v] of Object.entries(values))$(id).value=v??"";
+          const automatic=!!r.recurring_template_id&&recurringManager.isAutomatic(r.recurring_template_id);
+          $("expenseRepeat").checked=automatic;
+          $("expenseRepeatFields").hidden=!automatic;
+          $("expenseRepeatFrequency").disabled=automatic;
+          $("expenseRepeatFrequency").value=automatic?recurringManager.frequencyFor(r.recurring_template_id):"monthly";
+          $("expenseRepeatHint").textContent=automatic?"This expense is linked to an existing automatic schedule. Uncheck and Save Changes to pause repetition, or use Automatic Expenses below. Changing an old receipt does not change the scheduled amount.":"Future entries are automatically recorded without reminders or confirmation. This does not charge your payment method.";
           $("saveExpense").textContent="Save Changes";$("cancelExpenseEdit").hidden=false;
           $("expenseMessage").textContent="Editing existing expense.";
           $("saveExpense").scrollIntoView({behavior:"smooth",block:"center"});
@@ -1638,6 +1655,10 @@
       let selectedReceipts;
       try{selectedReceipts=receiptFiles($("expenseReceiptFiles").files);}
       catch(e){msg.textContent=e.message;return;}
+      const repeat=$("expenseRepeat").checked;
+      const repeatFrequency=$("expenseRepeatFrequency").value;
+      const originalRecord=editingExpenseId===null?null:expenseRecords.find(r=>String(r.id)===String(editingExpenseId));
+      const existingAutoId=originalRecord?.recurring_template_id&&recurringManager.isAutomatic(originalRecord.recurring_template_id)?originalRecord.recurring_template_id:null;
       const btn=$("saveExpense");btn.disabled=true;msg.textContent="Saving...";
       try{
         const {data:{user},error:authError}=await supabase.auth.getUser();
@@ -1656,6 +1677,15 @@
           if(error)throw error;
           expenseId=data.id;
         }
+        let repetitionError=null;
+        let repetitionResult="";
+        if(repeat&&!existingAutoId){
+          try{await recurringManager.enableFromExpense(expenseId,repeatFrequency);repetitionResult=" Automatic repetition enabled."}
+          catch(e){repetitionError="Automatic repetition was NOT enabled: "+e.message+". Edit this saved expense to try again; do not save a duplicate expense."}
+        }else if(!repeat&&existingAutoId){
+          try{await recurringManager.pauseFromExpense(existingAutoId);repetitionResult=" Automatic repetition paused."}
+          catch(e){repetitionError="Could not pause automatic repetition: "+e.message+". Please use the Pause control below."}
+        }
         let receiptFailure=null;
         if(selectedReceipts.length){
           msg.textContent="Expense saved. Uploading receipts...";
@@ -1664,7 +1694,7 @@
         }
         resetExpenseForm();
         await refreshStats();
-        msg.textContent=receiptFailure?"Expense saved but receipt upload failed: "+receiptFailure.message+". Check Expense History before retrying.":"Expense saved successfully"+(selectedReceipts.length?" with receipt(s)!":"!");
+        msg.textContent="Expense #"+expenseId+" saved"+(selectedReceipts.length&&!receiptFailure?" with receipt(s)":"")+"."+repetitionResult+(repetitionError?" "+repetitionError:"")+(receiptFailure?" Receipt upload failed: "+receiptFailure.message+". Attach it from Expense History rather than saving another expense.":"");
       }catch(e){msg.textContent="Save failed: "+e.message;}
       finally{btn.disabled=false;}
     });
@@ -1682,7 +1712,10 @@
       a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
     });
     $("expenseDate").value=localToday();
-    const recurringManager=setupRecurringExpenses({supabase,expenseSection:$("expensesSection"),categorySource:$("expenseCategory"),paymentSource:$("expensePayment"),getHives:()=>hives,uploadReceipts,receiptFiles,refreshExpenses:refreshStats});
+    const recurringManager=setupRecurringExpenses({supabase,expenseSection:$("expensesSection")});
+    $("expenseRepeat").addEventListener("change",()=>{
+      $("expenseRepeatFields").hidden=!$("expenseRepeat").checked;
+    });
     let incomeRecords=[],incomeReceiptRecords=[],incomeReceiptsAvailable=false,editingIncomeId=null;
 const INCOME_BUCKET="apiary-income-receipts";
 async function uploadIncome(files,id,user){
