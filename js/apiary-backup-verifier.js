@@ -167,3 +167,20 @@ export async function verifyApiaryBackupOnPage(file,status){
       '. No data was uploaded or changed.';
   }
 }
+
+
+/**
+ * Returns parsed contents ONLY after the same full integrity checks used by
+ * the live Backup tab have passed. Intended for the separate recovery-test
+ * utility. Never sends the file to any server.
+ */
+export async function readVerifiedApiaryZip(file) {
+  const summary=await verifyApiaryBackup(file);
+  const entries=unzipStore(await file.arrayBuffer());
+  return {
+    summary,
+    manifest:json(entries,'manifest.json'),
+    data:json(entries,'apiary-data.json'),
+    entries
+  };
+}
