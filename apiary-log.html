@@ -1585,6 +1585,9 @@
         const card=make("div",undefined,"record");
         card.append(make("strong",`${formatDate(r.expense_date)} · ${money(r.amount)} · ${r.category}`));
         card.append(make("small",r.description));
+        if(r.recurring_template_id!=null&&r.recurring_due_date){
+          card.append(make("small",`Confirmed recurring payment · scheduled for ${formatDate(r.recurring_due_date)} · schedule #${r.recurring_template_id}`));
+        }
         card.append(make("small",`Hive: ${r.hive_id?hiveNames.get(String(r.hive_id))||"Unknown":"Shared / Entire apiary"}`));
         if(r.vendor)card.append(make("small",`Vendor: ${r.vendor}`));
         if(r.payment_method)card.append(make("small",`Payment: ${r.payment_method}`));
