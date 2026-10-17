@@ -75,7 +75,7 @@ jobs:
           const fs = require('node:fs');
           const html = fs.readFileSync('apiary-log.html', 'utf8');
           const recovery = fs.readFileSync('recovery-test.html', 'utf8');
-          const sql = fs.readFileSync('database/drafts/recurring-expenses.sql', 'utf8');
+          const sql = fs.readFileSync('database/migrations/20261017_recurring_expenses.sql', 'utf8');
           const backup = fs.readFileSync('js/apiary-complete-backup.js', 'utf8');
           const verifier = fs.readFileSync('js/apiary-backup-verifier.js', 'utf8');
           assert.match(html, /setupRecurringExpenses/);
