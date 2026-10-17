@@ -50,7 +50,7 @@ GRANT USAGE, SELECT ON SEQUENCE public."Apiary_Recurring_Expenses_id_seq" TO aut
 -- One atomic database transaction to record a payment and move its due date.
 -- SECURITY INVOKER means the expense-table and schedule-table RLS policies still apply.
 CREATE FUNCTION public.record_recurring_expense(
-  p_template_id bigint, p_expected_due_date date, p_paid_date date
+  p_template_id bigint, p_expected_due_date date, p_paid_date date, p_actual_amount numeric DEFAULT NULL
 ) RETURNS bigint
 LANGUAGE plpgsql SECURITY INVOKER SET search_path = public, pg_temp
 AS $$
@@ -64,6 +64,9 @@ DECLARE
 BEGIN
   IF auth.uid() IS NULL OR p_paid_date IS NULL OR p_expected_due_date IS NULL THEN
     RAISE EXCEPTION 'Valid sign-in and dates are required';
+  END IF;
+  IF p_actual_amount IS NOT NULL AND (p_actual_amount < 0 OR p_actual_amount > 9999999999.99) THEN
+    RAISE EXCEPTION 'Actual payment amount is invalid';
   END IF;
   SELECT * INTO schedule_row
     FROM public."Apiary_Recurring_Expenses"
@@ -80,7 +83,7 @@ BEGIN
     amount, payment_method, notes, recurring_template_id, recurring_due_date
   ) VALUES (
     schedule_row.user_id, schedule_row.hive_id, p_paid_date, schedule_row.category,
-    schedule_row.description, schedule_row.vendor, schedule_row.amount,
+    schedule_row.description, schedule_row.vendor, coalesce(p_actual_amount,schedule_row.amount),
     schedule_row.payment_method, schedule_row.notes, schedule_row.id, p_expected_due_date
   ) RETURNING id INTO new_expense_id;
 
@@ -100,7 +103,7 @@ BEGIN
   RETURN new_expense_id;
 END
 $$;
-REVOKE ALL ON FUNCTION public.record_recurring_expense(bigint,date,date) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.record_recurring_expense(bigint,date,date) TO authenticated;
+REVOKE ALL ON FUNCTION public.record_recurring_expense(bigint,date,date,numeric) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.record_recurring_expense(bigint,date,date,numeric) TO authenticated;
 
 COMMIT;
