@@ -712,7 +712,7 @@
     if(manageSection) mainPanel.insertBefore(manageSection,hivePage);
     const backupSection=document.createElement('section');
     backupSection.id='backupSection';
-    backupSection.innerHTML='<h3>Apiary Data Backup</h3><p class="muted">Download a read-only JSON snapshot of your saved Apiary Log data. Keep this file private. This feature does not change the database or restore data.</p><button type="button" id="downloadApiaryBackup">Download Full Backup (JSON)</button><p id="backupMessage" class="status" role="status" aria-live="polite"></p>';
+    backupSection.innerHTML='<h3>Apiary Data Backup</h3><p class="muted">Save both financial records and receipt attachments together. The ZIP is assembled locally on your device. Keep it private.</p><button type="button" id="downloadCompleteBackup">Download Records &amp; Receipts (ZIP)</button><p id="completeBackupMessage" class="status" role="status" aria-live="polite"></p><p class="muted">The ZIP is a backup, not a one-click restore. Authentication settings and database definitions require separate recovery copies.</p><details><summary>Legacy database-only backup (JSON)</summary><p class="muted">This older export excludes receipt attachments and receipt metadata. Use the ZIP above for record-and-receipt coverage.</p><button type="button" id="downloadApiaryBackup">Download Database-Only JSON</button><p id="backupMessage" class="status" role="status" aria-live="polite"></p></details>';
     backupSection.insertAdjacentHTML('beforeend', `
       <hr><h3>Restore Preview &amp; Safety Audit (Read Only)</h3>
       <p class="muted">Choose a JSON backup saved on this device. The file is inspected locally in your browser; it is not uploaded or restored.</p>
@@ -810,6 +810,7 @@
   <script type="module">
     import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
     import { setupSplitFollowups } from "./js/split-followups-dashboard.js";
+    import { downloadCompleteBackup } from "./js/apiary-complete-backup.js";
     const supabase = createClient("https://mkypanucvttinkjggxzv.supabase.co", "sb_publishable_-mN1hBm5z7YCjBzg_LDU4g_5C3N8ejJ");
     const $ = id => document.getElementById(id);
     const value = id => $(id).value;
@@ -1251,6 +1252,10 @@
     }
     document.addEventListener("click",event=>{
       if(event.target?.id==="downloadApiaryBackup")downloadFullBackup();
+    });
+    document.addEventListener("click",event=>{
+      if(event.target?.id==="downloadCompleteBackup")
+        downloadCompleteBackup({supabase,button:$("downloadCompleteBackup"),message:$("completeBackupMessage")});
     });
     const inspectionFields = [
       ["Queen Seen", "queen_seen"], ["Eggs Seen", "eggs_seen"],
