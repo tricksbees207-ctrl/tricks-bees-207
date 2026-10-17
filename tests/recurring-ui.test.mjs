@@ -27,9 +27,25 @@ test('recurring bills stay pending until review; confirmed amount posts once; pa
           return {select:async()=>({data:[{id:r.id}]})};
         },
         update(changes){
-          return {eq(key,id){assert.equal(key,'id');return {eq(key2,userId){assert.equal(key2,'user_id');assert.equal(userId,user.id);return {select:async()=>{
-            const r=schedules.find(s=>s.id===id);Object.assign(r,changes);return {data:[{id}]};
-          }};}}};
+          return {
+            eq:(key,id)=>{
+              assert.equal(key,'id');
+              return {
+                eq:(key2,userId)=>{
+                  assert.equal(key2,'user_id');
+                  assert.equal(userId,user.id);
+                  return {
+                    select:async()=>{
+                      const row=schedules.find(schedule=>schedule.id===id);
+                      Object.assign(row,changes);
+                      return {data:[{id}]};
+                    }
+                  };
+                }
+              };
+            }
+          };
+
         }
       };
     },
