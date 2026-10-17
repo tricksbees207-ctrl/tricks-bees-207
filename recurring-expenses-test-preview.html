@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<title>Tricks Bees 207 | Recurring Expense Test Preview</title>
+<style>
+:root{--ink:#29251e;--gold:#e6ad25;--cream:#fff7e1;--border:#dbc795}
+*{box-sizing:border-box}
+body{margin:0;background:#f8f5ea;color:var(--ink);font:16px/1.5 -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}
+header{background:#252018;color:#fff;padding:22px max(16px,calc((100vw - 940px)/2));border-bottom:6px solid var(--gold)}
+header h1{font-size:1.45rem;margin:4px 0}
+main{max-width:940px;margin:20px auto;padding:0 14px 32px}
+section.panel{background:#fff;border:1px solid var(--border);border-radius:12px;padding:22px;margin:14px 0}
+h3,h4{margin:20px 0 8px} p{margin:8px 0 14px}
+label{display:block;font-weight:650;margin:12px 0 4px}
+input,select,textarea,button{font:inherit;padding:10px;border:1px solid #b6a989;border-radius:7px}
+input,select,textarea{width:100%}textarea{min-height:80px}
+button{background:var(--gold);border:0;cursor:pointer;font-weight:650;margin:7px 7px 7px 0}
+button.secondary{background:#e9e4d7}
+button:disabled{opacity:.55;cursor:not-allowed}
+.two-col{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:9px 17px}
+.management{padding:16px;border:1px solid var(--border);border-radius:9px;margin-top:15px}
+.muted{color:#575b55;font-size:.94rem}
+.record{border:1px solid #e2d4b5;border-radius:8px;padding:14px;margin:12px 0}
+.record small{display:block;margin:4px 0;color:#4f554a}
+#recurringList button{display:inline-block}
+.status{min-height:1.4em}
+[hidden]{display:none!important}
+.alert{border-left:5px solid var(--gold);padding:12px;background:var(--cream)}
+#expenseTotals{padding:10px;background:#f6f7ef;border-radius:7px}
+</style>
+</head>
+<body>
+<header><h1>🐝 Tricks Bees 207: Recurring Expenses</h1><div>SEPARATE TEST-ONLY PREVIEW · NOT THE LIVE APIARY LOG</div></header>
+<main>
+<section class="panel">
+<p class="alert"><strong>Safety:</strong> This file connects only to the separate Tricks Bees 207 Recovery Test database. Never enter your regular Apiary Log password here. Do not select or upload a backup ZIP. This page does not charge a card or bank account. Test-only entries are real records in the Recovery Test database.</p>
+<h2>Step 1: Sign in with your Recovery Test account</h2>
+<div id="signedOut">
+<form id="testLogin">
+<label for="testEmail">Recovery Test email</label><input id="testEmail" type="email" autocomplete="username" required>
+<label for="testPassword">Recovery Test password</label><input id="testPassword" type="password" autocomplete="current-password" required>
+<button type="submit">Sign in to TEST</button>
+</form>
+</div>
+<div id="testMfa" hidden>
+<p>Enter the authenticator code for the Recovery Test account.</p>
+<form id="testMfaForm"><label for="testMfaCode">Six-digit code</label>
+<input id="testMfaCode" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required>
+<button type="submit">Verify code</button></form>
+</div>
+<div id="signedIn" hidden><p id="identity"></p><button type="button" id="testLogout" class="secondary">Sign out of TEST</button></div>
+<p id="loginStatus" class="status" role="status"></p>
+</section>
+<section class="panel" id="workspace" hidden>
+<h2>Step 2: Try the recurring-payment screen</h2>
+<p class="muted">Start with a fictional payment, for example TEST Website Hosting at $1.00. Saving a schedule does not create an actual expense. For now, please stop after saving the schedule and tell ChatGPT what you see.</p>
+<div id="expensesSection">
+<h4>Test Expense Summary</h4><div id="expenseTotals">Test expense information loads after sign-in.</div>
+</div>
+<label for="expenseCategory" hidden>Expense categories</label>
+<select id="expenseCategory" hidden>
+<option value="">Choose category</option><option>Feed / Sugar</option><option>Pollen Substitute</option>
+<option>Treatments</option><option>Queens / Bees</option><option>Hive Equipment</option>
+<option>Tools / Supplies</option><option>Marketing &amp; Advertising</option>
+<option>Technology &amp; Electronics</option><option>Web Hosting &amp; Subscriptions</option>
+<option>Memberships &amp; Associations</option><option>Travel / Fuel</option>
+<option>Education</option><option>Other</option>
+</select>
+<label for="expensePayment" hidden>Payment methods</label>
+<select id="expensePayment" hidden><option value="">Not specified</option><option>Cash</option>
+<option>Credit card</option><option>Debit card</option><option>Bank transfer</option>
+<option>Check</option><option>Other</option></select>
+</section>
+<footer class="muted"><p>The independent preview does not contain the production URL, production publishable key, or service-role credentials. The existing Recovery Test Lab remains unchanged.</p></footer>
+</main>
+<script type="module">
+import {createClient} from "https://esm.sh/@supabase/supabase-js@2";
+const TEST_URL="https://xvthtxcinwbopoixaggv.supabase.co";
+const TEST_KEY="sb_publishable_tSxLXZmgyA7M2ybZIHsdZA_jOREMSxN";
+const db=createClient(TEST_URL,TEST_KEY,{auth:{detectSessionInUrl:false,storageKey:"tricks-bees207-recurring-preview-test"}});
+const $=id=>document.getElementById(id);
+let manager=null,hives=[];
+const extensions={"application/pdf":"pdf","image/jpeg":"jpg","image/png":"png","image/webp":"webp","image/heic":"heic","image/heif":"heif"};
+function fileList(files){const arr=Array.from(files||[]);for(const f of arr)if(!extensions[f.type]||f.size<1||f.size>10485760)throw Error("Attach a supported PDF/photo up to 10 MB.");return arr;}
+async function uploadTestReceipts(files,id,user){
+  for(const f of fileList(files)){
+    const path=user.id+"/"+id+"/"+crypto.randomUUID()+"."+extensions[f.type];
+    const {error:e}=await db.storage.from("apiary-receipts").upload(path,f,{contentType:f.type,upsert:false});
+    if(e)throw e;
+    const {error:r}=await db.from("Apiary_Expense_Receipts").insert({user_id:user.id,expense_id:id,storage_path:path,original_name:f.name,mime_type:f.type,file_size:f.size});
+    if(r){await db.storage.from("apiary-receipts").remove([path]);throw r;}
+  }
+}
+async function refreshExpenseSummary(){
+  const {data,error}=await db.from("Apiary_Expenses").select("id,amount,description,recurring_template_id").limit(500);
+  $("expenseTotals").textContent=error?"Cannot read test expenses: "+error.message:
+    data.length+" existing expenses in the Recovery Test project. Creating reminders does not change this number.";
+}
+// Review-first recurring expenses. Schedules are reminders; only the confirmed RPC posts an expense.
+function setupRecurringExpenses({supabase,expenseSection,categorySource,paymentSource,getHives,uploadReceipts,receiptFiles,refreshExpenses}){
+  const panel=document.createElement("section");
+  panel.id="recurringExpensesSection";panel.className="management";
+  panel.innerHTML='<h4>Recurring expenses</h4><p class="muted">Schedule reminders for monthly, quarterly or annual bills. Nothing is recorded as an expense without your confirmation.</p><p id="recurringMessage" class="status" role="status" aria-live="polite"></p><h4 id="recurringFormHeading">Add recurring payment</h4><div class="two-col"><div><label for="recurringDescription">Description</label><input id="recurringDescription" maxlength="240" placeholder="Website hosting"></div><div><label for="recurringCategory">Category</label><select id="recurringCategory"></select></div><div><label for="recurringVendor">Vendor</label><input id="recurringVendor" maxlength="200"></div><div><label for="recurringAmount">Expected amount ($)</label><input id="recurringAmount" type="number" min="0" step="0.01"></div><div><label for="recurringFrequency">Frequency</label><select id="recurringFrequency"><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="yearly">Yearly</option></select></div><div><label for="recurringDue">Next due date</label><input id="recurringDue" type="date"></div><div><label for="recurringPaymentMethod">Payment method</label><select id="recurringPaymentMethod"></select></div><div><label for="recurringHive">Hive (optional)</label><select id="recurringHive"></select></div></div><label for="recurringNotes">Notes</label><textarea id="recurringNotes" maxlength="2000"></textarea><p id="recurringLockedHint" class="muted" hidden>To change the frequency or billing date, pause this schedule and create a new one.</p><button type="button" id="saveRecurring">Save recurring payment</button><button type="button" class="secondary" id="cancelRecurringEdit" hidden>Cancel edit</button><h4>Scheduled payments</h4><div id="recurringList">Sign in to view schedules.</div><section id="recurringReview" hidden><h4>Review payment</h4><p id="recurringReviewDetails"></p><div class="two-col"><div><label for="recurringPaidDate">Payment date</label><input id="recurringPaidDate" type="date"></div><div><label for="recurringPaidAmount">Actual amount ($)</label><input id="recurringPaidAmount" type="number" min="0" step="0.01"></div></div><label for="recurringFiles">Receipt (optional)</label><input id="recurringFiles" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif"><p class="muted">The payment only enters your financial history after you confirm. If a receipt upload fails, use Expense History to attach it rather than posting the payment twice.</p><button type="button" id="recordRecurring">Record confirmed payment</button><button type="button" class="secondary" id="cancelRecurringReview">Cancel review</button></section>';
+  expenseSection.insertBefore(panel,expenseSection.querySelector("#expenseTotals")?.previousElementSibling||null);
+  const $=id=>panel.querySelector("#"+id),info=s=>{$("recurringMessage").textContent=s;};
+  let schedules=[],editId=null,review=null;
+  const today=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");};
+  const validDate=s=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return false;const[y,m,d]=s.split("-").map(Number);const date=new Date(Date.UTC(y,m-1,d));return date.getUTCFullYear()===y&&date.getUTCMonth()+1===m&&date.getUTCDate()===d;};
+  const validAmount=s=>/^\d+(?:\.\d{1,2})?$/.test(s)&&Number.isFinite(Number(s))&&Number(s)<=9999999999.99;
+  const money=v=>"$"+Number(v||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+  function options(){
+    const prev={category:$("recurringCategory").value,payment:$("recurringPaymentMethod").value,hive:$("recurringHive").value};
+    const categories=Array.from(categorySource.options).filter(o=>o.value);
+    $("recurringCategory").replaceChildren(new Option("Choose category",""),...categories.map(o=>new Option(o.text,o.value)));
+    $("recurringCategory").value=prev.category||"Web Hosting & Subscriptions";
+    $("recurringPaymentMethod").replaceChildren(...Array.from(paymentSource.options).map(o=>new Option(o.text,o.value)));
+    $("recurringPaymentMethod").value=prev.payment||"";
+    $("recurringHive").replaceChildren(new Option("Entire apiary / Shared expense",""),...getHives().map(h=>new Option("Hive "+h.hive_number+": "+(h.hive_name||"Unnamed"),String(h.id))));
+    $("recurringHive").value=[...$("recurringHive").options].some(o=>o.value===prev.hive)?prev.hive:"";
+  }
+  function reset(){
+    editId=null;options();
+    for(const k of ["recurringDescription","recurringVendor","recurringAmount","recurringNotes"])$(k).value="";
+    $("recurringDue").value=today();$("recurringFrequency").value="monthly";
+    $("recurringDue").disabled=$("recurringFrequency").disabled=false;
+    $("recurringLockedHint").hidden=true;
+    $("recurringFormHeading").textContent="Add recurring payment";
+    $("saveRecurring").textContent="Save recurring payment";
+    $("cancelRecurringEdit").hidden=true;
+  }
+  function edit(r){
+    reset();editId=r.id;
+    const vals={recurringDescription:r.description,recurringVendor:r.vendor,recurringAmount:r.amount,recurringNotes:r.notes,recurringCategory:r.category,recurringPaymentMethod:r.payment_method,recurringHive:r.hive_id,recurringDue:r.next_due_date,recurringFrequency:r.frequency};
+    for(const [id,v]of Object.entries(vals))$(id).value=v==null?"":String(v);
+    $("recurringDue").disabled=$("recurringFrequency").disabled=true;
+    $("recurringLockedHint").hidden=false;
+    $("recurringFormHeading").textContent="Edit recurring payment";
+    $("saveRecurring").textContent="Save schedule changes";
+    $("cancelRecurringEdit").hidden=false;
+    $("recurringFormHeading").scrollIntoView({block:"center"});
+  }
+  function closeReview(){review=null;$("recurringReview").hidden=true;$("recurringFiles").value="";}
+  function startReview(r){
+    closeReview();
+    review={id:r.id,due:r.next_due_date,name:r.description,amount:r.amount};
+    $("recurringReviewDetails").textContent=r.description+" · due "+r.next_due_date+" · expected "+money(r.amount)+". No expense has been posted.";
+    $("recurringPaidDate").value=today();$("recurringPaidAmount").value=Number(r.amount).toFixed(2);
+    $("recurringReview").hidden=false;
+    $("recurringReview").scrollIntoView({block:"center"});
+    info("Review the actual payment date, amount and any receipt before confirming.");
+  }
+  function elt(tag,text,cls){const el=document.createElement(tag);if(text!==undefined)el.textContent=String(text);if(cls)el.className=cls;return el;}
+  function render(){
+    const box=$("recurringList");box.replaceChildren();
+    const active=schedules.filter(r=>r.active);
+    box.append(elt("p",active.length+" active · "+active.filter(r=>r.next_due_date<=today()).length+" due/overdue. Unconfirmed bills are excluded from totals.","muted"));
+    if(!schedules.length){box.append(elt("p","No recurring payments scheduled."));return;}
+    for(const r of [...schedules].sort((a,b)=>a.next_due_date.localeCompare(b.next_due_date))){
+      const card=elt("div",undefined,"record");
+      card.append(elt("strong",r.description+" · "+money(r.amount)));
+      const status=!r.active?"Paused":r.next_due_date<today()?"Overdue":r.next_due_date===today()?"Due today":"Upcoming";
+      card.append(elt("small","Next due: "+r.next_due_date+" · "+r.frequency+" · "+status));
+      card.append(elt("small","Category: "+r.category+(r.vendor?" · Vendor: "+r.vendor:"")));
+      if(r.notes)card.append(elt("small","Notes: "+r.notes));
+      const buttons=elt("div",undefined,"record-actions");
+      const btn=(label,action,disabled=false)=>{const b=elt("button",label);b.type="button";b.disabled=disabled;b.addEventListener("click",action);buttons.append(b);return b;};
+      btn("Review payment",()=>startReview(r),!r.active);
+      btn("Edit schedule",()=>edit(r));
+      const pause=btn(r.active?"Pause":"Resume",async()=>{
+        if(!window.confirm((r.active?"Pause":"Resume")+' recurring payment "'+r.description+'"?'))return;
+        pause.disabled=true;
+        try{
+          const{data:{user},error:authError}=await supabase.auth.getUser();
+          if(authError||!user)throw new Error("Please sign in again.");
+          const{data,error}=await supabase.from("Apiary_Recurring_Expenses").update({active:!r.active,updated_at:new Date().toISOString()}).eq("id",r.id).eq("user_id",user.id).select("id");
+          if(error)throw error;if(!data?.length)throw new Error("Schedule not updated.");
+          closeReview();await refresh();info("Schedule "+(r.active?"paused.":"resumed."));
+        }catch(e){info("Schedule change failed: "+e.message);pause.disabled=false;}
+      });pause.classList.add("secondary");
+      card.append(buttons);box.append(card);
+    }
+  }
+  async function refresh(){
+    options();
+    const{data:{user},error:authError}=await supabase.auth.getUser();
+    if(authError||!user){$("recurringList").textContent="Sign in to view recurring payments.";return;}
+    const{data,error}=await supabase.from("Apiary_Recurring_Expenses").select("*").eq("user_id",user.id).order("next_due_date",{ascending:true});
+    if(error){$("recurringList").textContent="Recurring expense database setup is not finished.";info("Recurring schedules unavailable: "+error.message);return;}
+    schedules=data||[];render();
+  }
+  $("saveRecurring").addEventListener("click",async()=>{
+    const description=$("recurringDescription").value.trim(),category=$("recurringCategory").value,amount=$("recurringAmount").value.trim();
+    if(!description||!category||!validAmount(amount)||(!editId&&!validDate($("recurringDue").value))){info("Enter a description, category, valid amount and next due date.");return;}
+    const save=$("saveRecurring");save.disabled=true;
+    try{
+      const{data:{user},error:authError}=await supabase.auth.getUser();
+      if(authError||!user)throw new Error("Please sign in again.");
+      const payload={description,category,amount:Number(amount),vendor:$("recurringVendor").value.trim()||null,payment_method:$("recurringPaymentMethod").value||null,hive_id:$("recurringHive").value?Number($("recurringHive").value):null,notes:$("recurringNotes").value.trim()||null};
+      const result=editId
+        ? await supabase.from("Apiary_Recurring_Expenses").update({...payload,updated_at:new Date().toISOString()}).eq("id",editId).eq("user_id",user.id).select("id")
+        : await supabase.from("Apiary_Recurring_Expenses").insert({...payload,user_id:user.id,frequency:$("recurringFrequency").value,anchor_date:$("recurringDue").value,next_due_date:$("recurringDue").value}).select("id");
+      if(result.error)throw result.error;if(!result.data?.length)throw new Error("Save not confirmed.");
+      reset();closeReview();await refresh();info("Schedule saved. No expense was recorded.");
+    }catch(e){info("Could not save schedule: "+e.message);}
+    finally{save.disabled=false;}
+  });
+  $("recordRecurring").addEventListener("click",async()=>{
+    if(!review)return;
+    const amount=$("recurringPaidAmount").value.trim(),paidDate=$("recurringPaidDate").value;
+    if(!validAmount(amount)||!validDate(paidDate)){info("Enter a valid date and paid amount.");return;}
+    let files;try{files=receiptFiles($("recurringFiles").files);}catch(e){info(e.message);return;}
+    const pending={...review};
+    if(!window.confirm("Record "+pending.name+" for "+money(amount)+" paid "+paidDate+" as a REAL expense?"))return;
+    const button=$("recordRecurring");button.disabled=true;
+    let id=null;
+    try{
+      const{data:{user},error:authError}=await supabase.auth.getUser();
+      if(authError||!user)throw new Error("Please sign in again.");
+      const{data,error}=await supabase.rpc("record_recurring_expense",{p_template_id:pending.id,p_expected_due_date:pending.due,p_paid_date:paidDate,p_actual_amount:Number(amount)});
+      if(error)throw error;if(!data)throw new Error("Payment record was not confirmed by the server.");
+      id=data;closeReview();
+      let receiptError=null;
+      if(files.length)try{await uploadReceipts(files,id,user);}catch(e){receiptError=e;}
+      let refreshError=null;
+      try{await refreshExpenses();await refresh();}catch(e){refreshError=e;}
+      info("Expense #"+id+" recorded after your confirmation. "+(receiptError?"Receipt upload FAILED: "+receiptError.message+". Attach it using Expense History, do not post the expense again.":files.length?"Receipt attached.":"No receipt attached.")+(refreshError?" Refresh the page to see updated history.":""));
+    }catch(e){
+      info(id?"Expense #"+id+" was recorded; do not retry. "+e.message:"Could not confirm the payment: "+e.message+". Refresh the schedules before trying again.");
+    }finally{button.disabled=false;}
+  });
+  $("cancelRecurringReview").addEventListener("click",()=>{closeReview();info("Review cancelled. No expense recorded.");});
+  $("cancelRecurringEdit").addEventListener("click",()=>{reset();info("Edit cancelled.");});
+  reset();
+  return{refresh};
+}
+
+async function enterWorkspace(user){
+  const {data,error}=await db.from("Hives").select("id,hive_number,hive_name").order("hive_number");
+  if(error)throw new Error("Test hive list unavailable: "+error.message);
+  hives=data||[];
+  $("signedOut").hidden=true;$("testMfa").hidden=true;$("signedIn").hidden=false;$("workspace").hidden=false;
+  $("identity").textContent="Signed into the separate Recovery Test account: "+user.email;
+  if(!manager)manager=setupRecurringExpenses({supabase:db,
+    expenseSection:$("expensesSection"),categorySource:$("expenseCategory"),
+    paymentSource:$("expensePayment"),getHives:()=>hives,
+    receiptFiles:fileList,uploadReceipts:uploadTestReceipts,refreshExpenses:refreshExpenseSummary});
+  await refreshExpenseSummary();
+  await manager.refresh();
+  $("loginStatus").textContent="TEST account ready.";
+}
+async function handleSession(){
+  const {data:{user},error}=await db.auth.getUser();
+  if(error||!user){$("signedOut").hidden=false;$("testMfa").hidden=true;$("signedIn").hidden=true;$("workspace").hidden=true;return;}
+  const {data:level,error:levelError}=await db.auth.mfa.getAuthenticatorAssuranceLevel();
+  if(levelError)throw levelError;
+  if(level.currentLevel==="aal1"&&level.nextLevel==="aal2"){
+    $("signedOut").hidden=true;$("signedIn").hidden=true;$("workspace").hidden=true;$("testMfa").hidden=false;
+    $("loginStatus").textContent="Verify the Recovery Test authenticator to continue.";
+    return;
+  }
+  await enterWorkspace(user);
+}
+$("testLogin").addEventListener("submit",async e=>{
+  e.preventDefault();$("loginStatus").textContent="Signing into TEST...";
+  const {error}=await db.auth.signInWithPassword({email:$("testEmail").value.trim(),password:$("testPassword").value});
+  $("testPassword").value="";
+  if(error){$("loginStatus").textContent="Sign-in failed: "+error.message;return;}
+  try{await handleSession();}catch(err){$("loginStatus").textContent="TEST sign-in check failed: "+err.message;}
+});
+$("testMfaForm").addEventListener("submit",async e=>{
+  e.preventDefault();$("loginStatus").textContent="Verifying TEST authenticator...";
+  const {data,error}=await db.auth.mfa.listFactors();
+  if(error){$("loginStatus").textContent="MFA failed: "+error.message;return;}
+  const factor=(data.totp||[]).find(x=>x.status==="verified");
+  if(!factor){$("loginStatus").textContent="No verified TEST authenticator found.";return;}
+  const {data:c,error:challengeError}=await db.auth.mfa.challenge({factorId:factor.id});
+  if(challengeError){$("loginStatus").textContent="MFA failed: "+challengeError.message;return;}
+  const {error:verifyError}=await db.auth.mfa.verify({factorId:factor.id,challengeId:c.id,code:$("testMfaCode").value.trim()});
+  $("testMfaCode").value="";
+  if(verifyError){$("loginStatus").textContent="Incorrect code: "+verifyError.message;return;}
+  try{await handleSession();}catch(err){$("loginStatus").textContent="TEST account check failed: "+err.message;}
+});
+$("testLogout").addEventListener("click",async()=>{
+  const {error}=await db.auth.signOut();
+  if(error){$("loginStatus").textContent="Sign-out failed: "+error.message;return;}
+  $("signedOut").hidden=false;$("signedIn").hidden=true;$("workspace").hidden=true;
+  $("loginStatus").textContent="Signed out of TEST.";
+});
+handleSession().catch(e=>$("loginStatus").textContent="TEST login could not initialize: "+e.message);
+</script>
+</body></html>
