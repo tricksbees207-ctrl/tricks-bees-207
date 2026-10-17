@@ -19,7 +19,7 @@ try {
     .replace('export function setupRecurringExpenses','window.setupRecurringExpenses = function setupRecurringExpenses');
   await page.addScriptTag({content:code});
   await page.evaluate(()=>{
-    window.__state={schedules:[],expenses:[],receipts:[],rpc:0};
+    window.__state={schedules:[],expenses:[],receipts:[],rpc:0,receiptFailNext:false};
     const user={id:'test-account-only'};
     let scheduleId=1;
     const supabase={
@@ -71,7 +71,10 @@ try {
       categorySource:document.getElementById('expenseCategory'),
       paymentSource:document.getElementById('expensePayment'),getHives:()=>[],
       receiptFiles:list=>Array.from(list),
-      uploadReceipts:async(files,id,owner)=>window.__state.receipts.push(...files.map(f=>({name:f.name,id,user:owner.id}))),
+      uploadReceipts:async(files,id,owner)=>{
+        if(window.__state.receiptFailNext){window.__state.receiptFailNext=false;throw Error('Synthetic receipt transfer failed');}
+        window.__state.receipts.push(...files.map(f=>({name:f.name,id,user:owner.id})));
+      },
       refreshExpenses:async()=>{}
     });
   });
@@ -107,6 +110,24 @@ try {
   await page.waitForFunction(()=>window.__state.schedules[0].active===false);
   assert.equal(await page.locator('#recurringList button').first().isDisabled(),true);
   assert.equal(await page.evaluate(()=>window.__state.expenses.length),1);
+  // Re-enable and deliberately fail only the receipt upload after a confirmed payment.
+  await page.locator('#recurringList button').last().click();
+  await page.waitForFunction(()=>window.__state.schedules[0].active===true);
+  await page.locator('#recurringList button').first().click();
+  await el('recurringPaidDate').fill('2027-03-02');
+  await el('recurringPaidAmount').fill('16.00');
+  await el('recurringFiles').setInputFiles({name:'unavailable-receipt.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4 synthetic failure')});
+  await page.evaluate(()=>{window.__state.receiptFailNext=true;});
+  await el('recordRecurring').click();
+  await page.waitForFunction(()=>window.__state.expenses.length===2&&window.__state.rpc===2);
+  const failedReceipt=await page.evaluate(()=>window.__state);
+  assert.equal(failedReceipt.receipts.length,1,'Failed receipt should not appear as attached');
+  assert.equal(failedReceipt.expenses[1].amount,16);
+  assert.equal(failedReceipt.schedules[0].next_due_date,'2027-03-31');
+  assert.match(await el('recurringMessage').innerText(),/Receipt upload FAILED/);
+  assert.match(await el('recurringMessage').innerText(),/do not post the expense again/);
+  assert.equal(await el('recurringReview').isVisible(),false,'Finished payment must not stay open');
+  console.log('PASS Chrome: reviewed payment remains recorded exactly once when receipt transfer fails, with safe user warning.');
   console.log('PASS Chrome: schedule creation, cancel, actual payment, receipt, calendar rollover and pause.');
 } finally {
   await browser.close();
