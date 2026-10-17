@@ -1,0 +1,26 @@
+name: Apiary backup ZIP integrity checks
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    paths:
+      - 'apiary-log.html'
+      - 'js/apiary-complete-backup.js'
+      - 'js/apiary-backup-verifier.js'
+      - 'tests/apiary-zip-backup.test.mjs'
+      - '.github/workflows/apiary-zip-tests.yml'
+jobs:
+  verify-backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: JavaScript module syntax
+        run: |
+          node --check js/apiary-complete-backup.js
+          node --check js/apiary-backup-verifier.js
+      - name: Generate and inspect synthetic backup ZIP
+        run: node tests/apiary-zip-backup.test.mjs
