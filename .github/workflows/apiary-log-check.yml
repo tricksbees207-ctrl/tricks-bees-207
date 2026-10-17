@@ -8,6 +8,8 @@ on:
       - 'js/recurring-expenses.js'
       - 'js/apiary-backup-verifier.js'
       - 'js/apiary-complete-backup.js'
+      - 'tests/recurring-ui.test.mjs'
+      - 'tests/recurring-backup.test.mjs'
       - '.github/workflows/apiary-log-check.yml'
   push:
     paths:
@@ -16,6 +18,8 @@ on:
       - 'js/recurring-expenses.js'
       - 'js/apiary-backup-verifier.js'
       - 'js/apiary-complete-backup.js'
+      - 'tests/recurring-ui.test.mjs'
+      - 'tests/recurring-backup.test.mjs'
       - '.github/workflows/apiary-log-check.yml'
 
 permissions:
@@ -83,3 +87,7 @@ jobs:
           assert.match(verifier, /manifest\.version===1\|\|manifest\.version===2/);
           console.log('Recurring and recovery static safety checks passed.');
           NODE
+      - name: Install DOM test dependency
+        run: npm install --no-save --no-package-lock --ignore-scripts jsdom@26
+      - name: Test recurring payment review and backup compatibility
+        run: node --test tests/recurring-ui.test.mjs tests/recurring-backup.test.mjs
