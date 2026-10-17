@@ -812,6 +812,7 @@
     import { setupSplitFollowups } from "./js/split-followups-dashboard.js";
     import { downloadCompleteBackup } from "./js/apiary-complete-backup.js";
     import { verifyApiaryBackupOnPage } from "./js/apiary-backup-verifier.js";
+    import { setupRecurringExpenses } from "./js/recurring-expenses.js";
     const supabase = createClient("https://mkypanucvttinkjggxzv.supabase.co", "sb_publishable_-mN1hBm5z7YCjBzg_LDU4g_5C3N8ejJ");
     const $ = id => document.getElementById(id);
     const value = id => $(id).value;
@@ -1678,6 +1679,7 @@
       a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
     });
     $("expenseDate").value=localToday();
+    const recurringManager=setupRecurringExpenses({supabase,expenseSection:$("expensesSection"),categorySource:$("expenseCategory"),paymentSource:$("expensePayment"),getHives:()=>hives,uploadReceipts,receiptFiles,refreshExpenses:refreshStats});
     let incomeRecords=[],incomeReceiptRecords=[],incomeReceiptsAvailable=false,editingIncomeId=null;
 const INCOME_BUCKET="apiary-income-receipts";
 async function uploadIncome(files,id,user){
@@ -2360,6 +2362,7 @@ function incomeReceiptControls(record){
       populateIncomeHives();
       refreshSplitDaughterOptions();
       await Promise.all([loadDashboardData(),refreshStats(),refreshLocations()]);
+      await recurringManager.refresh();
     }
     async function loadInspectionHistory(hiveId) {
       const request=++historyRequest;
