@@ -19,7 +19,8 @@ CREATE TABLE public."Apiary_Recurring_Expenses" (
   active boolean NOT NULL DEFAULT true,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT recurring_due_after_anchor CHECK (next_due_date >= anchor_date)
+  CONSTRAINT recurring_due_after_anchor CHECK (next_due_date >= anchor_date),
+  CONSTRAINT recurring_template_owner_pair UNIQUE (id, user_id)
 );
 
 CREATE INDEX recurring_expenses_owner_due_idx
@@ -27,12 +28,14 @@ CREATE INDEX recurring_expenses_owner_due_idx
 
 -- Stored expense is the historical transaction; the schedule is only a reminder.
 ALTER TABLE public."Apiary_Expenses"
-  ADD COLUMN recurring_template_id bigint REFERENCES public."Apiary_Recurring_Expenses"(id) ON DELETE RESTRICT,
+  ADD COLUMN recurring_template_id bigint,
   ADD COLUMN recurring_due_date date,
   ADD CONSTRAINT recurring_expense_pair CHECK
     ((recurring_template_id IS NULL AND recurring_due_date IS NULL) OR
      (recurring_template_id IS NOT NULL AND recurring_due_date IS NOT NULL)),
-  ADD CONSTRAINT recurring_expense_one_per_due UNIQUE (recurring_template_id, recurring_due_date);
+  ADD CONSTRAINT recurring_expense_one_per_due UNIQUE (recurring_template_id, recurring_due_date),
+  ADD CONSTRAINT recurring_expense_same_owner_fk FOREIGN KEY (recurring_template_id, user_id)
+    REFERENCES public."Apiary_Recurring_Expenses"(id, user_id) ON DELETE RESTRICT;
 
 ALTER TABLE public."Apiary_Recurring_Expenses" ENABLE ROW LEVEL SECURITY;
 CREATE POLICY recurring_select ON public."Apiary_Recurring_Expenses"
