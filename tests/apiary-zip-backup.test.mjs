@@ -17,6 +17,9 @@ const mockTables={
 let savedZip=null;
 const origUrl=URL.createObjectURL;
 const origRevoke=URL.revokeObjectURL;
+const origSetTimeout=globalThis.setTimeout;
+// The exporter retains a 60-second object-URL cleanup timer. It needn't delay the test process.
+globalThis.setTimeout=(fn,ms,...args)=>{const timer=origSetTimeout(fn,ms,...args);timer.unref?.();return timer;};
 URL.createObjectURL=blob=>{savedZip=blob;return 'blob:synthetic';};
 URL.revokeObjectURL=()=>{};
 globalThis.document={
@@ -75,3 +78,4 @@ assert.match(message.textContent,/stopped/i);
 console.log('PASS: missing receipt aborts ZIP generation');
 URL.createObjectURL=origUrl;
 URL.revokeObjectURL=origRevoke;
+globalThis.setTimeout=origSetTimeout;
