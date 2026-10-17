@@ -158,8 +158,23 @@ async function verifiedRecordComparison(){
    const ids=new Set(actual.map(r=>String(name==='varroa_watch_results'?r.inspection_id:r.id)));
    if(expected.some(r=>!ids.has(String(name==='varroa_watch_results'?r.inspection_id:r.id))))
      throw new Error(name+': a backup record ID is missing from the test database.');
-   for(const row of actual){
-     if('user_id' in row&&row.user_id!==user.id)
+   const actualById=new Map(actual.map(row=>[String(name==='varroa_watch_results'?row.inspection_id:row.id),row]));
+   for(const original of expected){
+     const originalId=String(name==='varroa_watch_results'?original.inspection_id:original.id);
+     const recovered=actualById.get(originalId);
+     if(!recovered)throw new Error(name+': record '+originalId+' was not recovered.');
+     for(const [field,value] of Object.entries(original)){
+       const wanted=field==='user_id'?user.id:
+         field==='storage_path'?getMappedReceipt({storage_path:value}):value;
+       const got=recovered[field];
+       const equal=got===wanted ||
+         (got!=null&&wanted!=null&&
+           (typeof got==='number'||typeof wanted==='number')&&String(got)===String(wanted)) ||
+         (typeof got==='string'&&typeof wanted==='string'&&
+           field.endsWith('_at')&&Date.parse(got)===Date.parse(wanted));
+       if(!equal)throw new Error(name+': recovered field '+field+' differs for record '+originalId+'.');
+     }
+     if('user_id' in recovered&&recovered.user_id!==user.id)
        throw new Error(name+': restored record owner is not the test user.');
    }
  }
