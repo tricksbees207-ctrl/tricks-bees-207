@@ -106,6 +106,7 @@ const TEST_URL='https://xvthtxcinwbopoixaggv.supabase.co';
 const TEST_KEY='sb_publishable_tSxLXZmgyA7M2ybZIHsdZA_jOREMSxN';
 const client=createClient(TEST_URL,TEST_KEY,{auth:{detectSessionInUrl:false}});
 const tables=['Hives','Hive_Colonies','Colony_Transfers','Hive_Profiles','Hive_Inspections','Hive_Feedings','Hive_Treatments','Hive_Harvests','Hive_Queen_Replacements','Hive_Splits','Hive_Losses','Apiary_Activities','Apiary_Expenses','Apiary_Income','Apiary_Expense_Receipts','Apiary_Income_Receipts','varroa_watch_results'];
+const getTables=()=>archive?.manifest?.version===2?[...tables,'Apiary_Recurring_Expenses']:tables;
 const $=name=>document.getElementById(name);
 const log=text=>{$('log').textContent=text;};
 const errorText=err=>err?.message||String(err);
@@ -144,7 +145,7 @@ async function verifiedRecordComparison(){
  await verifiedUser();
  const rows=archive.data.tables,counts={};
  let total=0;
- for(const name of tables){
+ for(const name of getTables()){
    const expected=rows[name];
    const actual=[];
    for(let start=0;;start+=500){
@@ -255,10 +256,10 @@ $('preview').addEventListener('click',async()=>{
    if(error)throw new Error(error.message);
    if(data?.mode!=='preview'||data.rows!==archive.summary.records||data.receipts!==archive.summary.receipts)
      throw new Error('The test database did not return the expected record/receipt counts.');
-   for(const name of tables)if(data.table_counts?.[name]!==archive.data.tables[name].length)
+   for(const name of getTables())if(data.table_counts?.[name]!==archive.data.tables[name].length)
      throw new Error('Table count mismatch in preview: '+name);
    ready=true;
-   $('previewStatus').textContent='TEST PREVIEW PASSED: empty test database, '+data.rows+' records across 17 tables and '+data.receipts+' receipt records ready.';
+   $('previewStatus').textContent='TEST PREVIEW PASSED: empty test database, '+data.rows+' records across '+getTables().length+' tables and '+data.receipts+' receipt records ready.';
    $('restoreStatus').textContent='Type RESTORE TEST above to enable the test-only record import.';
    log('PREVIEW PASSED. Only the separate test project was checked. No records or files have been changed.');
  }catch(err){
