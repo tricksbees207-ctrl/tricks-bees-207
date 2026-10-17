@@ -1,6 +1,10 @@
 # Recurring expenses | staged implementation plan
 
-**Status:** design + SQL migration staged on feature/recurring-expenses-review. NOT deployed; not approved to change production.
+**Status:** Option A (manual owner confirmation) approved. Implementation staged on feature/recurring-expenses-review. NO production database migration and NO main-branch deployment.
+
+**Tested:** On October 17, 2026 the recurrence schema and updated recovery importer were applied ONLY to the existing Recovery Test Supabase project (xvthtxcinwbopoixaggv). A transactional, rolled-back simulated payment proved amount confirmation, calendar-aware next due date, and rejection of duplicate confirmation; the project still has 15 original expenses, 15 expense receipt rows, and 0 actual recurring schedules. The branch's GitHub Actions checks passed, including module syntax. Production remains unchanged.
+
+**Backup changes (branch only):** new full ZIP version 2 saves 18 tables (including the recurring schedule table); verifier accepts version 1 archives with 17 tables and new version 2 archives with 18 tables. The recovery lab UI and test-only import function have been updated for v2, but a full v2 ZIP restore into a genuinely empty test project has NOT yet been performed. Release blocker.
 
 ## Expected behavior
 - Separate "Recurring" area inside the existing Expenses tab.
