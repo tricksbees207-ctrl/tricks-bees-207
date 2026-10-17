@@ -11,6 +11,7 @@ test('recurring bills stay pending until review; confirmed amount posts once; pa
   globalThis.document=window.document;globalThis.window=window;globalThis.Option=window.Option;
   let schedules=[],expenses=[],rpcCount=0,nextId=1,refreshCount=0,confirmationCount=0;
   window.confirm=()=>{confirmationCount++;return true;};
+  window.HTMLElement.prototype.scrollIntoView=()=>{};
   const user={id:'synthetic-test-user'};
   const fake={
     auth:{getUser:async()=>({data:{user}})},
@@ -37,8 +38,7 @@ test('recurring bills stay pending until review; confirmed amount posts once; pa
       const s=schedules.find(x=>x.id===args.p_template_id);
       if(s.next_due_date!==args.p_expected_due_date)return {error:{message:'Due date has changed'}};
       const month=Number(s.next_due_date.slice(5,7));const year=Number(s.next_due_date.slice(0,4));const day=Number(s.next_due_date.slice(8,10));
-      const dt=new Date(Date.UTC(year,month,0)); // next-month first day for 1-based month
-      dt.setUTCDate(1);dt.setUTCMonth(dt.getUTCMonth()+1);
+      const dt=new Date(Date.UTC(year,month,1)); // first day of following month
       dt.setUTCDate(Math.min(day,new Date(Date.UTC(dt.getUTCFullYear(),dt.getUTCMonth()+1,0)).getUTCDate()));
       s.next_due_date=dt.toISOString().slice(0,10);
       expenses.push({id:100+expenses.length,...args,amount:args.p_actual_amount});
