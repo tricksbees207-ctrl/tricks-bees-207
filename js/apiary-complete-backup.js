@@ -7,6 +7,7 @@ const TABLES = [
   ['Hive_Queen_Replacements','id'], ['Hive_Splits','id'], ['Hive_Losses','id'],
   ['Apiary_Activities','id'], ['Apiary_Expenses','id'], ['Apiary_Income','id'],
   ['Apiary_Expense_Receipts','id'], ['Apiary_Income_Receipts','id'],
+  ['Apiary_Recurring_Expenses','id'],
   ['varroa_watch_results','inspection_id']
 ];
 const RECEIPT_SOURCES = [
@@ -142,13 +143,13 @@ export async function downloadCompleteBackup({supabase,button,message}) {
       throw new Error('Sign-in changed during backup. No ZIP created.');
     const exportedAt = new Date().toISOString();
     const manifest = {
-      format:'tricks-bees-207-records-and-receipts',version:1,exported_at:exportedAt,
+      format:'tricks-bees-207-records-and-receipts',version:2,exported_at:exportedAt,
       table_counts:Object.fromEntries(TABLES.map(([name])=>[name,tables[name].length])),
       receipt_count:fileRecords.length,receipt_bytes:totalBytes,receipt_files:fileRecords
     };
-    const data = {format:'tricks-bees-207-apiary-backup',version:2,
+    const data = {format:'tricks-bees-207-apiary-backup',version:3,
       exported_at:exportedAt,tables};
-    const readme = `TRICKS BEES 207 PRIVATE RECORDS & RECEIPTS BACKUP\n\nCreated: ${exportedAt}\n\napiary-data.json contains records from 17 public-schema tables, including receipt metadata.\nmanifest.json maps ${fileRecords.length} receipt files to their Supabase paths with SHA-256 hashes.\nstorage/ contains the corresponding original receipt bytes.\n\nKEEP PRIVATE: This ZIP contains business records and receipts. Do not upload it to a public repository.\nThis is a best-effort snapshot, not a transactionally consistent database export.\nIt does not include auth accounts, MFA secrets, database schema, functions or RLS policies.\nThe live website does NOT offer an automatic restore from ZIP.\nTest recovery in an isolated project before touching production.\nThe separate legacy JSON restore preview cannot read this new ZIP.\n`;
+    const readme = `TRICKS BEES 207 PRIVATE RECORDS & RECEIPTS BACKUP\n\nCreated: ${exportedAt}\n\napiary-data.json contains records from 18 public-schema tables, including recurring payment schedules and receipt metadata.\nmanifest.json maps ${fileRecords.length} receipt files to their Supabase paths with SHA-256 hashes.\nstorage/ contains the corresponding original receipt bytes.\n\nKEEP PRIVATE: This ZIP contains business records and receipts. Do not upload it to a public repository.\nThis is a best-effort snapshot, not a transactionally consistent database export.\nIt does not include auth accounts, MFA secrets, database schema, functions or RLS policies. Restoring recurring schedules requires a separately migrated destination and an updated recovery importer.\nThe live website does NOT offer an automatic restore from ZIP.\nTest recovery in an isolated project before touching production.\nThe separate legacy JSON restore preview cannot read this new ZIP.\n`;
     report('Assembling the ZIP locally...');
     const zip = await makeZip([
       {name:'README.txt',body:readme},
