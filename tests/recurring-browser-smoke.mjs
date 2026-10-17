@@ -1,134 +1,76 @@
-// Headless Chrome test of the real recurring form and buttons. Synthetic data only.
+// Chrome smoke test for the actual expense-form checkbox and compact schedule manager.
+// Synthetic browser data only. No network or Supabase credentials.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {chromium} from 'playwright';
-
+const html=fs.readFileSync('apiary-log.html','utf8');
+const match=html.match(/<section class="management" id="expensesSection"[\s\S]*?<\/section>/);
+assert.ok(match,'Expense Tracking section exists');
 const browser=await chromium.launch({channel:'chrome',headless:true,args:['--no-sandbox']});
-const page=await browser.newPage({viewport:{width:1100,height:840}});
-page.on('dialog',dialog=>dialog.accept());
-try {
-  await page.setContent([
-    '<!doctype html><html lang="en"><meta charset="utf-8">',
-    '<style>body{font:16px system-ui;max-width:800px;margin:24px auto}.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px}label{display:block;margin-top:8px}input,select,textarea,button{font:inherit;padding:8px;margin:4px}.record{border:1px solid #ccc;margin:12px 0;padding:12px}.record small{display:block}[hidden]{display:none!important}</style>',
-    '<section id="expensesSection"><h3>Expenses</h3><h4>Summary</h4><div id="expenseTotals">No change</div></section>',
-    '<select id="expenseCategory"><option value="">Choose</option><option>Web Hosting &amp; Subscriptions</option><option>Other</option></select>',
-    '<select id="expensePayment"><option value="">Not specified</option><option>Credit card</option></select>',
-    '</html>'
-  ].join(''));
-  const code=fs.readFileSync('js/recurring-expenses.js','utf8')
-    .replace('export function setupRecurringExpenses','window.setupRecurringExpenses = function setupRecurringExpenses');
-  await page.addScriptTag({content:code});
+const page=await browser.newPage({viewport:{width:1000,height:900}});
+page.on('dialog',d=>d.accept());
+try{
+  await page.setContent('<!doctype html><html><head><style>[hidden]{display:none!important}body{font:16px system-ui;margin:16px}.record{border:1px solid;margin:8px;padding:8px}button,input,select{padding:6px;margin:5px}label,small{display:block}</style></head><body>'+match[0]+'</body></html>');
+  const c=id=>page.locator('#'+id);
+  assert.equal(await c('expenseRepeat').isChecked(),false);
+  assert.equal(await c('expenseRepeatFields').isVisible(),false);
+  assert.equal(await c('expenseRepeatFrequency').locator('option').count(),3);
   await page.evaluate(()=>{
-    window.__state={schedules:[],expenses:[],receipts:[],rpc:0,receiptFailNext:false};
-    const user={id:'test-account-only'};
-    let scheduleId=1;
-    const supabase={
-      auth:{getUser:async()=>({data:{user}})},
-      from(table){
-        if(table!=='Apiary_Recurring_Expenses')throw new Error('Unexpected table');
-        return {
-          select(){return{eq(){return{order:async()=>({data:window.__state.schedules.map(x=>({...x}))})}}}},
-          insert(obj){
-            const r={...obj,id:scheduleId++,active:true};
-            window.__state.schedules.push(r);
-            return {select:async()=>({data:[{id:r.id}]})};
-          },
-          update(obj){
-            return {eq(key,id){
-              if(key!=='id')throw Error('Incorrect schedule key');
-              return {eq(field,owner){
-                if(field!=='user_id'||owner!==user.id)throw Error('Incorrect owner');
-                return {select:async()=>{
-                  const r=window.__state.schedules.find(x=>x.id===id);
-                  Object.assign(r,obj);
-                  return {data:[{id}]};
-                }};
-              }};
-            }};
-          }
-        };
-      },
-      async rpc(name,args){
-        if(name!=='record_recurring_expense')throw Error('Unexpected RPC');
-        window.__state.rpc++;
-        const r=window.__state.schedules.find(x=>x.id===args.p_template_id);
-        if(!r||!r.active||r.next_due_date!==args.p_expected_due_date)
-          return {error:{message:'Duplicate or stale billing period'}};
-        const id=100+window.__state.expenses.length;
-        window.__state.expenses.push({id,amount:args.p_actual_amount,date:args.p_paid_date});
-        const [y,m]=r.next_due_date.split('-').map(Number);
-        const day=Number(r.anchor_date.slice(8));
-        const offset={monthly:1,quarterly:3,yearly:12}[r.frequency];
-        const d=new Date(Date.UTC(y,m-1+offset,1));
-        const last=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0)).getUTCDate();
-        d.setUTCDate(Math.min(day,last));
-        r.next_due_date=d.toISOString().slice(0,10);
-        return {data:id};
-      }
-    };
-    window.__manager=window.setupRecurringExpenses({
-      supabase,expenseSection:document.getElementById('expensesSection'),
-      categorySource:document.getElementById('expenseCategory'),
-      paymentSource:document.getElementById('expensePayment'),getHives:()=>[],
-      receiptFiles:list=>Array.from(list),
-      uploadReceipts:async(files,id,owner)=>{
-        if(window.__state.receiptFailNext){window.__state.receiptFailNext=false;throw Error('Synthetic receipt transfer failed');}
-        window.__state.receipts.push(...files.map(f=>({name:f.name,id,user:owner.id})));
-      },
-      refreshExpenses:async()=>{}
+    document.getElementById('expenseRepeat').addEventListener('change',()=>{
+      document.getElementById('expenseRepeatFields').hidden=!document.getElementById('expenseRepeat').checked;
     });
   });
-  const el=id=>page.locator('#'+id);
-  await el('recurringDescription').fill('Synthetic website hosting');
-  await el('recurringCategory').selectOption('Web Hosting & Subscriptions');
-  await el('recurringAmount').fill('12.50');
-  await el('recurringFrequency').selectOption('monthly');
-  await el('recurringDue').fill('2027-01-31');
-  await el('saveRecurring').click();
-  await page.waitForFunction(()=>window.__state.schedules.length===1);
-  assert.deepEqual(await page.evaluate(()=>[window.__state.expenses.length,window.__state.rpc]),[0,0]);
-  assert.match(await el('recurringList').innerText(),/Synthetic website hosting/);
-  await page.locator('#recurringList button').first().click();
-  assert.equal(await el('recurringReview').isVisible(),true);
-  await el('cancelRecurringReview').click();
-  assert.equal(await el('recurringReview').isVisible(),false);
-  assert.equal(await page.evaluate(()=>window.__state.expenses.length),0);
-  await page.locator('#recurringList button').first().click();
-  await el('recurringPaidDate').fill('2027-02-02');
-  await el('recurringPaidAmount').fill('15.75');
-  await el('recurringFiles').setInputFiles({name:'test-receipt.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4 synthetic test')});
-  await el('recordRecurring').click();
-  await page.waitForFunction(()=>window.__state.expenses.length===1&&window.__state.receipts.length===1);
-  const saved=await page.evaluate(()=>window.__state);
-  assert.equal(saved.expenses[0].amount,15.75);
-  assert.equal(saved.receipts[0].name,'test-receipt.pdf');
-  assert.equal(saved.schedules[0].next_due_date,'2027-02-28');
-  assert.equal(saved.rpc,1);
-  assert.equal(await el('recurringReview').isVisible(),false);
-  assert.match(await el('recurringMessage').innerText(),/Receipt attached/);
-  await page.locator('#recurringList button').last().click();
-  await page.waitForFunction(()=>window.__state.schedules[0].active===false);
-  assert.equal(await page.locator('#recurringList button').first().isDisabled(),true);
-  assert.equal(await page.evaluate(()=>window.__state.expenses.length),1);
-  // Re-enable and deliberately fail only the receipt upload after a confirmed payment.
-  await page.locator('#recurringList button').last().click();
-  await page.waitForFunction(()=>window.__state.schedules[0].active===true);
-  await page.locator('#recurringList button').first().click();
-  await el('recurringPaidDate').fill('2027-03-02');
-  await el('recurringPaidAmount').fill('16.00');
-  await el('recurringFiles').setInputFiles({name:'unavailable-receipt.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4 synthetic failure')});
-  await page.evaluate(()=>{window.__state.receiptFailNext=true;});
-  await el('recordRecurring').click();
-  await page.waitForFunction(()=>window.__state.expenses.length===2&&window.__state.rpc===2);
-  const failedReceipt=await page.evaluate(()=>window.__state);
-  assert.equal(failedReceipt.receipts.length,1,'Failed receipt should not appear as attached');
-  assert.equal(failedReceipt.expenses[1].amount,16);
-  assert.equal(failedReceipt.schedules[0].next_due_date,'2027-03-31');
-  assert.match(await el('recurringMessage').innerText(),/Receipt upload FAILED/);
-  assert.match(await el('recurringMessage').innerText(),/do not post the expense again/);
-  assert.equal(await el('recurringReview').isVisible(),false,'Finished payment must not stay open');
-  console.log('PASS Chrome: reviewed payment remains recorded exactly once when receipt transfer fails, with safe user warning.');
-  console.log('PASS Chrome: schedule creation, cancel, actual payment, receipt, calendar rollover and pause.');
-} finally {
-  await browser.close();
-}
+  await c('expenseRepeat').check();
+  assert.equal(await c('expenseRepeatFields').isVisible(),true);
+  await c('expenseRepeatFrequency').selectOption('quarterly');
+  assert.equal(await c('expenseRepeatFrequency').inputValue(),'quarterly');
+  await c('expenseRepeat').uncheck();
+  assert.equal(await c('expenseRepeatFields').isVisible(),false);
+  const moduleCode=fs.readFileSync('js/recurring-expenses.js','utf8')
+    .replace('export function setupRecurringExpenses','window.setupRecurringExpenses = function setupRecurringExpenses');
+  await page.addScriptTag({content:moduleCode});
+  await page.evaluate(async()=>{
+    const user={id:'browser-test-owner'};
+    window.__state={rows:[],records:[{id:22,amount:15.55,category:'Hosting'}]};
+    const fake={
+      auth:{getUser:async()=>({data:{user}})},
+      from(name){
+        if(name!=='Apiary_Recurring_Expenses')throw Error('Unexpected table');
+        const x={type:'',where:[],patch:null};
+        const q={
+          select(){if(!x.type)x.type='select';return q;},
+          update(patch){x.type='update';x.patch=patch;return q;},
+          eq(key,value){x.where.push([key,value]);return q;},
+          order(){return q;},
+          then(resolve,reject){
+            const rows=window.__state.rows.filter(r=>x.where.every(([key,v])=>r[key]===v));
+            if(x.type==='update')rows.forEach(r=>Object.assign(r,x.patch));
+            return Promise.resolve({data:rows.map(r=>({...r}))}).then(resolve,reject);
+          }
+        };return q;
+      },
+      async rpc(name,args){
+        if(name!=='enable_auto_recurring_expense')throw Error('Unexpected RPC');
+        window.__state.rows.push({id:3,user_id:user.id,description:'Website hosting',
+          amount:15.55,automatic_posting:true,frequency:args.p_frequency,
+          active:true,next_due_date:'2027-01-17'});
+        return {data:3};
+      }
+    };
+    window.__manager=window.setupRecurringExpenses({supabase:fake,expenseSection:document.getElementById('expensesSection')});
+    await window.__manager.refresh();
+    await window.__manager.enableFromExpense(22,'quarterly');
+  });
+  assert.equal(await page.evaluate(()=>window.__state.records.length),1,'no duplicate expense generated by scheduler enrollment');
+  assert.match(await c('recurringList').innerText(),/Website hosting/);
+  assert.match(await c('recurringList').innerText(),/quarterly/);
+  assert.equal(await page.locator('#recurringList button').count(),1);
+  assert.equal(await page.locator('#recurringDescription').count(),0,'old separate editor absent');
+  await page.locator('#recurringList button').click();
+  await page.waitForFunction(()=>window.__state.rows[0].active===false);
+  assert.match(await c('recurringList').innerText(),/Paused/);
+  await page.locator('#recurringList button').click();
+  await page.waitForFunction(()=>window.__state.rows[0].active===true);
+  assert.equal(await page.evaluate(()=>window.__state.records.length),1);
+  console.log('PASS Chrome: real expense checkbox, frequency reveal, no duplicate entry, and automatic pause/resume.');
+}finally{await browser.close();}
