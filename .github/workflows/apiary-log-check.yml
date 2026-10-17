@@ -13,6 +13,8 @@ on:
       - 'tests/recurring-browser-smoke.mjs'
       - 'recurring-expenses-test-preview.html'
       - 'tests/recurring-preview-file.test.mjs'
+      - 'recurring-expenses-backup-test.html'
+      - 'tests/recurring-backup-preview.test.mjs'
       - '.github/workflows/apiary-log-check.yml'
   push:
     paths:
@@ -26,6 +28,8 @@ on:
       - 'tests/recurring-browser-smoke.mjs'
       - 'recurring-expenses-test-preview.html'
       - 'tests/recurring-preview-file.test.mjs'
+      - 'recurring-expenses-backup-test.html'
+      - 'tests/recurring-backup-preview.test.mjs'
       - '.github/workflows/apiary-log-check.yml'
 
 permissions:
@@ -101,3 +105,5 @@ jobs:
         run: node tests/recurring-browser-smoke.mjs
       - name: Test local TEST-only HTML preview in Chrome
         run: node tests/recurring-preview-file.test.mjs
+      - name: Test complete TEST backup preview with MFA in Chrome
+        run: node tests/recurring-backup-preview.test.mjs
