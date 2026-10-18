@@ -68,6 +68,15 @@ a{color:var(--green)}
 <div id="signedIn" hidden><p id="session">Signed into test account.</p><button id="signOut" class="secondary" type="button">Sign out of TEST</button></div>
 </section>
 <section class="panel">
+<h2>Clear previous TEST receipt files</h2>
+<p class="warning"><strong>TEST ONLY:</strong> Use this once before a fresh restore. It removes receipt copies from the two private buckets in the separate Recovery Test project. It cannot reach your production database or your Mac/Samsung backups.</p>
+<p class="small">Sign into the test account with its authenticator first. This deletes TEST receipt files while keeping test database rows in place until the remaining cleanup is verified.</p>
+<label for="clearTestStoragePhrase">To confirm, type <code>REMOVE TEST RECEIPTS</code></label>
+<input type="text" id="clearTestStoragePhrase" placeholder="REMOVE TEST RECEIPTS" autocomplete="off" spellcheck="false">
+<p><button type="button" class="danger" id="clearTestStorage" disabled>Remove old TEST receipt files</button></p>
+<p id="clearTestStorageStatus" class="small" role="status">Existing test files have not been removed.</p>
+</section>
+<section class="panel">
 <h2>2. Select your verified records-and-receipts ZIP</h2>
 <p class="small">Choose your private records-and-receipts ZIP from the full-backup folder. Older 17-table backups and newer 18-table recurring-expense backups are both accepted. The ZIP is checked locally before any test operation. It is never uploaded wholesale to the website.</p>
 <label for="file">Select your backup ZIP</label><input id="file" type="file" accept=".zip,application/zip">
@@ -130,6 +139,7 @@ function controls(){
   $('restore').disabled=busy||!user||!archive||!ready||recordsRestored||$('confirmation').value.trim()!=='RESTORE TEST';
   $('upload').disabled=busy||!user||!archive||!recordsRestored;
   $('recheck').disabled=busy||!user||!archive;
+  $('clearTestStorage').disabled=busy||!user||$('clearTestStoragePhrase').value.trim()!=='REMOVE TEST RECEIPTS';
 }
 async function finishTestSignIn(profile){
  const {data,error}=await client.auth.mfa.getAuthenticatorAssuranceLevel();
@@ -283,6 +293,46 @@ $('signOut').addEventListener('click',async()=>{
  $('signedOut').hidden=false;$('signedIn').hidden=true;$('mfaPrompt').hidden=true;
  $('previewStatus').textContent='Sign in to run a preview.';
  log('Signed out of the Recovery Test project. No live records were affected.');
+ }finally{busy=false;controls();}
+});
+$('clearTestStoragePhrase').addEventListener('input',controls);
+$('clearTestStorage').addEventListener('click',async()=>{
+ if(busy||!user||$('clearTestStoragePhrase').value.trim()!=='REMOVE TEST RECEIPTS')return;
+ if(!window.confirm('DELETE OLD TEST RECEIPT FILES ONLY? This removes files from the separate Recovery Test project, never production. The database rows will remain until cleanup is verified.'))return;
+ busy=true;controls();
+ try{
+   const current=await verifiedUser();
+   const groups=[
+     {table:'Apiary_Expense_Receipts',bucket:'apiary-receipts'},
+     {table:'Apiary_Income_Receipts',bucket:'apiary-income-receipts'}
+   ];
+   const pending=[];
+   // Collect and validate every owned path before removing any file.
+   for(const group of groups){
+     const {data,error}=await client.from(group.table).select('storage_path').eq('user_id',current.id).limit(250);
+     if(error)throw new Error(group.table+': '+error.message);
+     for(const row of data||[]){
+       const path=row.storage_path;
+       if(typeof path!=='string'||!path.startsWith(current.id+'/')||
+         !/^[0-9a-f-]{36}\\/[0-9]+\\/[a-z0-9_-]+\\.(?:pdf|jpe?g|png|webp|heic|heif)$/i.test(path))
+         throw new Error('Unexpected test receipt path. Cleanup stopped.');
+       pending.push({bucket:group.bucket,path});
+     }
+   }
+   if(pending.length>100)throw new Error('Unexpected number of TEST receipts. Cleanup stopped.');
+   let removed=0;
+   for(const {bucket,path} of pending){
+     const {error}=await client.storage.from(bucket).remove([path]);
+     if(error)throw new Error('Could not remove TEST receipt '+(removed+1)+': '+error.message);
+     removed++;
+     log('Deleting old TEST receipt '+removed+' of '+pending.length+'...');
+   }
+   $('clearTestStorageStatus').textContent='TEST receipt cleanup requested for '+removed+' files. Verify storage is empty before clearing old TEST database rows.';
+   $('clearTestStoragePhrase').value='';
+   log('TEST receipt cleanup request finished for '+removed+' files. Production and your downloaded ZIP were not accessed. Wait for independent storage verification before restoring.');
+ }catch(err){
+   $('clearTestStorageStatus').textContent='TEST cleanup incomplete: '+errorText(err)+'. No production changes. Some test files may already be deleted.';
+   log('TEST cleanup stopped: '+errorText(err));
  }finally{busy=false;controls();}
 });
 $('file').addEventListener('change',async event=>{
