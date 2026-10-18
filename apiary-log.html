@@ -1602,16 +1602,132 @@
       }
       return chosen;
     }
-    async function uploadReceipts(files,expenseId,user){
-      for(const file of receiptFiles(files)){
-        const path=`${user.id}/${expenseId}/${crypto.randomUUID()}.${receiptExtensions[file.type]}`;
-        const {error:uploadError}=await supabase.storage.from(RECEIPT_BUCKET).upload(path,file,{contentType:file.type,upsert:false});
-        if(uploadError)throw uploadError;
-        const {error:recordError}=await supabase.from("Apiary_Expense_Receipts").insert({
-          expense_id:expenseId,user_id:user.id,storage_path:path,original_name:file.name,mime_type:file.type,file_size:file.size
-        });
-        if(recordError){await supabase.storage.from(RECEIPT_BUCKET).remove([path]);throw recordError;}
+    // Uploads are tied to the already-saved transaction, not to another Save click.
+    // Retain failed File objects until refresh so they can be retried in place.
+    const receiptSpecs={
+      expense:{bucket:"apiary-receipts",table:"Apiary_Expense_Receipts",fk:"expense_id",parent:"Apiary_Expenses",message:"expenseMessage"},
+      income:{bucket:"apiary-income-receipts",table:"Apiary_Income_Receipts",fk:"income_id",parent:"Apiary_Income",message:"incomeMessage"}
+    };
+    const pendingReceiptUploads=new Map(),receiptRetryHosts={};
+    for(const kind of ["expense","income"]){
+      const host=make("div",undefined,"section-status");
+      host.setAttribute("role","status");
+      host.setAttribute("aria-live","polite");
+      host.hidden=true;
+      $(receiptSpecs[kind].message).after(host);
+      receiptRetryHosts[kind]=host;
+    }
+    async function receiptFingerprint(blob){
+      const hash=await crypto.subtle.digest("SHA-256",await blob.arrayBuffer());
+      return Array.from(new Uint8Array(hash),b=>b.toString(16).padStart(2,"0")).join("");
+    }
+    function isStorageConflict(error){
+      return String(error?.statusCode??error?.status??"")==="409"
+        || /already exists|duplicate/i.test(error?.message||"");
+    }
+    async function uploadOneReceipt(kind,id,file,user){
+      const spec=receiptSpecs[kind],fingerprint=await receiptFingerprint(file);
+      // The same file and financial record always resolve to the same path.
+      const path=user.id+"/"+id+"/"+fingerprint+"."+receiptExtensions[file.type];
+      const lookup=()=>supabase.from(spec.table).select("id,file_size,mime_type")
+        .eq("user_id",user.id).eq("storage_path",path).maybeSingle();
+      const {data:existing,error:lookupError}=await lookup();
+      if(lookupError)throw lookupError;
+      if(existing){
+        if(Number(existing.file_size)!==file.size||existing.mime_type!==file.type)
+          throw new Error("Existing receipt metadata differs. Check History before retrying.");
+        return "existing";
       }
+      const {error:uploadError}=await supabase.storage.from(spec.bucket)
+        .upload(path,file,{contentType:file.type,upsert:false});
+      if(uploadError){
+        if(!isStorageConflict(uploadError))throw uploadError;
+        // A previously uploaded file may lack metadata due to a connection failure.
+        // Verify its content before completing the missing metadata INSERT.
+        const {data:stored,error:downloadError}=await supabase.storage.from(spec.bucket).download(path);
+        if(downloadError||!stored||stored.size!==file.size||
+            await receiptFingerprint(stored)!==fingerprint)
+          throw new Error("Previously uploaded bytes could not be verified. No receipt entry was changed.");
+      }
+      const {error:writeError}=await supabase.from(spec.table).insert({
+        [spec.fk]:id,user_id:user.id,storage_path:path,
+        original_name:file.name,mime_type:file.type,file_size:file.size
+      });
+      if(writeError){
+        const {data:confirmed,error:confirmError}=await lookup();
+        if(!confirmError&&confirmed&&Number(confirmed.file_size)===file.size&&confirmed.mime_type===file.type)
+          return "existing";
+        // Keep the private file for a later retry instead of risking a failed cleanup.
+        throw new Error("Receipt metadata could not be confirmed. Retry this attachment to the saved transaction. "+writeError.message);
+      }
+      return "attached";
+    }
+    async function uploadReceiptBatch(kind,id,files,user,progress=()=>{}){
+      const chosen=receiptFiles(files);
+      const result={attached:0,existing:0,failed:[],total:chosen.length};
+      for(const [i,file] of chosen.entries()){
+        progress("Transaction #"+id+" saved. Uploading receipt "+(i+1)+" of "+chosen.length+": "+file.name);
+        try{
+          const status=await uploadOneReceipt(kind,id,file,user);
+          result[status]++;
+        }catch(e){result.failed.push({file,reason:e?.message||String(e)});}
+      }
+      return result;
+    }
+    const receiptBatchSummary=r=>r.attached+" attached, "+r.existing+" already present, "+
+      r.failed.length+" failed out of "+r.total+" receipt(s).";
+    const pendingKey=(kind,id)=>kind+":"+id;
+    function rememberReceiptFailures(kind,id,failed){
+      if(failed.length){
+        const key=pendingKey(kind,id);
+        pendingReceiptUploads.set(key,[...(pendingReceiptUploads.get(key)||[]),...failed]);
+      }
+      renderReceiptFailures(kind);
+    }
+    function renderReceiptFailures(kind){
+      const host=receiptRetryHosts[kind];
+      host.replaceChildren();
+      const jobs=[...pendingReceiptUploads.entries()].filter(([key])=>key.startsWith(kind+":"));
+      host.hidden=!jobs.length;
+      if(!jobs.length)return;
+      host.append(make("p","Your financial transaction is saved. Retry just the failed receipt attachments below. "+
+        "After refreshing the page, choose the same files through Attach receipt in History."));
+      for(const [key,failed] of jobs){
+        const id=key.slice(kind.length+1),spec=receiptSpecs[kind];
+        const card=make("div",undefined,"record");
+        card.append(make("strong",(kind==="expense"?"Expense":"Income")+" #"+id+" · "+
+          failed.length+" receipt(s) requiring attention"));
+        for(const x of failed)card.append(make("small",x.file.name+": "+x.reason));
+        const retry=make("button","Retry failed receipts for #"+id,"secondary");
+        retry.type="button";
+        retry.addEventListener("click",async()=>{
+          retry.disabled=true;
+          const msg=$(spec.message);
+          try{
+            const {data:{user},error:authError}=await supabase.auth.getUser();
+            if(authError||!user)throw new Error("Please sign in again.");
+            const {data:parent,error:parentError}=await supabase.from(spec.parent)
+              .select("id").eq("id",id).eq("user_id",user.id).maybeSingle();
+            if(parentError)throw parentError;
+            if(!parent)throw new Error("Saved transaction not found. No receipts uploaded.");
+            const r=await uploadReceiptBatch(kind,id,failed.map(x=>x.file),user,
+              text=>{msg.textContent=text;});
+            if(r.failed.length)pendingReceiptUploads.set(key,r.failed);
+            else pendingReceiptUploads.delete(key);
+            renderReceiptFailures(kind);
+            try{await refreshStats();}catch(e){
+              msg.textContent="Upload attempt finished, but History could not refresh. Reload to verify. "+e.message;return;
+            }
+            msg.textContent=(kind==="expense"?"Expense":"Income")+" #"+id+" unchanged. "+
+              receiptBatchSummary(r)+(r.failed.length?" Retry remaining files or reselect in History.":"");
+          }catch(e){msg.textContent="Retry stopped: "+e.message+". No new financial transaction was created.";}
+          finally{retry.disabled=false;}
+        });
+        card.append(retry);host.append(card);
+      }
+    }
+    async function uploadReceipts(files,expenseId,user,progress){
+      return uploadReceiptBatch("expense",expenseId,files,user,progress);
     }
     async function viewReceipt(receipt){
       const {data,error}=await supabase.storage.from(RECEIPT_BUCKET).createSignedUrl(receipt.storage_path,60);
@@ -1637,14 +1753,21 @@
       attach.addEventListener("click",()=>picker.click());
       picker.addEventListener("change",async()=>{
         if(!picker.files?.length)return;
-        attach.disabled=true;const msg=$("expenseMessage");msg.textContent="Uploading receipt...";
+        attach.disabled=true;
+        const msg=$("expenseMessage");
         try{
           const files=receiptFiles(picker.files);
-          const {data:{user},error:authError}=await supabase.auth.getUser();
-          if(authError||!user)throw new Error("Please sign in again.");
-          await uploadReceipts(files,expense.id,user);
-          await refreshStats();msg.textContent="Receipt attached.";
-        }catch(e){msg.textContent="Receipt upload failed: "+e.message;}
+          const {data:{user},error}=await supabase.auth.getUser();
+          if(error||!user)throw new Error("Sign in again.");
+          const r=await uploadReceipts(files,expense.id,user,text=>{msg.textContent=text;});
+          rememberReceiptFailures("expense",expense.id,r.failed);
+          try{await refreshStats();}catch(e){
+            msg.textContent="Upload attempt finished but Expense History could not refresh. Reload to verify. "+e.message;
+            return;
+          }
+          msg.textContent="Expense #"+expense.id+" unchanged. "+receiptBatchSummary(r)+
+            (r.failed.length?" Retry failed files above; do not create another expense.":"");
+        }catch(e){msg.textContent="Receipt upload stopped: "+e.message;}
         finally{attach.disabled=false;picker.value="";}
       });
       area.append(attach,picker);return area;
@@ -1769,16 +1892,20 @@
           try{await recurringManager.pauseFromExpense(existingAutoId);repetitionResult=" Automatic repetition paused."}
           catch(e){repetitionError="Could not pause automatic repetition: "+e.message+". Please use the Pause control below."}
         }
-        let receiptFailure=null;
+        let receipts={attached:0,existing:0,failed:[],total:0};
         if(selectedReceipts.length){
-          msg.textContent="Expense saved. Uploading receipts...";
-          try{await uploadReceipts(selectedReceipts,expenseId,user);}
-          catch(e){receiptFailure=e;}
+          msg.textContent="Expense #"+expenseId+" saved. Uploading receipts...";
+          receipts=await uploadReceipts(selectedReceipts,expenseId,user,text=>{msg.textContent=text;});
+          rememberReceiptFailures("expense",expenseId,receipts.failed);
         }
         resetExpenseForm();
         let refreshError=null;
         try{await refreshStats();}catch(e){refreshError=e;}
-        msg.textContent="Expense #"+expenseId+" saved"+(selectedReceipts.length&&!receiptFailure?" with receipt(s)":"")+"."+repetitionResult+(repetitionError?" "+repetitionError:"")+(receiptFailure?" Receipt upload failed: "+receiptFailure.message+". Attach it from Expense History rather than saving another expense.":"")+(refreshError?" The screen could not refresh: "+refreshError.message+". Reload the page; do not save the expense again.":"");
+        msg.textContent="Expense #"+expenseId+" saved. "+
+          (selectedReceipts.length?receiptBatchSummary(receipts):"No receipts selected.")+
+          repetitionResult+(repetitionError?" "+repetitionError:"")+
+          (receipts.failed.length?" Use Retry failed receipts above; do not save another expense.":"")+
+          (refreshError?" History could not refresh: "+refreshError.message+". Check History before attempting another save.":"");
       }catch(e){msg.textContent="Save failed: "+e.message;}
       finally{btn.disabled=false;}
     });
@@ -1802,14 +1929,9 @@
     });
     let incomeRecords=[],incomeReceiptRecords=[],incomeReceiptsAvailable=false,editingIncomeId=null;
 const INCOME_BUCKET="apiary-income-receipts";
-async function uploadIncome(files,id,user){
- for(const f of receiptFiles(files)){
-  const path=`${user.id}/${id}/${crypto.randomUUID()}.${receiptExtensions[f.type]}`;
-  const {error:e}=await supabase.storage.from(INCOME_BUCKET).upload(path,f,{contentType:f.type,upsert:false});if(e)throw e;
-  const {error:db}=await supabase.from("Apiary_Income_Receipts").insert({income_id:id,user_id:user.id,storage_path:path,original_name:f.name,mime_type:f.type,file_size:f.size});
-  if(db){await supabase.storage.from(INCOME_BUCKET).remove([path]);throw db;}
- }
-}
+async function uploadIncome(files,id,user,progress){
+        return uploadReceiptBatch("income",id,files,user,progress);
+      }
 function incomeReceiptControls(record){
  const area=make("div",undefined,"record-actions");
  for(const r of incomeReceiptRecords.filter(x=>String(x.income_id)===String(record.id))){
@@ -1826,11 +1948,25 @@ function incomeReceiptControls(record){
  }
  const attach=make("button","Attach receipt");attach.type="button";attach.className="secondary";
  const picker=document.createElement("input");picker.type="file";picker.multiple=true;picker.hidden=true;picker.style.display="none";picker.accept=$("incomeReceiptFiles").accept;
- attach.addEventListener("click",()=>picker.click());picker.addEventListener("change",async()=>{
-  if(!picker.files?.length)return;attach.disabled=true;const msg=$("incomeMessage");msg.textContent="Uploading...";
-  try{const files=receiptFiles(picker.files);const {data:{user},error}=await supabase.auth.getUser();if(error||!user)throw new Error("Sign in again.");await uploadIncome(files,record.id,user);await refreshStats();msg.textContent="Receipt attached.";}
-  catch(e){msg.textContent="Upload failed: "+e.message;}finally{attach.disabled=false;picker.value="";}
- });area.append(attach,picker);return area;
+ attach.addEventListener("click",()=>picker.click());
+  picker.addEventListener("change",async()=>{
+    if(!picker.files?.length)return;
+    attach.disabled=true;const msg=$("incomeMessage");
+    try{
+      const files=receiptFiles(picker.files);
+      const {data:{user},error}=await supabase.auth.getUser();
+      if(error||!user)throw new Error("Sign in again.");
+      const r=await uploadIncome(files,record.id,user,text=>{msg.textContent=text;});
+      rememberReceiptFailures("income",record.id,r.failed);
+      try{await refreshStats();}catch(e){
+        msg.textContent="Upload attempt finished but Income History could not refresh. Reload to verify. "+e.message;
+        return;
+      }
+      msg.textContent="Income #"+record.id+" unchanged. "+receiptBatchSummary(r)+
+        (r.failed.length?" Retry failed files above; do not create new income.":"");
+    }catch(e){msg.textContent="Receipt upload stopped: "+e.message;}
+    finally{attach.disabled=false;picker.value="";}
+  });area.append(attach,picker);return area;
 }
     const incomeFields=["incomeDate","incomeCategory","incomeDescription","incomeCustomer","incomeAmount","incomeHive","incomePayment","incomeNotes"];
 
@@ -1902,7 +2038,11 @@ function incomeReceiptControls(record){
       if(!amountText.trim()||!/^\d+(?:\.\d{1,2})?$/.test(amountText)||!Number.isFinite(Number(amountText))){
         msg.textContent="Enter a valid nonnegative amount with up to two decimal places.";return;
       }
-      let files;try{files=receiptFiles($("incomeReceiptFiles").files);}catch(e){msg.textContent=e.message;return;}const btn=$("saveIncome");btn.disabled=true;msg.textContent="Saving...";
+      let files;
+      try{files=receiptFiles($("incomeReceiptFiles").files);}
+      catch(e){msg.textContent=e.message;return;}
+      const btn=$("saveIncome");btn.disabled=true;msg.textContent="Saving...";
+      let savedId=null;
       try{
         const {data:{user},error:authError}=await supabase.auth.getUser();
         if(authError||!user)throw new Error("Please sign in again.");
@@ -1910,14 +2050,36 @@ function incomeReceiptControls(record){
           description:value("incomeDescription").trim(),customer:value("incomeCustomer")||null,
           amount:Number(amountText),hive_id:value("incomeHive")?Number(value("incomeHive")):null,
           payment_method:value("incomePayment")||null,notes:value("incomeNotes")||null};
-        let error;let incomeId=editingIncomeId;
+        let incomeId=editingIncomeId;
         if(editingIncomeId!==null){
-          const {data,error:e}=await supabase.from("Apiary_Income").update(payload).eq("id",editingIncomeId).eq("user_id",user.id).select("id");
-          error=e;if(!error&&!data?.length)throw new Error("No income updated.");
-        }else {const {data,error:e}=await supabase.from("Apiary_Income").insert(payload).select("id").single();error=e;if(!e)incomeId=data.id;}
-        if(error)throw error;let uploadError=null;if(files.length){msg.textContent="Income saved. Uploading receipts...";try{await uploadIncome(files,incomeId,user);}catch(e){uploadError=e;}}resetIncomeForm();await refreshStats();msg.textContent=uploadError?"Income saved but receipt upload failed: "+uploadError.message+". Check Income History before retrying.":"Income saved successfully"+(files.length?" with receipt(s)!":"!");
-      }catch(e){msg.textContent="Save failed: "+e.message;}
-      finally{btn.disabled=false;}
+          const {data,error}=await supabase.from("Apiary_Income").update(payload)
+            .eq("id",editingIncomeId).eq("user_id",user.id).select("id");
+          if(error)throw error;
+          if(!data?.length)throw new Error("No income record updated.");
+        }else{
+          const {data,error}=await supabase.from("Apiary_Income").insert(payload).select("id").single();
+          if(error)throw error;
+          incomeId=data.id;
+        }
+        savedId=incomeId;
+        let result={attached:0,existing:0,failed:[],total:0};
+        if(files.length){
+          msg.textContent="Income #"+incomeId+" saved. Uploading receipts...";
+          result=await uploadIncome(files,incomeId,user,text=>{msg.textContent=text;});
+          rememberReceiptFailures("income",incomeId,result.failed);
+        }
+        resetIncomeForm();
+        let refreshError=null;
+        try{await refreshStats();}catch(e){refreshError=e;}
+        msg.textContent="Income #"+incomeId+" saved. "+
+          (files.length?receiptBatchSummary(result):"No receipts selected.")+
+          (result.failed.length?" Use Retry failed receipts above; do not save another income entry.":"")+
+          (refreshError?" History could not refresh: "+refreshError.message+". Check History before another save.":"");
+      }catch(e){
+        msg.textContent=savedId!==null
+          ?"Income #"+savedId+" saved, but a later step failed: "+e.message+". Do not save another income entry."
+          :"Save failed: "+e.message+". On network errors, check Income History before retrying.";
+      }finally{btn.disabled=false;}
     });
     $("cancelIncomeEdit").addEventListener("click",()=>{resetIncomeForm();$("incomeMessage").textContent="Edit canceled.";});
     $("incomeYear").addEventListener("change",renderIncome);
