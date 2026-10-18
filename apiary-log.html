@@ -507,12 +507,6 @@
   <option value="Sticky Board">Sticky Board</option>
   <option value="Other">Other</option>
 </select>
-  <label for="feedingDetails">Feeding Details</label>
-<textarea
-  id="feedingDetails"
-  rows="3"
-  placeholder="Record feed type, amount, and details (e.g., 1 gallon of 2:1 sugar syrup)"
-></textarea>
   <label for="treatmentApplied">Treatment Applied</label>
 <textarea
   id="treatmentApplied"
@@ -1288,12 +1282,12 @@
     let editingInspectionColonyId = null;
     let savedProfileId = null;
 
-    const inspectionFormFields = ["queenSeen","eggsSeen","broodPattern","temperament", "honeyStores", "pollenStores", "colonyStrength", "miteCount", "miteSampleSize", "miteTestMethod", "feedingDetails", "treatmentApplied", "treatmentFollowUpDate", "inspectionNotes"];
+    const inspectionFormFields = ["queenSeen","eggsSeen","broodPattern","temperament", "honeyStores", "pollenStores", "colonyStrength", "miteCount", "miteSampleSize", "miteTestMethod", "treatmentApplied", "treatmentFollowUpDate", "inspectionNotes"];
     const inspectionEditMap = {
       inspectionDate:"inspection_date",queenSeen:"queen_seen",eggsSeen:"eggs_seen",
       broodPattern:"brood_pattern",temperament:"temperament",honeyStores:"honey_stores",
       pollenStores:"pollen_stores",colonyStrength:"colony_strength",miteCount:"mite_count",miteSampleSize:"mite_sample_size",
-      miteTestMethod:"mite_test_method",feedingDetails:"feeding_details",
+      miteTestMethod:"mite_test_method",
       treatmentApplied:"treatment_applied",treatmentFollowUpDate:"treatment_follow_up_date",
       inspectionNotes:"inspection_notes"
     };
@@ -2477,7 +2471,6 @@ function incomeReceiptControls(record){
           mite_count:value("miteCount")===""?null:Number(value("miteCount")),
           mite_sample_size:Number(value("miteSampleSize")),
           mite_test_method:value("miteTestMethod")||null,
-          feeding_details:value("feedingDetails")||null,
           treatment_applied:value("treatmentApplied")||null,
           treatment_follow_up_date:value("treatmentFollowUpDate")||null,
           inspection_notes:value("inspectionNotes")||null
