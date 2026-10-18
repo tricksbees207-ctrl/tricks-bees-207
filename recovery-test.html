@@ -56,6 +56,15 @@ a{color:var(--green)}
 <p><button type="submit" id="signIn">Sign in to TEST</button></p>
 </form>
 </div>
+<div id="mfaPrompt" hidden>
+<p class="note">Confirm your test-account authenticator code before accessing recovery data.</p>
+<form id="mfaForm">
+<label for="mfaCode">Six-digit authenticator code</label>
+<input id="mfaCode" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required>
+<p><button type="submit" id="verifyMfa">Verify TEST authenticator</button></p>
+</form>
+<button type="button" id="cancelMfa" class="secondary">Cancel and sign out</button>
+</div>
 <div id="signedIn" hidden><p id="session">Signed into test account.</p><button id="signOut" class="secondary" type="button">Sign out of TEST</button></div>
 </section>
 <section class="panel">
@@ -115,10 +124,31 @@ const key=x=>String(x.id);
 function controls(){
   $('signIn').disabled=busy;
   $('signOut').disabled=busy;
+ $('verifyMfa').disabled=busy;
+ $('cancelMfa').disabled=busy;
   $('preview').disabled=busy||!user||!archive;
   $('restore').disabled=busy||!user||!archive||!ready||recordsRestored||$('confirmation').value.trim()!=='RESTORE TEST';
   $('upload').disabled=busy||!user||!archive||!recordsRestored;
   $('recheck').disabled=busy||!user||!archive;
+}
+async function finishTestSignIn(profile){
+ const {data,error}=await client.auth.mfa.getAuthenticatorAssuranceLevel();
+ if(error||!data)throw new Error('Cannot verify test-account MFA: '+(error?.message||'No assurance level'));
+ if(data.currentLevel!=='aal2'){
+   const {data:factors,error:factorsError}=await client.auth.mfa.listFactors();
+   if(factorsError)throw factorsError;
+   if(!(factors?.totp||[]).some(f=>f.status==='verified'))
+     throw new Error('A verified authenticator factor is required for the TEST account.');
+   user=null;ready=false;recordsRestored=false;
+   $('signedOut').hidden=true;$('signedIn').hidden=true;$('mfaPrompt').hidden=false;
+   log('Enter your Recovery Test authenticator code to finish signing in.');
+   return false;
+ }
+ user=profile;ready=false;recordsRestored=false;
+ $('signedOut').hidden=true;$('mfaPrompt').hidden=true;$('signedIn').hidden=false;
+ $('session').textContent='MFA-verified test account: '+user.email;
+ log('Recovery Test MFA verified. Select the ZIP and use Recheck recovered data.');
+ return true;
 }
 function requireUser(){
  if(!user)throw new Error('Sign in to the Recovery Test account first.');
@@ -128,6 +158,8 @@ async function verifiedUser(){
  const expected=requireUser().id;
  const {data,error}=await client.auth.getUser();
  if(error||!data?.user||data.user.id!==expected)throw new Error('Recovery Test sign-in changed. Sign in again.');
+ const assurance=await client.auth.mfa.getAuthenticatorAssuranceLevel();
+ if(assurance.error||assurance.data?.currentLevel!=='aal2')throw new Error('Verify your Recovery Test authenticator code before accessing private records.');
  return data.user;
 }
 function getMappedReceipt(receipt){
@@ -209,17 +241,46 @@ $('loginForm').addEventListener('submit',async event=>{
    const {data,error}=await client.auth.signInWithPassword({email,password:$('password').value});
    $('password').value='';
    if(error||!data?.user)throw new Error(error?.message||'Test login failed.');
-   user=data.user;ready=false;recordsRestored=false;
-   $('signedOut').hidden=true;$('signedIn').hidden=false;
-   $('session').textContent='Signed into test account: '+user.email;
-   log('Recovery Test login confirmed. Choose the ZIP, then run the preview.');
+   await finishTestSignIn(data.user);
  }catch(err){$('password').value='';log('TEST login failed: '+errorText(err));}
+ finally{busy=false;controls();}
+});
+$('mfaForm').addEventListener('submit',async event=>{
+ event.preventDefault();if(busy)return;
+ busy=true;controls();log('Verifying the Recovery Test authenticator code...');
+ try{
+   const code=$('mfaCode').value.trim();
+   if(!/^[0-9]{6}$/.test(code))throw new Error('Enter the six-digit code from your authenticator app.');
+   const {data:factors,error:factorsError}=await client.auth.mfa.listFactors();
+   if(factorsError)throw factorsError;
+   const factor=(factors?.totp||[]).find(f=>f.status==='verified');
+   if(!factor)throw new Error('Verified authenticator is not available.');
+   const {data:challenge,error:challengeError}=await client.auth.mfa.challenge({factorId:factor.id});
+   if(challengeError||!challenge)throw challengeError||new Error('Could not start authenticator verification.');
+   const {error:verifyError}=await client.auth.mfa.verify({factorId:factor.id,challengeId:challenge.id,code});
+   if(verifyError)throw verifyError;
+   const {data:result,error:userError}=await client.auth.getUser();
+   if(userError||!result?.user)throw userError||new Error('Cannot confirm test account.');
+   await finishTestSignIn(result.user);
+   $('mfaCode').value='';
+ }catch(err){log('TEST authenticator verification failed: '+errorText(err));}
+ finally{busy=false;controls();}
+});
+$('cancelMfa').addEventListener('click',async()=>{
+ if(busy)return;busy=true;controls();
+ try{
+   const {error}=await client.auth.signOut();
+   if(error)throw error;
+   user=null;ready=false;recordsRestored=false;
+   $('mfaCode').value='';$('mfaPrompt').hidden=true;$('signedOut').hidden=false;$('signedIn').hidden=true;
+   log('Recovery Test sign-in cancelled.');
+ }catch(err){log('TEST sign-out failed: '+errorText(err));}
  finally{busy=false;controls();}
 });
 $('signOut').addEventListener('click',async()=>{
  if(busy)return;busy=true;controls();
  try{await client.auth.signOut();user=null;ready=false;recordsRestored=false;
- $('signedOut').hidden=false;$('signedIn').hidden=true;
+ $('signedOut').hidden=false;$('signedIn').hidden=true;$('mfaPrompt').hidden=true;
  $('previewStatus').textContent='Sign in to run a preview.';
  log('Signed out of the Recovery Test project. No live records were affected.');
  }finally{busy=false;controls();}
@@ -345,9 +406,7 @@ $('recheck').addEventListener('click',async()=>{
  try{
    const {data}=await client.auth.getUser();
    if(data?.user){
-     user=data.user;$('signedOut').hidden=true;$('signedIn').hidden=false;
-     $('session').textContent='Signed into test account: '+user.email;
-     log('Recovery Test session active. Choose your verified ZIP.');
+     await finishTestSignIn(data.user);
    }
  }catch(err){log('Test session unavailable: '+errorText(err));}
  finally{controls();}
