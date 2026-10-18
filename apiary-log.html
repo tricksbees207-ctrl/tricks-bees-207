@@ -293,7 +293,7 @@
         </section>
 <section aria-labelledby="statsHeading" id="statisticsSection">
   <h3 id="statsHeading">Apiary Statistics &amp; Reports</h3>
-  <p class="muted">Summary of your saved records. Select a year or view all years. Empty categories show zero, not estimated activity.</p>
+  <p class="muted">Summary of your saved records. Select a year or view all years. For a selected year, colonies are counted if their registered dates overlap that year. All years shows the current active-colony count. Empty categories show zero, not estimated activity.</p>
   <div class="stats-controls">
     <label class="stats-period" for="statsYear">Reporting period
       <select id="statsYear"><option value="all">All years</option></select>
@@ -2265,14 +2265,26 @@ function incomeReceiptControls(record){
       a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
     }
     let statsCache=null,statsRequest=0,statsColonies=null;
+    // Count colony generations active at any point in the selected year.
+    // "All years" reports live colony occupancy based on current status.
+    function colonyCountForPeriod(colonies,year){
+      if(colonies===null)return null;
+      if(year==="all")return colonies.filter(c=>c.colony_status==="active").length;
+      const first=year+"-01-01",last=year+"-12-31";
+      return colonies.filter(c=>
+        /^\d{4}-\d{2}-\d{2}$/.test(c.start_date||"")
+        && c.start_date<=last
+        && (c.end_date ? c.end_date>=first : c.colony_status==="active")
+      ).length;
+    }
     async function refreshStats(){
       const req=++statsRequest;
       $("statsMessage").textContent="Loading statistics...";
       const [results,colonyResult]=await Promise.all([Promise.all(statsSources.map(async ([table])=>
         readAllRows(()=>supabase.from(table).select("*"))
-      )),supabase.from("Hive_Colonies").select("id",{count:"exact",head:true}).eq("colony_status","active")]);
+      )),readAllRows(()=>supabase.from("Hive_Colonies").select("id,colony_status,start_date,end_date"))]);
       if(req!==statsRequest)return;
-      statsColonies=colonyResult.error?null:colonyResult.count;
+      statsColonies=colonyResult.error?null:(colonyResult.data||[]);
       const errors=results.flatMap((r,i)=>r.error?[`${statsSources[i][0]}: ${r.error.message}`]:[]);
       if(errors.length){
         statsCache=null;statsColonies=null;statsRows=[];financialExportRows=[];$("financialTotals").replaceChildren();$("financialCategories").replaceChildren();$("financialHives").replaceChildren();$("financialMessage").textContent="Financial report unavailable until statistics load.";$("statsSummary").replaceChildren();$("statsHiveTable").replaceChildren();
@@ -2284,7 +2296,13 @@ function incomeReceiptControls(record){
         const date=r[statsSources[i][1]];
         if(/^\d{4}-/.test(date||""))years.add(date.slice(0,4));
       }));
-      const sel=$("statsYear"),prior=sel.value;
+      // Include colony registration years even if no activity was recorded.
+       if(statsColonies)statsColonies.forEach(c=>{
+         for(const date of [c.start_date,c.end_date]){
+           if(/^\d{4}-/.test(date||""))years.add(date.slice(0,4));
+         }
+       });
+       const sel=$("statsYear"),prior=sel.value;
       sel.replaceChildren(new Option("All years","all"));
       [...years].sort().reverse().forEach(y=>sel.add(new Option(y,y)));
       sel.value=[...sel.options].some(o=>o.value===prior)?prior:"all";
@@ -2313,7 +2331,7 @@ function incomeReceiptControls(record){
       const year=$("statsYear").value;
       const records=statsCache.map((rows,i)=>rows.filter(r=>year==="all"||String(r[statsSources[i][1]]||"").startsWith(year+"-")));
       const sum=$("statsSummary");sum.replaceChildren();
-      sum.append(tile("Active colonies",statsColonies===null?"Unavailable":statsColonies));
+      sum.append(tile(year==="all"?"Active colonies now":`Colonies active during ${year}`,statsColonies===null?"Unavailable":colonyCountForPeriod(statsColonies,year)));
       const metrics=[
         ["Inspections",records[0].length],["Feedings",records[1].length],
         ["Treatments",records[2].length],
