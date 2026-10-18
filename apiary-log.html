@@ -1510,6 +1510,87 @@
       await refreshSplitFollowups();
     }
     let statsRows=[];
+
+    // All financial deletions are database-first. Storage cleanup is recoverable.
+    let receiptCleanupActive=false;
+    const queueTable="Apiary_Receipt_Deletion_Queue";
+    const receiptCleanupElements={};
+    for(const id of ["expensesSection","incomeSection"]){
+      const host=$(id),note=make("p","","section-status");
+      note.setAttribute("role","status");note.setAttribute("aria-live","polite");
+      const retry=make("button","Retry pending receipt cleanup","secondary");
+      retry.type="button";retry.hidden=true;
+      host.insertBefore(note,host.querySelector("h4"));
+      note.after(retry);
+      receiptCleanupElements[id]={note,retry};
+      retry.addEventListener("click",()=>cleanupPendingReceipts());
+    }
+    function showCleanupState(count,error=""){
+      for(const {note,retry} of Object.values(receiptCleanupElements)){
+        note.textContent=error?"Could not check receipt cleanup: "+error+". Retry later."
+          :count>0?count+" receipt file(s) still awaiting safe cleanup. The database changes are already saved.":"";
+        retry.hidden=!(error||count>0);
+        retry.disabled=receiptCleanupActive;
+      }
+    }
+    async function cleanupPendingReceipts(){
+      if(receiptCleanupActive)return {pending:null,error:"Cleanup already running"};
+      receiptCleanupActive=true;
+      for(const {retry} of Object.values(receiptCleanupElements))retry.disabled=true;
+      try{
+        const {data:{user},error:authError}=await supabase.auth.getUser();
+        if(authError||!user)throw new Error("Sign in again");
+        const {data:items,error:readError}=await supabase.from(queueTable)
+          .select("id,bucket_id,storage_path").eq("user_id",user.id).order("id").limit(500);
+        if(readError)throw readError;
+        for(const job of items||[]){
+          try{
+            if(!["apiary-receipts","apiary-income-receipts"].includes(job.bucket_id)
+                ||!job.storage_path.startsWith(user.id+"/"))
+              throw new Error("Unsafe queued path");
+            const {error:removeError}=await supabase.storage.from(job.bucket_id).remove([job.storage_path]);
+            if(removeError)throw removeError;
+            const {data:done,error:markError}=await supabase.from(queueTable)
+              .delete().eq("id",job.id).eq("user_id",user.id).select("id");
+            if(markError||!done?.length)throw markError||new Error("Cleanup acknowledgment failed");
+          }catch(err){console.warn("Retry receipt cleanup later:",err?.message||String(err));}
+        }
+        const {count,error}=await supabase.from(queueTable)
+          .select("id",{count:"exact",head:true}).eq("user_id",user.id);
+        if(error)throw error;
+        showCleanupState(count||0);
+        return {pending:count||0};
+      }catch(err){
+        showCleanupState(null,err.message||String(err));
+        return {pending:null,error:err.message||String(err)};
+      }finally{
+        receiptCleanupActive=false;
+        for(const {retry} of Object.values(receiptCleanupElements))retry.disabled=false;
+      }
+    }
+    async function performSafeFinancialDeletion(kind,scope,id,message,success,afterCommit=()=>{}){
+      let committed=false;
+      message.textContent="Deleting safely...";
+      try{
+        const {data,error}=await supabase.rpc("delete_apiary_financial_item_safely",{
+          p_kind:kind,p_scope:scope,p_id:id
+        });
+        if(error)throw error;
+        if(!data?.deleted)throw new Error("Database did not confirm deletion");
+        committed=true;
+        afterCommit();
+        const cleanup=await cleanupPendingReceipts();
+        await refreshStats();
+        message.textContent=success+(cleanup.pending===0
+          ?" Receipt file cleanup completed."
+          :" File cleanup is pending or unverified. Use Retry pending receipt cleanup; do not repeat deletion.");
+      }catch(err){
+        message.textContent=committed
+          ?"Database deletion succeeded, but refresh or cleanup requires attention. Do not delete it again. "+(err.message||String(err))
+          :"Deletion was cancelled without removing the receipt file: "+(err.message||String(err));
+      }
+    }
+
     let expenseRecords=[],receiptRecords=[],receiptListAvailable=false,editingExpenseId=null;
     const RECEIPT_BUCKET="apiary-receipts";
     const receiptExtensions={"application/pdf":"pdf","image/jpeg":"jpg","image/png":"png","image/webp":"webp","image/heic":"heic","image/heif":"heif"};
@@ -1539,17 +1620,8 @@
       document.body.append(a);a.click();a.remove();
     }
     async function deleteReceipt(receipt){
-      if(!confirm("Delete receipt "+receipt.original_name+" permanently?"))return;
-      const msg=$("expenseMessage");msg.textContent="Removing receipt...";
-      try{
-        const {data:{user},error:authError}=await supabase.auth.getUser();
-        if(authError||!user)throw new Error("Please sign in again.");
-        const {error:storageError}=await supabase.storage.from(RECEIPT_BUCKET).remove([receipt.storage_path]);
-        if(storageError)throw storageError;
-        const {data,error}=await supabase.from("Apiary_Expense_Receipts").delete().eq("id",receipt.id).eq("user_id",user.id).select("id");
-        if(error||!data?.length)throw error||new Error("Receipt record could not be deleted.");
-        await refreshStats();msg.textContent="Receipt removed.";
-      }catch(e){msg.textContent="Receipt removal failed: "+e.message;}
+      if(!confirm("Permanently delete receipt "+receipt.original_name+"? Database changes are confirmed before the file is removed."))return;
+      await performSafeFinancialDeletion("expense","receipt",receipt.id,$("expenseMessage"),"Expense receipt removed.");
     }
     function receiptControls(expense){
       const area=make("div",undefined,"record-actions");
@@ -1649,23 +1721,10 @@
       });
     }
     async function deleteExpense(record){
-      if(!receiptListAvailable){$("expenseMessage").textContent="Cannot safely delete expenses while receipt records are unavailable. Refresh and try again.";return;}
-      if(!window.confirm("Permanently delete this expense and all attached receipts? This cannot be undone."))return;
-      const msg=$("expenseMessage");msg.textContent="Deleting...";
-      try{
-        const {data:{user},error:authError}=await supabase.auth.getUser();
-        if(authError||!user)throw new Error("Please sign in again.");
-        const files=receiptRecords.filter(r=>String(r.expense_id)===String(record.id));
-        if(files.length){
-          const {error:removeError}=await supabase.storage.from(RECEIPT_BUCKET).remove(files.map(r=>r.storage_path));
-          if(removeError)throw new Error("Could not delete receipt files: "+removeError.message);
-        }
-        const {data,error}=await supabase.from("Apiary_Expenses").delete().eq("id",record.id).eq("user_id",user.id).select("id");
-        if(error)throw error;
-        if(!data?.length)throw new Error("No expense deleted.");
+      if(!confirm("Permanently delete this expense and its receipts? The database will confirm deletion before receipt files are removed."))return;
+      await performSafeFinancialDeletion("expense","record",record.id,$("expenseMessage"),"Expense deleted.",()=>{
         if(editingExpenseId===record.id)resetExpenseForm();
-        await refreshStats();msg.textContent="Expense deleted.";
-      }catch(e){msg.textContent="Delete failed: "+e.message;}
+      });
     }
     $("saveExpense").addEventListener("click",async()=>{
       const msg=$("expenseMessage");
@@ -1761,16 +1820,9 @@ function incomeReceiptControls(record){
    const a=document.createElement("a");a.href=data.signedUrl;a.target="_blank";a.rel="noopener noreferrer";document.body.append(a);a.click();a.remove();
   });
   const remove=make("button","Remove receipt");remove.type="button";remove.addEventListener("click",async()=>{
-   if(!confirm("Permanently remove "+r.original_name+"?"))return;
-   const msg=$("incomeMessage");msg.textContent="Removing receipt...";
-   try{
-    const {data:{user},error:authError}=await supabase.auth.getUser();if(authError||!user)throw new Error("Sign in again.");
-    const {error:e}=await supabase.storage.from(INCOME_BUCKET).remove([r.storage_path]);if(e)throw e;
-    const {data,error}=await supabase.from("Apiary_Income_Receipts").delete().eq("id",r.id).eq("user_id",user.id).select("id");
-    if(error||!data?.length)throw error||new Error("Could not remove receipt record.");
-    await refreshStats();msg.textContent="Receipt removed.";
-   }catch(e){msg.textContent="Remove failed: "+e.message;}
-  });area.append(view,remove);
+    if(!confirm("Permanently remove income receipt "+r.original_name+"? Its file will only be removed after the database confirms deletion."))return;
+    await performSafeFinancialDeletion("income","receipt",r.id,$("incomeMessage"),"Income receipt removed.");
+   });area.append(view,remove);
  }
  const attach=make("button","Attach receipt");attach.type="button";attach.className="secondary";
  const picker=document.createElement("input");picker.type="file";picker.multiple=true;picker.hidden=true;picker.style.display="none";picker.accept=$("incomeReceiptFiles").accept;
@@ -1836,17 +1888,10 @@ function incomeReceiptControls(record){
       });
     }
     async function deleteIncome(record){
-      if(!incomeReceiptsAvailable){$("incomeMessage").textContent="Receipt list unavailable; cannot safely delete income.";return;}if(!window.confirm("Permanently delete this income and its receipts? This cannot be undone."))return;
-      const msg=$("incomeMessage");msg.textContent="Deleting...";
-      try{
-        const {data:{user},error:authError}=await supabase.auth.getUser();
-        if(authError||!user)throw new Error("Please sign in again.");
-        const files=incomeReceiptRecords.filter(x=>String(x.income_id)===String(record.id));if(files.length){const {error:e}=await supabase.storage.from(INCOME_BUCKET).remove(files.map(x=>x.storage_path));if(e)throw e;}const {data,error}=await supabase.from("Apiary_Income").delete().eq("id",record.id).eq("user_id",user.id).select("id");
-        if(error)throw error;
-        if(!data?.length)throw new Error("No income deleted.");
+      if(!confirm("Permanently delete this income and its receipts? The database will confirm deletion before removing receipt files."))return;
+      await performSafeFinancialDeletion("income","record",record.id,$("incomeMessage"),"Income deleted.",()=>{
         if(editingIncomeId===record.id)resetIncomeForm();
-        await refreshStats();msg.textContent="Income deleted.";
-      }catch(e){msg.textContent="Delete failed: "+e.message;}
+      });
     }
     $("saveIncome").addEventListener("click",async()=>{
       const msg=$("incomeMessage");
@@ -2424,6 +2469,7 @@ function incomeReceiptControls(record){
       refreshSplitDaughterOptions();
       await Promise.all([loadDashboardData(),refreshStats(),refreshLocations()]);
       await recurringManager.refresh();
+      await cleanupPendingReceipts();
     }
     async function loadInspectionHistory(hiveId) {
       const request=++historyRequest;
