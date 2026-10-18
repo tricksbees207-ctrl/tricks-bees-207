@@ -1243,7 +1243,7 @@
           const rows=[];
           const batchSize=500;
           for(let offset=0;;offset+=batchSize){
-            const {data,error}=await supabase.from(table).select("*").range(offset,offset+batchSize-1);
+            const {data,error}=await supabase.from(table).select("*").order("id",{ascending:true}).range(offset,offset+batchSize-1);
             if(error)throw new Error(table+": "+error.message);
             rows.push(...(data||[]));
             if((data||[]).length<batchSize)break;
