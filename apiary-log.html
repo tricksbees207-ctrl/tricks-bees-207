@@ -502,18 +502,7 @@
   <option value="Weak">Weak</option>
   <option value="Very Weak">Very Weak</option>
 </select>
-<label for="miteCount">Varroa Mite Count</label>
-<input
-  type="number"
-  id="miteCount"
-  min="0"
-  step="1"
-  placeholder="Enter number of mites counted"
->
-  <label for="miteSampleSize">Bees in Sample</label>
-<input type="number" id="miteSampleSize" min="1" max="10000" step="1" value="300" required>
-<p class="muted">300 bees is your usual alcohol-wash sample. Change this if you count a different number. Only alcohol washes with a mite count appear on the public Varroa Watch chart.</p>
-  <label for="miteTestMethod">Mite Testing Method</label>
+<label for="miteTestMethod">Mite Testing Method</label>
 <select id="miteTestMethod">
   <option value="">Not recorded</option>
   <option value="Alcohol Wash">Alcohol Wash</option>
@@ -521,6 +510,19 @@
   <option value="Sticky Board">Sticky Board</option>
   <option value="Other">Other</option>
 </select>
+<label for="miteCount">Varroa Mite Count (optional)</label>
+<input
+  type="number"
+  id="miteCount"
+  min="0"
+  step="1"
+  placeholder="Enter number of mites counted"
+>
+<div id="miteSampleFields" hidden>
+  <label for="miteSampleSize">Bees in Sample</label>
+  <input type="number" id="miteSampleSize" min="1" max="10000" step="1" value="300">
+  <p class="muted">Enter the number of bees actually sampled. 300 is the default for a wash or sugar roll. Only Alcohol Wash results with a mite count are included in the public Varroa Watch chart.</p>
+</div>
   <label class="inspection-treatment-checkbox" for="treatmentAppliedCheck">
   <input type="checkbox" id="treatmentAppliedCheck">
   Treatment applied
@@ -1303,6 +1305,32 @@
       miteTestMethod:"mite_test_method",
       inspectionNotes:"inspection_notes"
     };
+    const methodUsesBeeSample=method=>method==="Alcohol Wash"||method==="Sugar Roll";
+    function updateMiteSampleFields(){
+      const relevant=methodUsesBeeSample(value("miteTestMethod"));
+      $("miteSampleFields").hidden=!relevant;
+      $("miteSampleSize").disabled=!relevant;
+      if(relevant&&!value("miteSampleSize"))$("miteSampleSize").value="300";
+    }
+    $("miteTestMethod").addEventListener("change",updateMiteSampleFields);
+    // Method and count determine whether a sample size belongs in the saved record.
+    function inspectionMiteValues(){
+      const method=value("miteTestMethod")||null;
+      const countText=value("miteCount").trim();
+      const rawSample=value("miteSampleSize").trim();
+      const count=countText===""?null:Number(countText);
+      if(count!==null&&(!Number.isInteger(count)||count<0))
+        throw new Error("Mite count must be a whole number of zero or more.");
+      if(count!==null&&!method)
+        throw new Error("Choose a mite testing method when recording a mite count.");
+      const needsSample=methodUsesBeeSample(method)&&count!==null;
+      if(needsSample&&rawSample==="")
+        throw new Error("Enter the number of bees sampled for the selected testing method.");
+      const sample=needsSample?Number(rawSample):null;
+      if(needsSample&&(!Number.isInteger(sample)||sample<1||sample>10000))
+        throw new Error("Bees in Sample must be a whole number between 1 and 10,000.");
+      return {mite_count:count,mite_test_method:method,mite_sample_size:sample};
+    }
     // Older inspection treatment notes remain available in history and are preserved
     // when the checkbox stays checked during edits. Future details belong in Hive_Treatments.
     let originalInspectionTreatmentNote = null;
@@ -1323,6 +1351,7 @@
       $("treatmentAppliedCheck").checked=false;
       updateInspectionTreatmentHint();
       $("miteSampleSize").value="300";
+      updateMiteSampleFields();
       $("inspectionDate").value=localToday();
       $("saveInspection").textContent="Save Inspection";
       $("cancelInspectionEdit").hidden=true;
@@ -1338,6 +1367,7 @@
       }
       $("treatmentAppliedCheck").checked=Boolean(originalInspectionTreatmentNote);
       updateInspectionTreatmentHint();
+      updateMiteSampleFields();
       $("saveInspection").textContent="Save Changes";
       $("cancelInspectionEdit").hidden=false;
       $("inspectionMessage").textContent=`Editing inspection from ${formatDate(inspection.inspection_date)}. Make changes, then click Save Changes, or Cancel Edit.`;
@@ -2776,16 +2806,10 @@ function incomeReceiptControls(record){
           brood_pattern:value("broodPattern")||null,temperament:value("temperament")||null,
           honey_stores:value("honeyStores")||null,pollen_stores:value("pollenStores")||null,
           colony_strength:value("colonyStrength")||null,
-          mite_count:value("miteCount")===""?null:Number(value("miteCount")),
-          mite_sample_size:Number(value("miteSampleSize")),
-          mite_test_method:value("miteTestMethod")||null,
+          ...inspectionMiteValues(),
           treatment_applied:treated?(originalInspectionTreatmentNote||"Yes, see Treatments tab"):null,
           inspection_notes:value("inspectionNotes")||null
         };
-        if(!Number.isInteger(payload.mite_sample_size) || payload.mite_sample_size < 1 || payload.mite_sample_size > 10000)
-          throw new Error("Bees in Sample must be a whole number between 1 and 10,000.");
-        if(payload.mite_count!==null && (!Number.isInteger(payload.mite_count) || payload.mite_count<0))
-          throw new Error("Mite count must be a whole number of zero or more.");
         const {data:{user},error:authError}=await supabase.auth.getUser();
         if(authError||!user)throw new Error("Please sign in again.");
         let savedInspectionId;
