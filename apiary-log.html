@@ -1674,8 +1674,32 @@
       }
       return result;
     }
-    const receiptBatchSummary=r=>r.attached+" attached, "+r.existing+" already present, "+
+    const receiptBatchSummary=r=>r.attached+" newly attached, "+r.existing+" already attached (not duplicated), "+
       r.failed.length+" failed out of "+r.total+" receipt(s).";
+
+    // Local feedback appears next to the selected transaction and survives
+    // the history list re-render after a successful upload.
+    const receiptUploadFeedback=new Map();
+    function setReceiptUploadFeedback(kind,id,message){
+      const key=kind+":"+String(id);
+      receiptUploadFeedback.set(key,message);
+      document.querySelectorAll("[data-receipt-upload-feedback]").forEach(el=>{
+        if(el.dataset.receiptUploadFeedback!==key)return;
+        el.textContent=message;
+        el.hidden=!message;
+      });
+    }
+    function wrapReceiptActions(kind,id,actions){
+      const outer=make("div",undefined,"receipt-upload-actions");
+      const status=make("p",receiptUploadFeedback.get(kind+":"+String(id))||"","section-status");
+      status.dataset.receiptUploadFeedback=kind+":"+String(id);
+      status.setAttribute("role","status");
+      status.setAttribute("aria-live","polite");
+      status.hidden=!status.textContent;
+      outer.append(actions,status);
+      return outer;
+    }
+
     const pendingKey=(kind,id)=>kind+":"+id;
     function rememberReceiptFailures(kind,id,failed){
       if(failed.length){
@@ -1750,7 +1774,10 @@
       const attach=make("button","Attach receipt");attach.type="button";attach.className="secondary";
       const picker=document.createElement("input");picker.type="file";picker.multiple=true;picker.hidden=true;picker.style.display="none";
       picker.accept=$("expenseReceiptFiles").accept;
-      attach.addEventListener("click",()=>picker.click());
+      attach.addEventListener("click",()=>{
+        setReceiptUploadFeedback("expense",expense.id,"Choose PDF or image receipts to attach to this saved expense.");
+        picker.click();
+      });
       picker.addEventListener("change",async()=>{
         if(!picker.files?.length)return;
         attach.disabled=true;
@@ -1759,18 +1786,27 @@
           const files=receiptFiles(picker.files);
           const {data:{user},error}=await supabase.auth.getUser();
           if(error||!user)throw new Error("Sign in again.");
-          const r=await uploadReceipts(files,expense.id,user,text=>{msg.textContent=text;});
+          const r=await uploadReceipts(files,expense.id,user,text=>{
+            msg.textContent=text;
+            setReceiptUploadFeedback("expense",expense.id,text);
+          });
           rememberReceiptFailures("expense",expense.id,r.failed);
           try{await refreshStats();}catch(e){
             msg.textContent="Upload attempt finished but Expense History could not refresh. Reload to verify. "+e.message;
+            setReceiptUploadFeedback("expense",expense.id,msg.textContent);
             return;
           }
-          msg.textContent="Expense #"+expense.id+" unchanged. "+receiptBatchSummary(r)+
+          const summary="Expense #"+expense.id+" unchanged. "+receiptBatchSummary(r)+
             (r.failed.length?" Retry failed files above; do not create another expense.":"");
-        }catch(e){msg.textContent="Receipt upload stopped: "+e.message;}
+          msg.textContent=summary;
+          setReceiptUploadFeedback("expense",expense.id,summary);
+        }catch(e){
+          msg.textContent="Receipt upload stopped: "+e.message;
+          setReceiptUploadFeedback("expense",expense.id,msg.textContent);
+        }
         finally{attach.disabled=false;picker.value="";}
       });
-      area.append(attach,picker);return area;
+      area.append(attach,picker);return wrapReceiptActions("expense",expense.id,area);
     }
     const expenseFields=["expenseDate","expenseCategory","expenseDescription","expenseVendor","expenseAmount","expenseHive","expensePayment","expenseNotes"];
     const money=n=>"$"+Number(n||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -1948,7 +1984,10 @@ function incomeReceiptControls(record){
  }
  const attach=make("button","Attach receipt");attach.type="button";attach.className="secondary";
  const picker=document.createElement("input");picker.type="file";picker.multiple=true;picker.hidden=true;picker.style.display="none";picker.accept=$("incomeReceiptFiles").accept;
- attach.addEventListener("click",()=>picker.click());
+ attach.addEventListener("click",()=>{
+    setReceiptUploadFeedback("income",record.id,"Choose PDF or image receipts to attach to this saved income.");
+    picker.click();
+  });
   picker.addEventListener("change",async()=>{
     if(!picker.files?.length)return;
     attach.disabled=true;const msg=$("incomeMessage");
@@ -1956,17 +1995,26 @@ function incomeReceiptControls(record){
       const files=receiptFiles(picker.files);
       const {data:{user},error}=await supabase.auth.getUser();
       if(error||!user)throw new Error("Sign in again.");
-      const r=await uploadIncome(files,record.id,user,text=>{msg.textContent=text;});
+      const r=await uploadIncome(files,record.id,user,text=>{
+        msg.textContent=text;
+        setReceiptUploadFeedback("income",record.id,text);
+      });
       rememberReceiptFailures("income",record.id,r.failed);
       try{await refreshStats();}catch(e){
         msg.textContent="Upload attempt finished but Income History could not refresh. Reload to verify. "+e.message;
+        setReceiptUploadFeedback("income",record.id,msg.textContent);
         return;
       }
-      msg.textContent="Income #"+record.id+" unchanged. "+receiptBatchSummary(r)+
+      const summary="Income #"+record.id+" unchanged. "+receiptBatchSummary(r)+
         (r.failed.length?" Retry failed files above; do not create new income.":"");
-    }catch(e){msg.textContent="Receipt upload stopped: "+e.message;}
+      msg.textContent=summary;
+      setReceiptUploadFeedback("income",record.id,summary);
+    }catch(e){
+      msg.textContent="Receipt upload stopped: "+e.message;
+      setReceiptUploadFeedback("income",record.id,msg.textContent);
+    }
     finally{attach.disabled=false;picker.value="";}
-  });area.append(attach,picker);return area;
+  });area.append(attach,picker);return wrapReceiptActions("income",record.id,area);
 }
     const incomeFields=["incomeDate","incomeCategory","incomeDescription","incomeCustomer","incomeAmount","incomeHive","incomePayment","incomeNotes"];
 
