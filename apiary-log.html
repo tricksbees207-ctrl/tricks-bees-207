@@ -1915,7 +1915,7 @@
           $("expenseRepeatFields").hidden=!automatic;
           $("expenseRepeatFrequency").disabled=automatic;
           $("expenseRepeatFrequency").value=automatic?recurringManager.frequencyFor(r.recurring_template_id):"monthly";
-          $("expenseRepeatHint").textContent=automatic?"This expense is linked to an existing automatic schedule. Uncheck and Save Changes to pause repetition, or use Automatic Expenses below. Changing an old receipt does not change the scheduled amount.":"Future entries are automatically recorded without reminders or confirmation. This does not charge your payment method.";
+          $("expenseRepeatHint").textContent=automatic?"This expense is linked to an automatic schedule. To change future amounts, frequency, vendor, or the next due date, use Edit Future Schedule under Automatic Expenses below. Editing this past expense will not change future entries. Uncheck Repeat and Save Changes to pause repetition.":"Future entries are automatically recorded without reminders or confirmation. This does not charge your payment method.";
           $("saveExpense").textContent="Save Changes";$("cancelExpenseEdit").hidden=false;
           $("expenseMessage").textContent="Editing existing expense.";
           $("saveExpense").scrollIntoView({behavior:"smooth",block:"center"});
