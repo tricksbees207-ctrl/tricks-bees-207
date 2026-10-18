@@ -9,6 +9,20 @@ export function setupRecurringExpenses({supabase,expenseSection}){
   const list=panel.querySelector("#recurringList");
   const message=panel.querySelector("#recurringMessage");
   let schedules=[];
+  async function getAllSchedules(ownerId){
+    const rows=[],pageSize=500;
+    for(let offset=0;offset<1000000;offset+=pageSize){
+      const {data,error}=await supabase.from("Apiary_Recurring_Expenses").select("*")
+        .eq("user_id",ownerId).eq("automatic_posting",true)
+        .order("next_due_date",{ascending:true}).order("id",{ascending:true})
+        .range(offset,offset+pageSize-1);
+      if(error)return {data:null,error};
+      if(!Array.isArray(data))return {data:null,error:new Error("Unexpected recurring schedule page")};
+      rows.push(...data);
+      if(data.length<pageSize)return {data:rows,error:null};
+    }
+    return {data:null,error:new Error("Recurring schedule list exceeds safe paging limit")};
+  }
   const currency=amount=>"$"+Number(amount||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
   function el(tag,content,className){
     const element=document.createElement(tag);
@@ -53,9 +67,7 @@ export function setupRecurringExpenses({supabase,expenseSection}){
   async function refresh(){
     const {data:{user},error:authError}=await supabase.auth.getUser();
     if(authError||!user){list.textContent="Sign in to see your automatic expenses.";return;}
-    const {data,error}=await supabase.from("Apiary_Recurring_Expenses")
-      .select("*").eq("user_id",user.id).eq("automatic_posting",true)
-      .order("next_due_date",{ascending:true});
+    const {data,error}=await getAllSchedules(user.id);
     if(error){list.textContent="Automatic schedules unavailable: "+error.message;return;}
     schedules=data||[];
     render();
