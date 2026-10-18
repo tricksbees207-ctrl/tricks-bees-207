@@ -1,6 +1,19 @@
 // Colony split follow-up dashboard. Does not create or delete splits.
 export function setupSplitFollowups({supabase,make,tile,formatDate,dayDifference,localToday,getHives,getSelectedHiveId,loadManagement}) {
   const $=id=>document.getElementById(id);
+  async function getAllSplits(){
+    const rows=[],pageSize=500;
+    for(let offset=0;offset<1000000;offset+=pageSize){
+      const {data,error}=await supabase.from("Hive_Splits").select("*")
+        .order("split_date",{ascending:false}).order("id",{ascending:false})
+        .range(offset,offset+pageSize-1);
+      if(error)return {data:null,error};
+      if(!Array.isArray(data))return {data:null,error:new Error("Unexpected split history page")};
+      rows.push(...data);
+      if(data.length<pageSize)return {data:rows,error:null};
+    }
+    return {data:null,error:new Error("Split history exceeds safe paging limit")};
+  }
   let request=0;
   const refresh=async()=>{
     const token=++request;
@@ -8,7 +21,7 @@ export function setupSplitFollowups({supabase,make,tile,formatDate,dayDifference
     const pendingHost=$("splitDashboardPending"),doneHost=$("splitDashboardCompleted");
     if(!message||!summary||!pendingHost||!doneHost)return;
     message.textContent="Loading split follow-ups...";
-    const {data,error}=await supabase.from("Hive_Splits").select("*").order("split_date",{ascending:false});
+    const {data,error}=await getAllSplits();
     if(token!==request)return;
     summary.replaceChildren();pendingHost.replaceChildren();doneHost.replaceChildren();
     if(error){
