@@ -314,7 +314,7 @@ $('clearTestStorage').addEventListener('click',async()=>{
      for(const row of data||[]){
        const path=row.storage_path;
        if(typeof path!=='string'||!path.startsWith(current.id+'/')||
-         !/^[0-9a-f-]{36}\\/[0-9]+\\/[a-z0-9_-]+\\.(?:pdf|jpe?g|png|webp|heic|heif)$/i.test(path))
+         !/^[0-9a-f-]{36}\/[0-9]+\/[a-z0-9_-]+\.(?:pdf|jpe?g|png|webp|heic|heif)$/i.test(path))
          throw new Error('Unexpected test receipt path. Cleanup stopped.');
        pending.push({bucket:group.bucket,path});
      }
