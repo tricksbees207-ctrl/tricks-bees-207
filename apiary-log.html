@@ -76,6 +76,20 @@
 #inspectionPanel textarea {
   min-height: 120px;
 }
+#inspectionPanel .inspection-treatment-checkbox {
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+#inspectionPanel .inspection-treatment-checkbox input[type="checkbox"] {
+  display:inline-block;
+  width:20px;
+  height:20px;
+  padding:0;
+  margin:0;
+  flex:none;
+  accent-color:#765b22;
+}
     .summary-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(145px,1fr)); gap:12px; margin:16px 0; }
     .summary-tile { padding:15px; background:#fff6da; border:1px solid #e8dcbf; border-radius:10px; }
     .summary-tile strong { display:block; font-size:1.6rem; }
@@ -423,7 +437,7 @@
     <div id="colonyHistoryForHive" aria-live="polite">Select a hive to view colony history.</div>
   </section>
   <p id="inspectionEntry">Record an inspection for the selected hive.</p>
-  <p class="muted">A treatment follow-up date is a recordkeeping reminder, not a product-specific dosing recommendation. Follow the approved treatment label.</p>
+  <p class="muted">Enter treatment products, application details, and follow-up dates in the dedicated Treatments tab.</p>
   
 <label for="inspectionDate">Inspection Date</label>
 <input type="date" id="inspectionDate" required>
@@ -507,14 +521,13 @@
   <option value="Sticky Board">Sticky Board</option>
   <option value="Other">Other</option>
 </select>
-  <label for="treatmentApplied">Treatment Applied</label>
-<textarea
-  id="treatmentApplied"
-  rows="3"
-  placeholder="Record treatment name, dosage, application date, and details"
-></textarea>
-  <label for="treatmentFollowUpDate">Treatment Follow-Up Date</label>
-<input type="date" id="treatmentFollowUpDate">
+  <label class="inspection-treatment-checkbox" for="treatmentAppliedCheck">
+  <input type="checkbox" id="treatmentAppliedCheck">
+  Treatment applied
+</label>
+<p id="inspectionTreatmentHint" class="muted" hidden>
+  See the <a href="#treatmentSection" id="openTreatmentFromInspection">Treatments tab</a> to record the product, dose, and follow-up date. Save this inspection separately; checking this box does not create a treatment record.
+</p>
 <label for="inspectionNotes">Inspection Notes</label>
 <textarea id="inspectionNotes" rows="5"
   placeholder="Record observations, concerns, and work needed..."></textarea>
@@ -1282,19 +1295,33 @@
     let editingInspectionColonyId = null;
     let savedProfileId = null;
 
-    const inspectionFormFields = ["queenSeen","eggsSeen","broodPattern","temperament", "honeyStores", "pollenStores", "colonyStrength", "miteCount", "miteSampleSize", "miteTestMethod", "treatmentApplied", "treatmentFollowUpDate", "inspectionNotes"];
+    const inspectionFormFields = ["queenSeen","eggsSeen","broodPattern","temperament", "honeyStores", "pollenStores", "colonyStrength", "miteCount", "miteSampleSize", "miteTestMethod", "inspectionNotes"];
     const inspectionEditMap = {
       inspectionDate:"inspection_date",queenSeen:"queen_seen",eggsSeen:"eggs_seen",
       broodPattern:"brood_pattern",temperament:"temperament",honeyStores:"honey_stores",
       pollenStores:"pollen_stores",colonyStrength:"colony_strength",miteCount:"mite_count",miteSampleSize:"mite_sample_size",
       miteTestMethod:"mite_test_method",
-      treatmentApplied:"treatment_applied",treatmentFollowUpDate:"treatment_follow_up_date",
       inspectionNotes:"inspection_notes"
     };
+    // Older inspection treatment notes remain available in history and are preserved
+    // when the checkbox stays checked during edits. Future details belong in Hive_Treatments.
+    let originalInspectionTreatmentNote = null;
+    const updateInspectionTreatmentHint = () => {
+      $("inspectionTreatmentHint").hidden = !$("treatmentAppliedCheck").checked;
+    };
+    $("treatmentAppliedCheck").addEventListener("change",updateInspectionTreatmentHint);
+    $("openTreatmentFromInspection").addEventListener("click",event=>{
+      event.preventDefault();
+      const tab=document.querySelector('[role="tab"][aria-controls="treatmentSection"]');
+      if(tab){tab.click();tab.scrollIntoView({behavior:"smooth",block:"center"});}
+    });
     function resetInspectionForm(){
       editingInspectionId=null;
       editingInspectionColonyId=null;
+      originalInspectionTreatmentNote=null;
       for(const id of inspectionFormFields) $(id).value="";
+      $("treatmentAppliedCheck").checked=false;
+      updateInspectionTreatmentHint();
       $("miteSampleSize").value="300";
       $("inspectionDate").value=localToday();
       $("saveInspection").textContent="Save Inspection";
@@ -1304,10 +1331,13 @@
       if(String(selectedHiveId)!==String(inspection.hive_id))return;
       editingInspectionId=inspection.id;
       editingInspectionColonyId=inspection.colony_id??null;
+      originalInspectionTreatmentNote=inspection.treatment_applied||null;
       for(const [id,key] of Object.entries(inspectionEditMap)){
         const data=inspection[key];
         $(id).value=typeof data==="boolean"?String(data):data??"";
       }
+      $("treatmentAppliedCheck").checked=Boolean(originalInspectionTreatmentNote);
+      updateInspectionTreatmentHint();
       $("saveInspection").textContent="Save Changes";
       $("cancelInspectionEdit").hidden=false;
       $("inspectionMessage").textContent=`Editing inspection from ${formatDate(inspection.inspection_date)}. Make changes, then click Save Changes, or Cancel Edit.`;
@@ -2459,6 +2489,9 @@ function incomeReceiptControls(record){
       const yesNo=id=>value(id)==="true"?true:value(id)==="false"?false:null;
       const hiveId=selectedHiveId;
       const editId=editingInspectionId;
+      const treated=$("treatmentAppliedCheck").checked;
+      if(editId!==null && originalInspectionTreatmentNote && !treated &&
+         !confirm("Unchecking Treatment applied will remove this inspection's previously saved treatment note. Its separate Treatment Log records and historical follow-up date will remain unchanged. Continue?"))return;
       const button=$("saveInspection");button.disabled=true;
       message.textContent=editId===null?"Saving inspection...":"Updating inspection...";
       try {
@@ -2471,8 +2504,7 @@ function incomeReceiptControls(record){
           mite_count:value("miteCount")===""?null:Number(value("miteCount")),
           mite_sample_size:Number(value("miteSampleSize")),
           mite_test_method:value("miteTestMethod")||null,
-          treatment_applied:value("treatmentApplied")||null,
-          treatment_follow_up_date:value("treatmentFollowUpDate")||null,
+          treatment_applied:treated?(originalInspectionTreatmentNote||"Yes, see Treatments tab"):null,
           inspection_notes:value("inspectionNotes")||null
         };
         if(!Number.isInteger(payload.mite_sample_size) || payload.mite_sample_size < 1 || payload.mite_sample_size > 10000)
