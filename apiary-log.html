@@ -1411,11 +1411,25 @@
       $("inspectionPanel").style.display="none";
       $("inspectionHistory").replaceChildren();
     }
+    // Stable, complete, fail-closed pagination for owner-visible history and reports.
+    async function readAllRows(makeQuery,{sortKey="id",ascending=true,pageSize=500}={}){
+      const all=[];
+      for(let offset=0;offset<1000000;offset+=pageSize){
+        let query=makeQuery().order(sortKey,{ascending});
+        if(sortKey!=="id")query=query.order("id",{ascending});
+        const {data,error}=await query.range(offset,offset+pageSize-1);
+        if(error)return {data:null,error};
+        if(!Array.isArray(data))return {data:null,error:new Error("Unexpected database page response")};
+        all.push(...data);
+        if(data.length<pageSize)return {data:all,error:null};
+      }
+      return {data:null,error:new Error("Too many records. Incomplete data was not displayed.")};
+    }
     async function loadDashboardData() {
       const request=++dashboardRequest;
       $("dashboardMessage").textContent="Updating dashboard...";
-      const {data,error}=await supabase.from("Hive_Inspections")
-        .select("*").order("inspection_date",{ascending:false});
+      const {data,error}=await readAllRows(()=>supabase.from("Hive_Inspections")
+        .select("*"),{sortKey:"inspection_date",ascending:false});
       if (request!==dashboardRequest) return;
       if (error) {
         $("dashboardMessage").textContent="Could not load dashboard: "+error.message;
@@ -1423,9 +1437,9 @@
         return;
       }
       allInspections=data||[];
-      const {data:extraTreatments,error:treatError}=await supabase.from("Hive_Treatments")
+      const {data:extraTreatments,error:treatError}=await readAllRows(()=>supabase.from("Hive_Treatments")
         .select("id,hive_id,treatment_date,product,follow_up_date,follow_up_completed,follow_up_completed_date,follow_up_notes")
-        .not("follow_up_date","is",null);
+        .not("follow_up_date","is",null));
       if (request!==dashboardRequest) return;
       const reminders=allInspections.filter(r=>r.treatment_follow_up_date).map(r=>({
         id:r.id,source:"Hive_Inspections",hive_id:r.hive_id,
@@ -1446,14 +1460,15 @@
       const overdue=active.filter(r=>dayDifference(r.reminder_date)<0);
       const soon=active.filter(r=>{const n=dayDifference(r.reminder_date);return n>=0&&n<=7;});
       const summary=$("apiarySummary");
-      const {data:overviewColonies,error:overviewColonyError}=await supabase.from("Hive_Colonies").select("hive_id").eq("colony_status","active");
+      const {count:overviewColonyCount,error:overviewColonyError}=await supabase.from("Hive_Colonies")
+        .select("id",{count:"exact",head:true}).eq("colony_status","active");
       if(request!==dashboardRequest)return;
       summary.replaceChildren();
       if(overviewColonyError){
         summary.append(tile("Active colonies","Unavailable"));
         $("dashboardMessage").textContent="Colony occupancy unavailable: "+overviewColonyError.message;
       } else {
-        summary.append(tile("Active colonies",(overviewColonies||[]).length));
+        summary.append(tile("Active colonies",overviewColonyCount));
       }
       summary.append(tile("Inspections",allInspections.length),tile("Overdue follow-ups",overdue.length),tile("Due within 7 days",soon.length));
       const list=$("treatmentReminders"),doneList=$("completedFollowUps");
@@ -2223,12 +2238,11 @@ function incomeReceiptControls(record){
     async function refreshStats(){
       const req=++statsRequest;
       $("statsMessage").textContent="Loading statistics...";
-      const [results,colonyResult]=await Promise.all([Promise.all(statsSources.map(async ([table])=>{
-        const {data,error}=await supabase.from(table).select("*");
-        return {data:data||[],error};
-      })),supabase.from("Hive_Colonies").select("hive_id").eq("colony_status","active")]);
+      const [results,colonyResult]=await Promise.all([Promise.all(statsSources.map(async ([table])=>
+        readAllRows(()=>supabase.from(table).select("*"))
+      )),supabase.from("Hive_Colonies").select("id",{count:"exact",head:true}).eq("colony_status","active")]);
       if(req!==statsRequest)return;
-      statsColonies=colonyResult.error?null:(colonyResult.data||[]);
+      statsColonies=colonyResult.error?null:colonyResult.count;
       const errors=results.flatMap((r,i)=>r.error?[`${statsSources[i][0]}: ${r.error.message}`]:[]);
       if(errors.length){
         statsCache=null;statsColonies=null;statsRows=[];financialExportRows=[];$("financialTotals").replaceChildren();$("financialCategories").replaceChildren();$("financialHives").replaceChildren();$("financialMessage").textContent="Financial report unavailable until statistics load.";$("statsSummary").replaceChildren();$("statsHiveTable").replaceChildren();
@@ -2252,14 +2266,16 @@ function incomeReceiptControls(record){
       if(colonyResult.error)$("statsMessage").textContent+=" Colony occupancy unavailable: "+colonyResult.error.message;
       renderFinancial();
       expenseRecords=statsCache[7]||[];
-      const {data:receipts,error:receiptError}=await supabase.from("Apiary_Expense_Receipts").select("*").order("created_at",{ascending:false});
+      const {data:receipts,error:receiptError}=await readAllRows(()=>supabase.from("Apiary_Expense_Receipts").select("*"),{sortKey:"created_at",ascending:false});
       if(req!==statsRequest)return;
       receiptListAvailable=!receiptError;
       receiptRecords=receiptError?[]:(receipts||[]);
       renderExpenses();
       if(receiptError)$("expenseMessage").textContent="Receipt list unavailable: "+receiptError.message;
       incomeRecords=statsCache[8]||[];
-      const {data:ir,error:ie}=await supabase.from("Apiary_Income_Receipts").select("*").order("created_at",{ascending:false});if(req!==statsRequest)return;incomeReceiptsAvailable=!ie;incomeReceiptRecords=ie?[]:(ir||[]);
+      const {data:ir,error:ie}=await readAllRows(()=>supabase.from("Apiary_Income_Receipts").select("*"),{sortKey:"created_at",ascending:false});
+      if(req!==statsRequest)return;
+      incomeReceiptsAvailable=!ie;incomeReceiptRecords=ie?[]:(ir||[]);
       renderIncome();if(ie)$("incomeMessage").textContent="Income receipt list unavailable: "+ie.message;
     }
     function renderStats(){
@@ -2267,7 +2283,7 @@ function incomeReceiptControls(record){
       const year=$("statsYear").value;
       const records=statsCache.map((rows,i)=>rows.filter(r=>year==="all"||String(r[statsSources[i][1]]||"").startsWith(year+"-")));
       const sum=$("statsSummary");sum.replaceChildren();
-      sum.append(tile("Active colonies",statsColonies===null?"Unavailable":statsColonies.length));
+      sum.append(tile("Active colonies",statsColonies===null?"Unavailable":statsColonies));
       const metrics=[
         ["Inspections",records[0].length],["Feedings",records[1].length],
         ["Treatments",records[2].length],
@@ -2369,7 +2385,7 @@ function incomeReceiptControls(record){
         status.textContent="Colony is not registered at this location.";return;
       }
       const results=await Promise.all(colonyReportTables.map(async ([label,table])=>{
-        const {data,error}=await supabase.from(table).select("*").eq("colony_id",colonyId).eq("hive_id",hiveId).limit(500);
+        const {data,error}=await readAllRows(()=>supabase.from(table).select("*").eq("colony_id",colonyId).eq("hive_id",hiveId));
         return {label,data:data||[],error};
       }));
       if(req!==colonyReportRequest||String(selectedHiveId)!==String(hiveId)||!panel.isConnected)return;
@@ -2382,7 +2398,7 @@ function incomeReceiptControls(record){
           section.append(make("p","Unable to load: "+result.error.message));
         }else{
           total+=result.data.length;
-          section.append(make("p",result.data.length+" linked record(s)"+(result.data.length===500?" (first 500 shown)":"")));
+          section.append(make("p",result.data.length+" linked record(s)"));
           for(const record of result.data){
             const detail=make("details");
             const keys=Object.keys(record).filter(k=>!["id","hive_id","colony_id","user_id","created_at","updated_at"].includes(k));
@@ -2456,11 +2472,15 @@ function incomeReceiptControls(record){
     async function refreshLocations(){
       const msg=$("locationMessage");msg.textContent="Loading locations and colonies...";
       const [locResult,colResult,transferResult]=await Promise.all([
-        supabase.from("Hives").select("id,hive_number,hive_name,hive_location,hive_status").order("hive_number"),
-        supabase.from("Hive_Colonies").select("*").order("created_at",{ascending:false}),
-        supabase.from("Colony_Transfers").select("*").order("transfer_date",{ascending:false}).limit(500)
+        readAllRows(()=>supabase.from("Hives").select("id,hive_number,hive_name,hive_location,hive_status"),{sortKey:"hive_number"}),
+        readAllRows(()=>supabase.from("Hive_Colonies").select("*"),{sortKey:"created_at",ascending:false}),
+        readAllRows(()=>supabase.from("Colony_Transfers").select("*"),{sortKey:"transfer_date",ascending:false})
       ]);
-      if(locResult.error||colResult.error){msg.textContent="Unable to load: "+(locResult.error||colResult.error).message;return;}
+      if(locResult.error||colResult.error||transferResult.error){
+        msg.textContent="Unable to load complete location history: "+
+          (locResult.error||colResult.error||transferResult.error).message;
+        return;
+      }
       hives=locResult.data||[];colonyRecords=colResult.data||[];
       renderSelectedHiveColonyHistory();
       updateRecordColonySelector();
@@ -2650,8 +2670,8 @@ function incomeReceiptControls(record){
       }
       if(!await guardMfa(session))return;
       const list=$("hiveList");list.textContent="Loading hives...";
-      const {data,error}=await supabase.from("Hives")
-        .select("id,hive_number,hive_name,hive_location").order("hive_number");
+      const {data,error}=await readAllRows(()=>supabase.from("Hives")
+        .select("id,hive_number,hive_name,hive_location"),{sortKey:"hive_number"});
       if (error) {list.textContent="Unable to load hives: "+error.message;return;}
       hives=data||[];list.replaceChildren();
       if (!hives.length) list.textContent="No hives registered.";
@@ -2684,9 +2704,8 @@ function incomeReceiptControls(record){
     async function loadInspectionHistory(hiveId) {
       const request=++historyRequest;
       const history=$("inspectionHistory");history.textContent="Loading inspection history...";
-      const {data,error}=await supabase.from("Hive_Inspections")
-        .select("*").eq("hive_id",hiveId)
-        .order("inspection_date",{ascending:false}).order("id",{ascending:false});
+      const {data,error}=await readAllRows(()=>supabase.from("Hive_Inspections")
+        .select("*").eq("hive_id",hiveId),{sortKey:"inspection_date",ascending:false});
       if (request!==historyRequest||String(selectedHiveId)!==String(hiveId)) return;
       if(error){history.textContent="Unable to load history: "+error.message;return;}
       if(!data?.length){history.textContent="No previous inspections for this hive.";return;}
@@ -2949,8 +2968,8 @@ function incomeReceiptControls(record){
       const request=++managementRequest;
       const tables=["Hive_Profiles","Hive_Feedings","Hive_Treatments","Hive_Harvests","Hive_Queen_Replacements","Hive_Splits","Hive_Losses"];
       const [results,originResult]=await Promise.all([
-        Promise.all(tables.map(t=>supabase.from(t).select("*").eq("hive_id",hiveId))),
-        supabase.from("Hive_Splits").select("*").eq("daughter_hive_id",hiveId)
+        Promise.all(tables.map(t=>readAllRows(()=>supabase.from(t).select("*").eq("hive_id",hiveId)))),
+        readAllRows(()=>supabase.from("Hive_Splits").select("*").eq("daughter_hive_id",hiveId))
       ]);
       if(request!==managementRequest||String(selectedHiveId)!==String(hiveId))return;
       const [profile,feed,treat,harvest,queen,splits,losses]=results;
