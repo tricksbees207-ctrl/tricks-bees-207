@@ -18,15 +18,17 @@ test('automatic expenses: one existing purchase, compact list, pause/resume',asy
     auth:{getUser:async()=>({data:{user:owner}})},
     from(table){
       assert.equal(table,'Apiary_Recurring_Expenses');
-      const op={type:'',patch:null,filters:[]};
+      const op={type:'',patch:null,filters:[],page:null};
       const query={
         select(){if(!op.type)op.type='read';return query;},
         update(patch){op.type='update';op.patch=patch;return query;},
         eq(key,val){op.filters.push([key,val]);return query;},
         order(){return query;},
+        range(start,end){op.page=[start,end];return query;},
         then(resolve,reject){
           let items=schedules.filter(s=>op.filters.every(([key,val])=>s[key]===val));
           if(op.type==='update')items.forEach(s=>Object.assign(s,op.patch));
+          if(op.page)items=items.slice(op.page[0],op.page[1]+1);
           return Promise.resolve({data:items.map(s=>({...s}))}).then(resolve,reject);
         }
       };
@@ -58,13 +60,13 @@ test('automatic expenses: one existing purchase, compact list, pause/resume',asy
     assert.equal(manager.frequencyFor(1),'monthly');
     assert.match(document.querySelector('#recurringList').textContent,/Synthetic membership/);
     assert.match(document.querySelector('#recurringList').textContent,/2026-11-17/);
-    let button=document.querySelector('#recurringList button');
-    assert.equal(button.textContent,'Pause repetition');
+    let button=[...document.querySelectorAll('#recurringList button')].find(b=>b.textContent==='Pause repetition');
+    assert.ok(button,'pause button is available beside the edit button');
     button.click();
     await new Promise(resolve=>setTimeout(resolve,0));
     assert.equal(schedules[0].active,false);
-    button=document.querySelector('#recurringList button');
-    assert.equal(button.textContent,'Resume repetition');
+    button=[...document.querySelectorAll('#recurringList button')].find(b=>b.textContent==='Resume repetition');
+    assert.ok(button,'resume button is available beside the edit button');
     button.click();
     await new Promise(resolve=>setTimeout(resolve,0));
     assert.equal(schedules[0].active,true);
