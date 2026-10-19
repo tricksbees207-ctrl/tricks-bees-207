@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<title>Tricks Bees 207 | Winter Readiness TEST ONLY</title>
+<style>
+:root{--ink:#30291d;--gold:#e6ad25;--cream:#fff9e8;--line:#dec998;--green:#24533b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--cream);color:var(--ink);font:16px/1.5 Arial,sans-serif}
+header{background:#29241b;color:#ffcc45;padding:20px max(16px,calc((100% - 1080px)/2))}
+header h1{margin:0;font-size:clamp(23px,4vw,34px)}header p{margin:6px 0 0;color:#f8e4ae}
+main{max-width:1120px;margin:22px auto;padding:0 16px 50px}
+.panel{background:#fff;border:1px solid #e8dcbf;border-radius:13px;padding:20px;margin:16px 0}
+.panel h2,.panel h3{margin:0 0 10px}
+small,.muted{color:#6e6150}.warning{background:#fff3df;border-left:5px solid #b27920;padding:12px;margin:14px 0}
+label{font-weight:700;display:block;margin:10px 0 5px}
+input,select,textarea{font:inherit;width:100%;min-width:0;padding:10px;border:1px solid #a89979;border-radius:7px;background:white;color:var(--ink)}
+textarea{min-height:75px}
+button{font:inherit;font-weight:700;cursor:pointer;min-height:43px;padding:8px 13px;border:0;border-radius:8px;background:var(--gold);color:#29241b}
+button.secondary{border:1px solid #bda977;background:#fffdf7}
+button:disabled{cursor:wait;opacity:.5}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #217a67;outline-offset:1px}
+[hidden]{display:none!important}
+.row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.row > .grow{flex:1 1 200px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.card{background:#fffdf7;border:1px solid #deceac;border-radius:10px;padding:14px;margin:10px 0}
+.card p{margin:6px 0}
+.status{min-height:22px;color:#24533b}
+button.selected{background:#29241b;color:#ffcc45}
+.section-tabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;padding:12px;background:#f7edcf;border-radius:12px;margin:12px 0 22px}
+.section-tabs button{width:100%;min-width:0;min-height:65px;padding:8px 5px;background:#fffdf7;border:1px solid #bca56b;line-height:1.2;white-space:normal}
+.section-tabs button.selected{background:#29241b;color:#ffcc45}
+details{border:1px solid #ddcfb0;background:#fffdf7;border-radius:9px;margin:10px 0;padding:10px}
+summary{font-weight:700;cursor:pointer;padding:6px}
+.item{padding:12px 0;border-top:1px solid #ede3cf}
+.item:first-of-type{margin-top:10px}
+.item .row > div{flex:1 1 200px}
+.item button{width:auto}
+.history{max-height:320px;overflow:auto}
+@media(max-width:760px){.section-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:540px){.section-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}main{padding:0 10px 45px}.panel{padding:14px}}
+@media(max-width:380px){.section-tabs{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header><h1>❄️ Tricks Bees 207 · Winter Readiness</h1><p>TEST BUILD · Separate Supabase Recovery Test project · Not production</p></header>
+<main>
+<p class="warning"><strong>Development build only.</strong> This page connects exclusively to the Recovery Test database. It does not change the live Apiary Log, production data or OBS. Winter-season closing, historical snapshots and final spring outcomes are not yet enabled.</p>
+<section id="auth" class="panel">
+<h2>Recovery Test sign-in</h2>
+<div id="signInPanel">
+<form id="signInForm"><label for="email">TEST account email</label><input type="email" id="email" autocomplete="username" required><label for="password">TEST account password</label><input type="password" id="password" autocomplete="current-password" required><p><button type="submit">Sign in to TEST</button></p></form>
+</div>
+<div id="mfaPanel" hidden><p>Enter the authenticator code for your <strong>Recovery Test</strong> account (not production).</p><form id="mfaForm"><label for="mfaCode">Six-digit authenticator code</label><input id="mfaCode" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required><p><button type="submit">Verify TEST account</button></p></form></div>
+<div id="signedInPanel" hidden><p id="sessionLabel"></p><button type="button" id="signOut" class="secondary">Sign out</button></div>
+<p id="authStatus" class="status" role="status"></p>
+</section>
+<div id="workspace" hidden>
+<section class="panel">
+<div class="row"><h2 class="grow">Winter seasons</h2><label for="seasonYear">Season year</label><select id="seasonYear" style="width:auto"><option value="2026">2026–2027</option><option value="2027">2027–2028</option></select></div>
+<p class="muted">Start each winter manually. All colonies active at the moment of startup are included. Later colonies require your decision.</p>
+<div id="seasonSummary"></div>
+<button type="button" id="startSeason" hidden>Start Winter Season (TEST)</button>
+</section>
+<section id="colonySection" class="panel" hidden>
+<h2>Colonies for this season</h2><p class="muted">Select one participating colony to review its winter checklist or record observations. New active colonies are not included silently.</p>
+<div id="colonyList"></div>
+</section>
+<section id="winterDetail" class="panel" hidden>
+<h2 id="colonyHeading">Winter preparation</h2>
+<div class="section-tabs" aria-label="Proposed hive navigation layout">
+<button type="button" disabled>Inspection</button><button type="button" disabled>Hive Profile</button><button type="button" disabled>Colony History</button><button type="button" disabled>Feedings</button><button type="button" disabled>Treatments</button>
+<button type="button" disabled>Harvests</button><button type="button" disabled>Queens</button><button type="button" disabled>Splits</button><button type="button" disabled>Losses</button><button type="button" class="selected">Winter</button>
+</div>
+<p class="muted">The other nine buttons above are a layout demonstration. The existing Apiary Log navigation is unchanged.</p>
+<div id="existingRecords" class="card"></div>
+<h3>Fall preparation</h3>
+<div id="assessment"></div>
+<div id="checklist"></div>
+<div class="card"><h3>Custom checklist task</h3><label for="customSection">Section</label><select id="customSection"><option value="health">Colony Health</option><option value="food">Food & Feeding</option><option value="protection">Hive Protection</option><option value="custom">Other</option></select><label for="customLabel">Task</label><input id="customLabel" maxlength="150" placeholder="e.g. Check upper entrance"><p><button id="addCustom" type="button">Add Custom Task</button></p></div>
+<h3>Winter observations</h3>
+<div class="card">
+<form id="observationForm">
+<input type="hidden" id="editObservationId">
+<div class="grid">
+<div><label for="obsDate">Observation date</label><input type="date" id="obsDate" required></div>
+<div><label for="obsActivity">Activity</label><select id="obsActivity"><option value="not_checked">Not checked</option><option value="bees_seen">Bees seen</option><option value="none_seen">No bees observed</option><option value="heard">Bees heard</option><option value="concern">Concern</option></select></div>
+<div><label for="obsHeft">Weight / heft</label><select id="obsHeft"><option value="not_checked">Not checked</option><option value="heavy">Heavy</option><option value="moderate">Moderate</option><option value="light">Light</option><option value="measured">Measured weight</option></select></div>
+<div id="weightFields" hidden><label for="obsWeight">Weight</label><input type="number" id="obsWeight" step="0.01" min="0.01"><select id="obsWeightUnit"><option value="lb">lb</option><option value="kg">kg</option></select></div>
+<div><label for="obsEntrance">Entrance</label><select id="obsEntrance"><option value="not_checked">Not checked</option><option value="clear">Clear</option><option value="snow_ice">Snow/ice blockage</option><option value="dead_bees">Dead bees blocking</option><option value="concern">Other concern</option></select></div>
+<div><label for="obsMoisture">Moisture</label><select id="obsMoisture"><option value="not_checked">Not checked</option><option value="no_visible_concern">No visible concern</option><option value="condensation">Condensation</option><option value="damp">Dampness</option></select></div>
+<div><label for="obsFood">Supplemental food</label><select id="obsFood"><option value="not_checked">Not checked</option><option value="none_added">Checked; none added</option><option value="added_in_feeding_log">Added (record in Feeding Log)</option><option value="concern">Food concern</option></select></div>
+</div>
+<label for="obsNotes">Notes (optional)</label><textarea id="obsNotes"></textarea>
+<div class="row"><button type="submit" id="saveObservation">Save TEST observation</button><button type="button" class="secondary" id="cancelEdit" hidden>Cancel edit</button></div>
+</form>
+</div>
+<div id="observationHistory"></div>
+<h3>Change history</h3><div id="auditHistory" class="history card"><p>Recorded when you change a winter status or observation.</p></div>
+<div class="card"><h3>Spring outcome and season closure</h3><p class="muted">Next development phase. Spring inspections will come from the existing regular inspection log. A personally confirmed final outcome and manual season closure will be added after backup and snapshot verification.</p></div>
+</section>
+</div>
+<p id="appStatus" class="status" role="status" aria-live="polite"></p>
+</main>
+<script type="module">
+import {createClient} from 'https://esm.sh/@supabase/supabase-js@2';
+const client=createClient('https://xvthtxcinwbopoixaggv.supabase.co','sb_publishable_tSxLXZmgyA7M2ybZIHsdZA_jOREMSxN',{auth:{detectSessionInUrl:false}});
+const $=id=>document.getElementById(id);
+const node=(tag,text,cls)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=String(text);if(cls)e.className=cls;return e;};
+const say=(message)=>{$('appStatus').textContent=message;};
+const errorMessage=e=>e?.message||String(e);
+const requireResult=r=>{if(r.error)throw r.error;return r.data;};
+let verified=null,season=null,colonies=[],hives=[],participations=[],current=null,items=[],observations=[];
+const latestObservationDate=()=>new Date().toLocaleDateString('en-CA');
+function setSections(mode){$('signInPanel').hidden=mode!=='login';$('mfaPanel').hidden=mode!=='mfa';$('signedInPanel').hidden=mode!=='signed';$('workspace').hidden=mode!=='signed';}
+async function authenticated(){
+ const info=requireResult(await client.auth.mfa.getAuthenticatorAssuranceLevel());
+ if(info.currentLevel==='aal2'){
+   const result=requireResult(await client.auth.getUser());
+   verified=result.user;setSections('signed');$('sessionLabel').textContent='MFA verified: '+verified.email;
+   await refresh();
+ }else{
+   verified=null;setSections('mfa');$('authStatus').textContent='Please verify your Recovery Test authenticator.';
+ }
+}
+$('signInForm').addEventListener('submit',async e=>{
+ e.preventDefault();$('authStatus').textContent='Signing into Recovery Test...';
+ try{
+   requireResult(await client.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value}));
+   $('password').value='';await authenticated();
+   $('authStatus').textContent='TEST sign-in ready.';
+ }catch(err){$('password').value='';$('authStatus').textContent=errorMessage(err);}
+});
+$('mfaForm').addEventListener('submit',async e=>{
+ e.preventDefault();
+ try{
+   const code=$('mfaCode').value.trim();
+   if(!/^[0-9]{6}$/.test(code))throw new Error('Enter a six-digit code.');
+   const factors=requireResult(await client.auth.mfa.listFactors());
+   const factor=(factors.totp||[]).find(f=>f.status==='verified');
+   if(!factor)throw new Error('No verified TEST authenticator factor.');
+   const challenge=requireResult(await client.auth.mfa.challenge({factorId:factor.id}));
+   requireResult(await client.auth.mfa.verify({factorId:factor.id,challengeId:challenge.id,code}));
+   $('mfaCode').value='';await authenticated();$('authStatus').textContent='MFA verified.';
+ }catch(err){$('mfaCode').value='';$('authStatus').textContent=errorMessage(err);}
+});
+$('signOut').addEventListener('click',async()=>{await client.auth.signOut();verified=null;season=null;current=null;setSections('login');$('authStatus').textContent='Signed out of TEST.';});
+$('seasonYear').addEventListener('change',()=>refresh().catch(err=>say(errorMessage(err))));
+async function refresh(){
+ if(!verified)return;
+ const [s,c,h]=await Promise.all([
+   client.from('Winter_Seasons').select('*').eq('start_year',Number($('seasonYear').value)).maybeSingle(),
+   client.from('Hive_Colonies').select('*'),
+   client.from('Hives').select('id,hive_number,hive_name')
+ ]);
+ season=requireResult(s);colonies=requireResult(c)||[];hives=requireResult(h)||[];
+ participations=season?requireResult(await client.from('Winter_Participation').select('*').eq('season_id',season.id)):[];
+ renderSeason();renderColonies();
+ if(current){
+  const p=participations.find(x=>x.colony_id===current.colony_id);
+  if(p&&p.participation==='included')await selectColony(p);
+  else{$('winterDetail').hidden=true;current=null;}
+ }
+}
+function hiveName(c){
+ const h=hives.find(h=>String(h.id)===String(c.hive_id));
+ return 'Hive '+(h?.hive_number??'?')+' · '+(h?.hive_name||'Unnamed')+' · '+c.colony_name;
+}
+function renderSeason(){
+ const e=$('seasonSummary');e.replaceChildren();
+ $('colonySection').hidden=!season;
+ $('startSeason').hidden=!!season;
+ if(!season){e.append(node('p','Season not started. No winter records exist for this year.'));return;}
+ e.append(node('p','Season: '+season.start_year+'–'+(season.start_year+1)+' · '+season.status.toUpperCase()+' · Started '+new Date(season.started_at).toLocaleString()));
+ const participating=participations.filter(x=>x.participation==='included').length;
+ e.append(node('p',participating+' included · '+(participations.length-participating)+' excluded · '+colonies.filter(c=>c.colony_status==='active'&&!participations.some(p=>p.colony_id===c.id)).length+' active colonies awaiting a decision.'));
+}
+$('startSeason').addEventListener('click',async()=>{
+ const year=Number($('seasonYear').value);
+ if(!confirm('Start TEST winter '+year+'–'+(year+1)+' and include all currently active TEST colonies?'))return;
+ try{const id=requireResult(await client.rpc('winter_start_season',{p_start_year:year}));say('TEST season '+id+' started.');await refresh();}
+ catch(err){say('Start failed: '+errorMessage(err));}
+});
+function renderColonies(){
+ const host=$('colonyList');host.replaceChildren();
+ if(!season)return;
+ const sorted=[...colonies].filter(c=>c.colony_status==='active'||participations.some(p=>p.colony_id===c.id)).sort((a,b)=>{
+  const hA=hives.find(h=>h.id===a.hive_id)?.hive_number||9999;
+  const hB=hives.find(h=>h.id===b.hive_id)?.hive_number||9999;
+  return hA-hB;
+ });
+ for(const c of sorted){
+   const p=participations.find(p=>p.colony_id===c.id);
+   const card=node('div',undefined,'card');
+   card.append(node('strong',hiveName(c)),node('p',p?'Winter: '+p.participation:'New active colony: decision needed','muted'));
+   const buttons=node('div',undefined,'row');
+   if(p&&p.participation==='included'){
+     const b=node('button','Open Winter');b.type='button';b.addEventListener('click',()=>selectColony(p).catch(err=>say(errorMessage(err))));buttons.append(b);
+     const x=node('button','Exclude','secondary');x.type='button';x.addEventListener('click',async()=>{
+       const reason=prompt('Reason for excluding this colony from winter?');
+       if(!reason?.trim())return;
+       try{requireResult(await client.from('Winter_Participation').update({participation:'excluded',exclusion_reason:reason,prep_notes:null}).eq('id',p.id));current=null;$('winterDetail').hidden=true;await refresh();}
+       catch(err){say('Exclusion failed: '+errorMessage(err));}
+     });buttons.append(x);
+   }else if(p&&p.participation==='excluded'){
+     buttons.append(node('small','Excluded: '+(p.exclusion_reason||'No reason recorded')));
+     const b=node('button','Include again','secondary');b.type='button';b.addEventListener('click',async()=>{
+       if(!confirm('Re-include this TEST colony?'))return;
+       try{requireResult(await client.from('Winter_Participation').update({participation:'included',exclusion_reason:null}).eq('id',p.id));await ensureChecklist(p.id);await refresh();}
+       catch(err){say('Inclusion failed: '+errorMessage(err));}
+     });buttons.append(b);
+   }else if(c.colony_status==='active'){
+     const include=node('button','Include colony');include.type='button';include.addEventListener('click',()=>addNewColony(c,true));
+     const exclude=node('button','Exclude','secondary');exclude.type='button';exclude.addEventListener('click',()=>addNewColony(c,false));
+     buttons.append(include,exclude);
+   }
+   card.append(buttons);host.append(card);
+ }
+}
+async function addNewColony(c,include){
+ if(!season||season.status!=='open')return;
+ const reason=include?null:prompt('Reason for excluding this colony:');
+ if(!include&&!reason?.trim())return;
+ if(include&&!confirm('Include '+c.colony_name+' in this TEST winter season?'))return;
+ try{requireResult(await client.rpc('winter_add_colony',{p_season_id:season.id,p_colony_id:c.id,p_include:include,p_reason:reason}));await refresh();}
+ catch(err){say('Decision failed: '+errorMessage(err));}
+}
+const standards=[
+ ['health_queen','health','Queen status reviewed'],['health_strength','health','Colony strength assessed'],
+ ['health_varroa','health','Varroa management reviewed'],['health_treatment','health','Treatment follow-ups reviewed'],
+ ['food_stores','food','Winter food stores assessed'],['food_feeding','food','Fall feeding reviewed'],
+ ['protection_mouse_guard','protection','Mouse guard installed or checked'],
+ ['protection_moisture','protection','Moisture and ventilation setup checked'],
+ ['protection_equipment','protection','Hive equipment secured'],['protection_wind','protection','Wind and weather protection reviewed']
+];
+async function ensureChecklist(pId){
+ const existing=requireResult(await client.from('Winter_Checklist_Items').select('item_key').eq('participation_id',pId))||[];
+ const missing=standards.filter(s=>!existing.some(x=>x.item_key===s[0])).map(x=>({participation_id:pId,item_key:x[0],section:x[1],label:x[2]}));
+ if(missing.length)requireResult(await client.from('Winter_Checklist_Items').insert(missing));
+}
+async function selectColony(p){
+ current=p;
+ const col=colonies.find(c=>c.id===p.colony_id);
+ $('colonyHeading').textContent='❄️ '+hiveName(col)+' · Winter '+season.start_year+'–'+(season.start_year+1);
+ $('winterDetail').hidden=false;
+ await refreshColony();
+ $('winterDetail').scrollIntoView({behavior:'smooth',block:'start'});
+}
+async function refreshColony(){
+ if(!current)return;
+ const col=colonies.find(c=>c.id===current.colony_id);
+ const [ir,or,ar]=await Promise.all([
+  client.from('Winter_Checklist_Items').select('*').eq('participation_id',current.id).order('id'),
+  client.from('Winter_Observations').select('*').eq('participation_id',current.id).order('observed_on',{ascending:false}),
+  client.from('Winter_Audit_History').select('*').order('recorded_at',{ascending:false}).limit(1000)
+ ]);
+ items=requireResult(ir)||[];observations=requireResult(or)||[];const events=requireResult(ar)||[];
+ renderAssessment();renderChecklist();renderObservations();renderHistory(events);
+ await renderExisting(col);
+}
+async function renderExisting(col){
+ const host=$('existingRecords');host.replaceChildren();host.append(node('strong','Latest existing Apiary Log records (read-only)'));
+ const defs=[['Last inspection','Hive_Inspections','inspection_date','colony_strength','honey_stores'],
+ ['Last feeding','Hive_Feedings','feed_date','feed_type','quantity'],
+ ['Last treatment','Hive_Treatments','treatment_date','product','follow_up_date']];
+ for(const d of defs){
+  const r=await client.from(d[1]).select('*').eq('colony_id',col.id).order(d[2],{ascending:false}).limit(1);
+  const data=requireResult(r);
+  const rec=data?.[0];
+  host.append(node('p',d[0]+': '+(rec?(rec[d[2]]+' · '+(rec[d[3]]??'Not specified')+(rec[d[4]]!=null?' · '+rec[d[4]]:'')):'Not recorded for this colony')));
+ }
+ host.append(node('small','These are live TEST records. They never automatically change your checklist confirmations.'));
+}
+function renderAssessment(){
+ const host=$('assessment');host.replaceChildren();
+ const card=node('div',undefined,'card');
+ card.append(node('strong','Your final fall preparation assessment'));
+ const sel=makeSelect([['unassessed','Not assessed'],['complete','Preparation complete'],['concerns','Prepared with concerns'],['incomplete','Preparation incomplete']],current.prep_assessment);
+ const notes=node('textarea');notes.value=current.prep_notes||'';notes.placeholder='Optional preparation notes';
+ const save=node('button','Save Assessment');save.type='button';
+ save.addEventListener('click',async()=>{
+  try{requireResult(await client.from('Winter_Participation').update({prep_assessment:sel.value,prep_notes:notes.value||null,prep_confirmed_at:sel.value==='unassessed'?null:new Date().toISOString()}).eq('id',current.id));current={...current,prep_assessment:sel.value,prep_notes:notes.value};say('TEST preparation assessment saved.');await refreshColony();}
+  catch(err){say('Assessment failed: '+errorMessage(err));}
+ });
+ card.append(sel,notes,save);host.append(card);
+}
+function makeSelect(opts,selected){
+ const el=node('select');
+ opts.forEach(([val,label])=>el.append(new Option(label,val)));
+ el.value=selected||opts[0][0];return el;
+}
+function renderChecklist(){
+ const host=$('checklist');host.replaceChildren();
+ const groups=[['health','Colony Health'],['food','Food & Feeding'],['protection','Hive Protection'],['custom','Other Custom Tasks']];
+ const done=items.filter(i=>['complete','not_applicable'].includes(i.status)).length;
+ host.append(node('p',done+' of '+items.length+' tasks documented as complete or not applicable.'));
+ for(const [group,title] of groups){
+  const relevant=items.filter(i=>i.section===group);
+  if(!relevant.length)continue;
+  const details=node('details');if(group==='health')details.open=true;
+  details.append(node('summary',title+' ('+relevant.length+')'));
+  for(const item of relevant){
+   const box=node('div',undefined,'item');box.append(node('strong',item.label));
+   const fields=node('div',undefined,'row');
+   const status=makeSelect([['not_checked','Not checked'],['complete','Complete'],['needs_attention','Needs attention'],['not_applicable','Not applicable']],item.status);
+   const notes=node('input');notes.maxLength=2000;notes.placeholder='Notes (optional)';notes.value=item.notes||'';
+   fields.append(status,notes);
+   const save=node('button','Confirm / Save');save.type='button';
+   save.addEventListener('click',async()=>{
+    try{requireResult(await client.from('Winter_Checklist_Items').update({status:status.value,notes:notes.value||null,status_changed_at:new Date().toISOString()}).eq('id',item.id));
+      say('TEST checklist change saved with audit history.');await refreshColony();}
+    catch(err){say('Checklist save failed: '+errorMessage(err));}
+   });
+   box.append(fields,save);if(item.status_changed_at)box.append(node('p','Last confirmed: '+new Date(item.status_changed_at).toLocaleString(),'muted'));
+   details.append(box);
+  }
+  host.append(details);
+ }
+}
+$('addCustom').addEventListener('click',async()=>{
+ if(!current)return;
+ const label=$('customLabel').value.trim();if(!label)return;
+ try{
+  const key='custom_'+crypto.randomUUID();
+  requireResult(await client.from('Winter_Checklist_Items').insert({participation_id:current.id,item_key:key,section:$('customSection').value,label,is_custom:true}));
+  $('customLabel').value='';say('Custom TEST task added.');await refreshColony();
+ }catch(err){say('Custom task failed: '+errorMessage(err));}
+});
+$('obsHeft').addEventListener('change',()=>{$('weightFields').hidden=$('obsHeft').value!=='measured';});
+$('obsDate').value=latestObservationDate();
+function resetObservation(){
+ $('observationForm').reset();$('editObservationId').value='';$('cancelEdit').hidden=true;
+ $('weightFields').hidden=true;$('obsDate').value=latestObservationDate();
+ $('saveObservation').textContent='Save TEST observation';
+}
+$('cancelEdit').addEventListener('click',resetObservation);
+$('observationForm').addEventListener('submit',async e=>{
+ e.preventDefault();if(!current)return;
+ const measured=$('obsHeft').value==='measured';
+ if(measured&&!(Number($('obsWeight').value)>0)){say('A positive weight is required when weight is measured.');return;}
+ const record={participation_id:current.id,observed_on:$('obsDate').value,
+  activity:$('obsActivity').value,heft:$('obsHeft').value,
+  measured_weight:measured?Number($('obsWeight').value):null,
+  weight_unit:measured?$('obsWeightUnit').value:null,
+  entrance:$('obsEntrance').value,moisture:$('obsMoisture').value,
+  supplemental_food:$('obsFood').value,notes:$('obsNotes').value.trim()||null};
+ try{
+  const id=$('editObservationId').value;
+  if(id){delete record.participation_id;requireResult(await client.from('Winter_Observations').update({...record,updated_at:new Date().toISOString()}).eq('id',id));}
+  else requireResult(await client.from('Winter_Observations').insert(record));
+  say('TEST winter observation saved; full edit history retained.');resetObservation();await refreshColony();
+ }catch(err){say('Observation failed: '+errorMessage(err));}
+});
+function renderObservations(){
+ const host=$('observationHistory');host.replaceChildren();
+ host.append(node('h3','Saved winter observations ('+observations.length+')'));
+ for(const o of observations){
+  const card=node('div',undefined,'card');
+  card.append(node('strong',o.observed_on));
+  card.append(node('p','Activity: '+o.activity+' · Heft: '+o.heft+(o.measured_weight?' ('+o.measured_weight+' '+o.weight_unit+')':'')));
+  card.append(node('p','Entrance: '+o.entrance+' · Moisture: '+o.moisture+' · Food: '+o.supplemental_food));
+  if(o.notes)card.append(node('p',o.notes));
+  const edit=node('button','Edit observation','secondary');edit.type='button';
+  edit.addEventListener('click',()=>{
+    $('editObservationId').value=String(o.id);
+    for(const [field,prop] of [['obsDate','observed_on'],['obsActivity','activity'],['obsHeft','heft'],['obsEntrance','entrance'],['obsMoisture','moisture'],['obsFood','supplemental_food'],['obsNotes','notes']])$(field).value=o[prop]||'';
+    $('weightFields').hidden=o.heft!=='measured';
+    $('obsWeight').value=o.measured_weight||'';$('obsWeightUnit').value=o.weight_unit||'lb';
+    $('cancelEdit').hidden=false;$('saveObservation').textContent='Save correction';
+    $('observationForm').scrollIntoView({behavior:'smooth',block:'center'});
+  });
+  card.append(edit);host.append(card);
+ }
+}
+function renderHistory(events){
+ const host=$('auditHistory');host.replaceChildren();
+ const ids=new Set([current.id,...items.map(i=>i.id),...observations.map(o=>o.id)]);
+ const filtered=events.filter(e=>(e.entity_type==='Winter_Participation'&&e.entity_id===current.id)
+ ||(e.entity_type==='Winter_Checklist_Items'&&items.some(i=>i.id===e.entity_id))
+ ||(e.entity_type==='Winter_Observations'&&observations.some(o=>o.id===e.entity_id)));
+ if(!filtered.length){host.append(node('p','No changes recorded yet.'));return;}
+ for(const e of filtered.slice(0,35)){
+  const div=node('div',undefined,'item');
+  div.append(node('strong',new Date(e.recorded_at).toLocaleString()+' · '+e.entity_type.replace('Winter_','')+' · '+e.event_type));
+  const prev=e.before_record||{},next=e.after_record||{};
+  const diffs=Object.keys(next).filter(k=>['status','notes','observed_on','activity','heft','entrance','moisture','supplemental_food','prep_assessment','participation','prep_notes'].includes(k)&&JSON.stringify(prev[k])!==JSON.stringify(next[k]));
+  if(diffs.length)div.append(node('p',diffs.map(k=>k+': '+(prev[k]??'—')+' → '+(next[k]??'—')).join(' | ')));
+  host.append(div);
+ }
+}
+(async()=>{
+ try{const session=requireResult(await client.auth.getSession());if(session.session)await authenticated();else setSections('login');}
+ catch(err){setSections('login');$('authStatus').textContent=errorMessage(err);}
+})();
+</script>
+</body>
+</html>
