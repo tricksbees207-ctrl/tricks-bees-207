@@ -60,6 +60,19 @@ All tests below ran against the **separate Recovery Test project** inside transa
 ### Remaining release gate
 
 Do not merge draft PR #25 or switch the live exporter until a fresh empty isolated recovery target passes a complete 25-table ZIP export, verification and restore, including unchanged handling of the legacy backups.
+## Recovery QA: additional automated and rollback tests
+
+- A fresh, empty Supabase development branch does **not** exist. We deliberately did not remove recovered records from the existing Recovery Test project or create a potentially billable Supabase project or branch.
+- The existing 25-table importer passed four safe rejection checks: rejects missing required tables, refuses a preview against an already-populated recovery database, refuses overwrite during apply, and denies MFA level `aal1`. Each database test used a rolled-back transaction.
+- Winter-only recovery tested restoring data from a synthetic **different owner UUID** back to the Recovery Test owner. Every one of the seven winter tables, including the complete audit trail and frozen season snapshot, matched the original JSONB data exactly. Its temporary test privilege was rolled back.
+- The actual draft v3 ZIP verifier passed nine **synthetic ZIP** validation tests, including accepting valid v1/v2/v3 archives, rejecting duplicate winter colony records, inconsistent historical snapshots, missing tables, mismatched owner links and tampered CRC contents.
+- The actual draft v3 ZIP exporter was exercised together with the real v3 verifier, using mocked browser APIs, synthetic records and a synthetic receipt. **25 tables, 11 sample records, 1 attached receipt, ZIP checksums and SHA-256 integrity all passed.** No real apiary data was used.
+- An automated Node.js regression suite is staged at `tests/winter-archive-v3.test.mjs`, with test fixtures for the three backup versions, winter constraints, ZIP CRC and one receipt SHA-256. It remains to be executed in a Node-capable runner; the equivalent core verifier/exporter integration tests were run in an isolated JavaScript environment.
+- Post-test audit: all test winter tables are empty and the winter owner-remapping helper is not executable directly by ordinary authenticated users.
+
+### Still pending
+
+**Final release blocker:** a clean *25-table database restore using a complete ZIP* in a genuinely empty isolated Supabase environment, followed by real-browser MFA and interface acceptance tests. A clean Supabase development branch or additional project may incur usage charges and must not be created without authorization. This build is not certified for production deployment.
 ## Important next work before production
 
 1. Browser login + MFA walkthrough using Recovery Test account, then manually test a full winter observation correction.
