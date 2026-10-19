@@ -25,11 +25,32 @@ The Recovery Test account was simulated with a verified-MFA JWT in a **single ro
 
 After `ROLLBACK`, winter table record counts returned to zero. Page JavaScript syntax, ID references, and uniqueness checks passed.
 
+## Phase 2 completed in the Recovery Test project
+
+- Manually confirmed final spring outcomes are recorded once per participating colony through `Winter_Outcomes`. The test screen lists existing regular spring inspections (January–June) without introducing duplicate spring-assessment forms.
+- Confirmed winter losses can link to an existing `Hive_Losses` record for the **same owner and colony**. The test feature never creates a duplicate loss entry.
+- `winter_close_season(season_id,unresolved_reasons,notes)`: authenticated (`aal2`) owner manually closes an open season. Each unresolved included colony requires a nonblank individual explanation. An atomic, immutable, by-value snapshot captures participation, checklist, observations, outcomes, linked loss records, spring inspection records and recent support records.
+- `winter_reopen_season(season_id,reason)`: verified owner reopens only a closed season with a mandatory reason. A later closure saves a **new snapshot version**, preserving the previous one.
+- New database guards prevent child-record writes to closed seasons, forbid direct season editing, and preserve snapshot immutability.
+- The test screen shows frozen historical data from its saved snapshot when a season is closed, not a live query for subsequently edited inspection data.
+- **All five test-project migrations have been archived as SQL under `docs/winter-readiness-test-migrations/` in execution order.** They are historical test migrations and need review/consolidation before any future production migration.
+
+### Phase 2 rollback smoke tests
+
+All tests below ran against the **separate Recovery Test project** inside transactions rolled back afterward:
+
+- Closing with unresolved outcomes but without per-colony explanations was blocked.
+- Closed-season checklist edits were blocked.
+- Ordinary authenticated-account attempts to edit immutable snapshots or directly reopen a closed season were denied (including zero-row updates).
+- Manually reopened and reclosed seasons produced **two snapshot versions**. Snapshot 1 retained `not_checked`, while snapshot 2 correctly showed the later `complete` status.
+- Test change history recorded the operations. No real winter seasons or checklist entries remain after rollback.
+- Test page JavaScript parsing and internal DOM ID-reference checks passed. **Full browser login/MFA and interaction testing has not yet been performed.**
+
 ## Important next work before production
 
 1. Browser login + MFA walkthrough using Recovery Test account, then manually test a full winter observation correction.
-2. Build owner-confirmed final spring outcomes using the *existing* regular spring inspections, linking to the existing Loss Log.
-3. Implement manual close/reopen operations as atomic, audited database functions producing immutable versioned historical snapshots; prevent any future-season data from altering older snapshots.
+2. Browser-test owner-confirmed final spring outcomes and existing Loss Log links without duplicating regular spring inspections.
+3. Browser-test closure, reopening, history and snapshot rendering on a test account, including the required unresolved explanations.
 4. Add all winter tables to **both** complete backup ZIP/JSON, backup verifier, Recovery Test restore process, and related scripts; test restoring complete winter data.
 5. Rehearse permissions with other users/aal1, test exclusion and later-added colony workflows, retire/transfer cases.
 6. Integrate the Winter section into the actual Apiary Log only after test approval, with five equal-width navigation boxes per row on desktop. Existing uniform styling proposal PR #24 remains separate.
