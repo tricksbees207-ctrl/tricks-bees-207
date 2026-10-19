@@ -39,6 +39,11 @@ summary{font-weight:700;cursor:pointer;padding:6px}
 .item:first-of-type{margin-top:10px}
 .item .row > div{flex:1 1 200px}
 .item button{width:auto}
+.item .inline-audit{padding:9px 11px;margin:10px 0 4px;background:#f6f0dc;border-left:3px solid #b99838;border-radius:5px;font-size:0.92rem;line-height:1.5}
+.item .inline-audit strong{color:#24533b}
+.item .item-history{margin:7px 0 0;padding:5px 10px;background:#fffdf7}
+.item .item-history summary{font-weight:600;font-size:0.93rem}
+.item .item-history p{margin:7px 0;font-size:0.9rem}
 .history{max-height:320px;overflow:auto}
 @media(max-width:760px){.section-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:540px){.section-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}main{padding:0 10px 45px}.panel{padding:14px}}
@@ -105,7 +110,7 @@ summary{font-weight:700;cursor:pointer;padding:6px}
 </form>
 </div>
 <div id="observationHistory"></div>
-<h3>Change history</h3><div id="auditHistory" class="history card"><p>Recorded when you change a winter status or observation.</p></div>
+<details id="completeWinterHistory"><summary>Complete change history (all winter records)</summary><div id="auditHistory" class="history card"><p>Recorded when you change a winter status or observation.</p></div></details>
 <div class="card"><h3>🌱 Spring inspections and final outcome</h3>
 <p class="muted">Review existing regular spring inspections; no duplicate spring assessments are created.</p><div id="springInspections"></div>
 <form id="outcomeForm">
@@ -130,7 +135,7 @@ const node=(tag,text,cls)=>{const e=document.createElement(tag);if(text!==undefi
 const say=(message)=>{$('appStatus').textContent=message;};
 const errorMessage=e=>e?.message||String(e);
 const requireResult=r=>{if(r.error)throw r.error;return r.data;};
-let verified=null,season=null,colonies=[],hives=[],participations=[],current=null,items=[],observations=[],seasonOutcomes=[],snapshots=[],currentOutcome=null;
+let verified=null,season=null,colonies=[],hives=[],participations=[],current=null,items=[],observations=[],seasonOutcomes=[],snapshots=[],currentOutcome=null,lastSavedChecklistId=null;
 const latestObservationDate=()=>new Date().toLocaleDateString('en-CA');
 function setSections(mode){$('signInPanel').hidden=mode!=='login';$('mfaPanel').hidden=mode!=='mfa';$('signedInPanel').hidden=mode!=='signed';$('workspace').hidden=mode!=='signed';}
 async function authenticated(){
@@ -328,7 +333,7 @@ async function refreshColony(){
   client.from('Winter_Audit_History').select('*').order('recorded_at',{ascending:false}).limit(1000)
  ]);
  items=requireResult(ir)||[];observations=requireResult(or)||[];const events=requireResult(ar)||[];
- renderAssessment();renderChecklist();renderObservations();
+ renderAssessment();renderChecklist(events);renderObservations();
  await renderExisting(col);await renderSpring(col);renderHistory(events);
 }
 
@@ -395,18 +400,25 @@ function makeSelect(opts,selected){
  opts.forEach(([val,label])=>el.append(new Option(label,val)));
  el.value=selected||opts[0][0];return el;
 }
-function renderChecklist(){
- const host=$('checklist');host.replaceChildren();
+function renderChecklist(auditEvents=[]){
+ const host=$('checklist');
+ // Remember the sections the beekeeper opened or closed when a status is saved.
+ const sectionStates=new Map([...host.querySelectorAll('details[data-section]')].map(el=>[el.dataset.section,el.open]));
+ host.replaceChildren();
  const groups=[['health','Colony Health'],['food','Food & Feeding'],['protection','Hive Protection'],['custom','Other Custom Tasks']];
  const done=items.filter(i=>['complete','not_applicable'].includes(i.status)).length;
  host.append(node('p',done+' of '+items.length+' tasks documented as complete or not applicable.'));
  for(const [group,title] of groups){
   const relevant=items.filter(i=>i.section===group);
   if(!relevant.length)continue;
-  const details=node('details');if(group==='health')details.open=true;
+  const details=node('details');
+  details.dataset.section=group;
+  details.open=sectionStates.has(group)?sectionStates.get(group):group==='health';
   details.append(node('summary',title+' ('+relevant.length+')'));
   for(const item of relevant){
-   const box=node('div',undefined,'item');box.append(node('strong',item.label));
+   const box=node('div',undefined,'item');
+   box.id='winter-checklist-item-'+item.id;
+   box.append(node('strong',item.label));
    const fields=node('div',undefined,'row');
    const status=makeSelect([['not_checked','Not checked'],['complete','Complete'],['needs_attention','Needs attention'],['not_applicable','Not applicable']],item.status);
    const notes=node('input');notes.maxLength=2000;notes.placeholder='Notes (optional)';notes.value=item.notes||'';
@@ -414,10 +426,48 @@ function renderChecklist(){
    const save=node('button','Confirm / Save');save.type='button';
    save.addEventListener('click',async()=>{
     try{requireResult(await client.from('Winter_Checklist_Items').update({status:status.value,notes:notes.value||null,status_changed_at:new Date().toISOString()}).eq('id',item.id));
-      say('TEST checklist change saved with audit history.');await refreshColony();}
+      lastSavedChecklistId=item.id;
+      say('TEST checklist change saved with audit history.');
+      await refreshColony();
+      document.getElementById('winter-checklist-item-'+item.id)?.scrollIntoView({block:'nearest'});}
     catch(err){say('Checklist save failed: '+errorMessage(err));}
    });
-   box.append(fields,save);if(item.status_changed_at)box.append(node('p','Last confirmed: '+new Date(item.status_changed_at).toLocaleString(),'muted'));
+   box.append(fields,save);
+   const events=auditEvents.filter(e=>e.entity_type==='Winter_Checklist_Items'&&String(e.entity_id)===String(item.id));
+   const updates=events.filter(e=>e.event_type==='UPDATE');
+   const mostRecent=updates[0];
+   if(item.status_changed_at){
+     const info=node('div',undefined,'inline-audit');
+     const headline=node('strong',item.id===lastSavedChecklistId?'✓ Saved just now':'Last confirmed');
+     info.append(headline,node('span',' · '+new Date(item.status_changed_at).toLocaleString()));
+     if(mostRecent){
+       const previous=mostRecent.before_record||{},currentValue=mostRecent.after_record||{};
+       const labels={not_checked:'Not checked',complete:'Complete',needs_attention:'Needs attention',not_applicable:'Not applicable'};
+       if(previous.status!==currentValue.status){
+         info.append(node('div','Status: '+(labels[previous.status]||previous.status||'Not set')+' → '+(labels[currentValue.status]||currentValue.status||'Not set')));
+       }else{
+         info.append(node('div','Status: '+(labels[item.status]||item.status)));
+       }
+       if(previous.notes!==currentValue.notes){
+         info.append(node('div','Notes: '+(currentValue.notes||'Cleared')));
+       }
+     }else{
+       info.append(node('div','Status: '+({not_checked:'Not checked',complete:'Complete',needs_attention:'Needs attention',not_applicable:'Not applicable'}[item.status]||item.status)));
+     }
+     box.append(info);
+   }
+   if(events.length){
+     const itemHistory=node('details',undefined,'item-history');
+     itemHistory.append(node('summary','View this task’s history ('+events.length+')'));
+     for(const e of events){
+       const previous=e.before_record||{},after=e.after_record||{};
+       const parts=[];
+       if(previous.status!==after.status)parts.push('Status: '+(previous.status??'none')+' → '+(after.status??'none'));
+       if(previous.notes!==after.notes)parts.push('Notes: '+(previous.notes??'none')+' → '+(after.notes??'none'));
+       itemHistory.append(node('p',new Date(e.recorded_at).toLocaleString()+' · '+e.event_type+(parts.length?' · '+parts.join(' | '):'')));
+     }
+     box.append(itemHistory);
+   }
    details.append(box);
   }
   host.append(details);
