@@ -60,6 +60,12 @@ summary{font-weight:700;cursor:pointer;padding:6px}
 </section>
 <div id="workspace" hidden>
 <section class="panel">
+<h2>TEST backup verification</h2>
+<p class="muted">Export a private 25-table ZIP containing the test account’s records, including winter audits and snapshots. This test exporter is separate from the production download.</p>
+<button type="button" id="downloadWinterBackup">Download TEST winter-record ZIP</button>
+<p id="winterBackupMessage" role="status" class="status"></p>
+</section>
+<section class="panel">
 <div class="row"><h2 class="grow">Winter seasons</h2><label for="seasonYear">Season year</label><select id="seasonYear" style="width:auto"><option value="2026">2026–2027</option><option value="2027">2027–2028</option></select></div>
 <p class="muted">Start each winter manually. All colonies active at the moment of startup are included. Later colonies require your decision.</p>
 <div id="seasonSummary"></div><div id="seasonAdmin"></div>
@@ -117,6 +123,7 @@ summary{font-weight:700;cursor:pointer;padding:6px}
 </main>
 <script type="module">
 import {createClient} from 'https://esm.sh/@supabase/supabase-js@2';
+import {downloadCompleteBackup} from './js/apiary-complete-backup-v3-test.js';
 const client=createClient('https://xvthtxcinwbopoixaggv.supabase.co','sb_publishable_tSxLXZmgyA7M2ybZIHsdZA_jOREMSxN',{auth:{detectSessionInUrl:false}});
 const $=id=>document.getElementById(id);
 const node=(tag,text,cls)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=String(text);if(cls)e.className=cls;return e;};
@@ -158,6 +165,9 @@ $('mfaForm').addEventListener('submit',async e=>{
  }catch(err){$('mfaCode').value='';$('authStatus').textContent=errorMessage(err);}
 });
 $('signOut').addEventListener('click',async()=>{await client.auth.signOut();verified=null;season=null;current=null;setSections('login');$('authStatus').textContent='Signed out of TEST.';});
+$('downloadWinterBackup').addEventListener('click',()=>{
+ downloadCompleteBackup({supabase:client,button:$('downloadWinterBackup'),message:$('winterBackupMessage')});
+});
 $('seasonYear').addEventListener('change',()=>refresh().catch(err=>say(errorMessage(err))));
 async function refresh(){
  if(!verified)return;
