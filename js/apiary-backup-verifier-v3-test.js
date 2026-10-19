@@ -135,10 +135,25 @@ export async function verifyApiaryBackup(file){
     const pById=new Map(data.tables.Winter_Participation.map(p=>[String(p.id),p]));
     const seasonById=new Map(data.tables.Winter_Seasons.map(s=>[String(s.id),s]));
     const colonyById=new Map(data.tables.Hive_Colonies.map(c=>[String(c.id),c]));
+    const unique=(rows,key,message)=>{
+      const seen=new Set();
+      for(const record of rows){
+        const value=key(record);
+        demand(!seen.has(value),message);
+        seen.add(value);
+      }
+    };
+    unique(data.tables.Winter_Seasons,s=>s.user_id+':'+s.start_year,'Duplicate winter season.');
+    unique(data.tables.Winter_Participation,p=>p.season_id+':'+p.colony_id,'Colony is duplicated in winter season.');
+    unique(data.tables.Winter_Checklist_Items,i=>i.participation_id+':'+i.item_key,'Winter checklist task is duplicated.');
+    unique(data.tables.Winter_Outcomes,o=>String(o.participation_id),'Multiple final winter outcomes for one colony.');
+    unique(data.tables.Winter_Snapshots,s=>s.season_id+':'+s.version,'Duplicate historical winter snapshot version.');
     for(const s of data.tables.Winter_Seasons){
       demand(Number.isInteger(s.start_year)&&s.start_year>=2000&&s.start_year<=2200,
         'Invalid winter season year.');
       demand(s.status==='open'||s.status==='closed','Invalid winter season status.');
+      demand((s.status==='closed'&&s.closed_at!=null)||
+             (s.status==='open'&&s.closed_at==null),'Winter season has inconsistent closure status.');
     }
     for(const p of data.tables.Winter_Participation){
       const season=seasonById.get(String(p.season_id));
@@ -181,6 +196,13 @@ export async function verifyApiaryBackup(file){
       demand(String(snapshot.snapshot.season_id)===String(snapshot.season_id),
         'Historical winter snapshot has wrong season ID.');
       demand(Array.isArray(snapshot.snapshot.participants),'Historical snapshot participants are missing.');
+      demand(snapshot.snapshot.season_year===parent.start_year,
+        'Historical snapshot season year does not match.');
+      demand(snapshot.snapshot.participants.every(entry=>
+        entry&&entry.participation&&
+        String(entry.participation.season_id)===String(snapshot.season_id)&&
+        entry.participation.user_id===snapshot.user_id),
+        'Historical snapshot includes an unrelated colony or owner.');
     }
   }
   const rowMap=new Map();
