@@ -332,11 +332,17 @@ async function refreshColony(){
  await renderExisting(col);await renderSpring(col);renderHistory(events);
 }
 
-function renderClosedColony(){
+function renderClosedColony(selectedVersion=null){
  $('editingView').hidden=true;$('closedView').hidden=false;
  const host=$('closedView');host.replaceChildren();
- const latest=snapshots[0];
+ const latest=snapshots.find(v=>v.version===selectedVersion)||snapshots[0];
  if(!latest){host.append(node('p','The historical snapshot is missing; edits remain locked.'));return;}
+ if(snapshots.length>1){
+  const label=node('label','Historical closure version');
+  const select=makeSelect(snapshots.map(v=>[String(v.version),'Version '+v.version+' · '+new Date(v.created_at).toLocaleString()]),String(latest.version));
+  select.addEventListener('change',()=>renderClosedColony(Number(select.value)));
+  host.append(label,select);
+ }
  const data=(latest.snapshot?.participants||[]).find(entry=>entry.participation?.id===current.id);
  if(!data){host.append(node('p','Colony not found in this closure snapshot.'));return;}
  host.append(node('h3','Historical winter snapshot · Version '+latest.version));
