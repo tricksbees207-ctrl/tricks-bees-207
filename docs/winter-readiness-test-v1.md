@@ -54,12 +54,12 @@ All tests below ran against the **separate Recovery Test project** inside transa
 - The new test-only importer combines the existing 18-table import and the seven winter tables in one database transaction. It preserves original IDs, full audit events and historical snapshots, and remaps nested owner IDs to the destination test account.
 - All six database migrations are archived in `docs/winter-readiness-test-migrations/`.
 - A rollback-only winter data round trip verified **exact JSONB equality across all seven winter tables**, including audit entries and immutable snapshots. Post-test winter row counts remained zero.
-- The complete **browser-generated ZIP and full clean-project 25-table restore** remain untested. The current Recovery Test database already contains restored apiary records, and the importer correctly refuses to overwrite them.
+- **Full 25-table SQL import rehearsal PASSED on October 19, 2026:** existing Recovery Test records plus temporary Winter Readiness fixtures were archived in a rollback-protected transaction; all 25 tables were temporarily emptied, the exact `recovery_test_import_v3` preview and apply functions ran, and **161 restored rows matched the archived JSONB record-for-record across all 25 tables**. The inner transaction was rolled back and all original public ID sequence counters were restored. An independent subsequent query confirmed the original 8 hive, 4 colony, 4 inspection, 15 expense, 3 income, and 18 receipt metadata records remained, with all seven Winter Readiness tables empty. **This is a database import rehearsal, not yet a real browser ZIP import.**
 - No production database, production backup module, live website, or camera process has been modified.
 
 ### Remaining release gate
 
-Do not merge draft PR #25 or switch the live exporter until a fresh empty isolated recovery target passes a complete 25-table ZIP export, verification and restore, including unchanged handling of the legacy backups.
+Do not merge draft PR #25 or switch the live exporter until the real-browser ZIP download, integrity verification, MFA login and recovery workflow pass acceptance testing. The transactional 25-table database import was verified in the existing Recovery Test project; a separate new billable project is not required for that SQL rehearsal.
 ## Recovery QA: additional automated and rollback tests
 
 - A fresh, empty Supabase development branch does **not** exist. We deliberately did not remove recovered records from the existing Recovery Test project or create a potentially billable Supabase project or branch.
@@ -72,13 +72,13 @@ Do not merge draft PR #25 or switch the live exporter until a fresh empty isolat
 
 ### Still pending
 
-**Final release blocker:** a clean *25-table database restore using a complete ZIP* in a genuinely empty isolated Supabase environment, followed by real-browser MFA and interface acceptance tests. A clean Supabase development branch or additional project may incur usage charges and must not be created without authorization. This build is not certified for production deployment.
+**Final release blocker:** real-browser MFA and interface acceptance tests, plus actual 25-table ZIP download and import verification. An exact 25-table database restore was validated inside a rollback-protected transaction, with the existing recovered data preserved. This is not yet certified as a real ZIP-based recovery. No additional billable Supabase project or branch has been created.
 ## Important next work before production
 
 1. Browser login + MFA walkthrough using Recovery Test account, then manually test a full winter observation correction.
 2. Browser-test owner-confirmed final spring outcomes and existing Loss Log links without duplicating regular spring inspections.
 3. Browser-test closure, reopening, history and snapshot rendering on a test account, including the required unresolved explanations.
-4. Verify the isolated v3 exporter and verifier in a browser, then certify complete 25-table import into an empty Recovery Test destination before changing production backup or restore.
+4. Browser-test the isolated v3 ZIP exporter and verifier, then complete a real ZIP-based Recovery Test import under a rollback-safe or separately authorized empty destination. The 25-table SQL import rehearsal is passed.
 5. Rehearse permissions with other users/aal1, test exclusion and later-added colony workflows, retire/transfer cases.
 6. Integrate the Winter section into the actual Apiary Log only after test approval, with five equal-width navigation boxes per row on desktop. Existing uniform styling proposal PR #24 remains separate.
 
