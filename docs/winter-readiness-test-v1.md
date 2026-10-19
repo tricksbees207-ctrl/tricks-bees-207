@@ -1,3 +1,11 @@
+## October 19 browser test: downloaded 25-table ZIP
+
+**PASSED in Chrome using a real TEST ZIP download and the published, local-only verifier.** The beekeeper selected their actual downloaded ZIP in `winter-backup-verify-test.html`, and its on-screen result reported **ZIP INTEGRITY PASSED: 25 tables, 175 database records, 18 receipt files, 2 historical winter snapshots**. The verifier checks local ZIP directory CRCs, receipt SHA-256 hashes, backup-record relationships, audit records and snapshots without uploading the archive or changing Supabase data.
+
+An independent read-only Recovery Test database query confirmed 8 hives, 4 colonies, 18 receipt metadata rows, 1 winter season, 4 winter participants, 40 winter checklist items, 2 winter observations, 1 spring outcome, 61 winter audit history records and 2 snapshots. **The two winter observations were marked deleted during the browser tests but deliberately remain in the backup to preserve full history.**
+
+The **actual downloaded ZIP and real-browser local verification** have now passed. A real ZIP **restore into an empty database** has not yet occurred. The earlier complete 25-table database import rehearsal passed using an isolated rollback-protected SQL transaction, and existing Recovery Test data must remain undisturbed until an intentional restore rehearsal is authorized.
+
 # Winter Readiness: Recovery Test implementation (v1)
 
 **Test project only:** `xvthtxcinwbopoixaggv` (Tricks Bees 207 Recovery Test). Production Supabase project `mkypanucvttinkjggxzv` was NOT modified.
