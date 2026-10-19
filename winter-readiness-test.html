@@ -119,7 +119,8 @@ summary{font-weight:700;cursor:pointer;padding:6px}
 <label for="outcomeDate">Date confirmed</label><input type="date" id="outcomeDate">
 <div id="lossLinkWrap" hidden><label for="outcomeLoss">Existing colony loss record (optional)</label><select id="outcomeLoss"></select><p class="muted">Add new losses through the regular Colony Loss Log; no duplicates will be created here.</p></div>
 <label for="outcomeNotes">Notes (optional)</label><textarea id="outcomeNotes"></textarea>
-<button type="submit">Save final spring outcome</button>
+<button type="submit" id="saveFinalSpringOutcome">Save final spring outcome</button>
+<p id="outcomeSaveStatus" class="status" role="status" aria-live="polite"></p>
 </form></div>
 </div>
 </section>
@@ -575,18 +576,43 @@ async function renderSpring(col){
  loss.value=currentOutcome?.loss_record_id?String(currentOutcome.loss_record_id):'';
 }
 $('outcomeForm').addEventListener('submit',async event=>{
- event.preventDefault();if(!current||season?.status!=='open')return;
+ event.preventDefault();
+ const message=$('outcomeSaveStatus'),button=$('saveFinalSpringOutcome');
+ message.textContent='';
+ if(!current||season?.status!=='open'){
+   message.textContent='No open TEST season is selected.';return;
+ }
+ const participationId=current.id;
  const outcome=$('outcomeChoice').value;
  const confirmed_on=outcome==='not_assessed'?null:$('outcomeDate').value;
- if(outcome!=='not_assessed'&&!confirmed_on){say('Enter your final spring confirmation date.');return;}
+ if(outcome!=='not_assessed'&&!confirmed_on){
+   message.textContent='Enter the date you confirmed this final spring outcome.';return;
+ }
  const payload={outcome,confirmed_on,notes:$('outcomeNotes').value.trim()||null,
    loss_record_id:outcome==='winter_loss'&&$('outcomeLoss').value?Number($('outcomeLoss').value):null};
+ button.disabled=true;
+ message.textContent='Saving to the Recovery Test database...';
  try{
-  if(currentOutcome)requireResult(await client.from('Winter_Outcomes').update(payload).eq('id',currentOutcome.id));
-  else requireResult(await client.from('Winter_Outcomes').insert({...payload,participation_id:current.id}));
-  say('TEST spring outcome saved, with change history. Existing hive inspections were not changed.');
-  await refresh();
- }catch(err){say('Final spring outcome failed: '+errorMessage(err));}
+   let rows;
+   if(currentOutcome){
+     rows=requireResult(await client.from('Winter_Outcomes')
+       .update(payload).eq('id',currentOutcome.id).eq('participation_id',participationId)
+       .select('id,outcome,confirmed_on,notes'));
+   }else{
+     rows=requireResult(await client.from('Winter_Outcomes')
+       .insert({...payload,participation_id:participationId})
+       .select('id,outcome,confirmed_on,notes'));
+   }
+   if(!Array.isArray(rows)||rows.length!==1||rows[0].outcome!==outcome){
+     throw new Error('The database did not confirm that exactly one spring outcome was saved.');
+   }
+   await refresh();
+   message.textContent='Saved and verified in Recovery Test: '+$('outcomeChoice').selectedOptions[0].text+'.';
+ }catch(err){
+   message.textContent='Save failed: '+errorMessage(err);
+ }finally{
+   button.disabled=false;
+ }
 });
 
 function renderHistory(events){
