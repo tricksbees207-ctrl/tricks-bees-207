@@ -198,6 +198,31 @@
     @media(max-width:380px) {
       .section-tabs.apiary-main-tabs { grid-template-columns:minmax(0,1fr); }
     }
+    /* Uniform hive-section button boxes (does not affect main navigation). */
+    .section-tabs[aria-label="Hive sections"] {
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
+    .section-tabs[aria-label="Hive sections"] button {
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      width:100%;
+      min-width:0;
+      min-height:60px;
+      margin:0;
+      padding:10px 8px;
+      text-align:center;
+      white-space:normal;
+      line-height:1.25;
+    }
+    @media(max-width:650px) {
+      .section-tabs[aria-label="Hive sections"] { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
+    @media(max-width:410px) {
+      .section-tabs[aria-label="Hive sections"] { grid-template-columns:minmax(0,1fr); }
+    }
     .section-tab-hidden { display:none !important; }
     .location-card{border:1px solid #e8dcbf;border-radius:10px;padding:14px;margin:12px 0;background:#fffdf7}
     .location-card h4{margin:0 0 6px}.location-card .toolbar button{min-width:100px}
