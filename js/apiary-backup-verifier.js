@@ -7,6 +7,10 @@ const tables = [
   'Hive_Splits','Hive_Losses','Apiary_Activities','Apiary_Expenses',
   'Apiary_Income','Apiary_Expense_Receipts','Apiary_Income_Receipts','varroa_watch_results'
 ];
+const winterTables = [
+ 'Winter_Seasons','Winter_Participation','Winter_Checklist_Items',
+ 'Winter_Observations','Winter_Outcomes','Winter_Audit_History','Winter_Snapshots'
+];
 const relationships = {
   Hive_Colonies:[['hive_id','Hives']],
   Colony_Transfers:[['colony_id','Hive_Colonies'],['from_hive_id','Hives'],['to_hive_id','Hives']],
@@ -24,7 +28,12 @@ const relationships = {
   Apiary_Income:[['hive_id','Hives']],
   Apiary_Expense_Receipts:[['expense_id','Apiary_Expenses']],
   Apiary_Income_Receipts:[['income_id','Apiary_Income']],
-  varroa_watch_results:[['inspection_id','Hive_Inspections']]
+  varroa_watch_results:[['inspection_id','Hive_Inspections']],
+  Winter_Participation:[['season_id','Winter_Seasons'],['colony_id','Hive_Colonies']],
+  Winter_Checklist_Items:[['participation_id','Winter_Participation']],
+  Winter_Observations:[['participation_id','Winter_Participation']],
+  Winter_Outcomes:[['participation_id','Winter_Participation'],['loss_record_id','Hive_Losses']],
+  Winter_Snapshots:[['season_id','Winter_Seasons']]
 };
 const receiptTypes = [
   {table:'Apiary_Expense_Receipts',bucket:'apiary-receipts',recordKey:'expense_id'},
@@ -88,9 +97,10 @@ export async function verifyApiaryBackup(file){
   demand(file&&file.size>0&&file.size<=300*1024*1024,'Choose a backup ZIP smaller than 300 MB.');
   const files=unzipStore(await file.arrayBuffer());
   const manifest=json(files,'manifest.json'),data=json(files,'apiary-data.json');
-  demand(manifest.format==='tricks-bees-207-records-and-receipts'&&(manifest.version===1||manifest.version===2),'This is not a supported receipt-backup ZIP.');
-  demand(data.format==='tricks-bees-207-apiary-backup'&&data.version===(manifest.version===1?2:3),'The database backup format is unexpected.');
-  const expectedTables=manifest.version===2?[...tables,'Apiary_Recurring_Expenses']:tables;
+  demand(manifest.format==='tricks-bees-207-records-and-receipts'&&(manifest.version===1||manifest.version===2||manifest.version===3),'This is not a supported receipt-backup ZIP.');
+  demand(data.format==='tricks-bees-207-apiary-backup'&&data.version===(manifest.version===1?2:manifest.version===2?3:4),'The database backup format is unexpected.');
+  const expectedTables=manifest.version===3?[...tables,'Apiary_Recurring_Expenses',...winterTables]:
+    manifest.version===2?[...tables,'Apiary_Recurring_Expenses']:tables;
   demand(manifest.exported_at===data.exported_at,'Backup dates disagree.');
   demand(data.tables&&typeof data.tables==='object'&&!Array.isArray(data.tables),'The tables section is invalid.');
   demand(manifest.table_counts&&typeof manifest.table_counts==='object','Manifest table counts are missing.');
@@ -117,6 +127,59 @@ export async function verifyApiaryBackup(file){
       for(const [key,parent] of fields){
         demand(row[key]==null||ids[parent].has(String(row[key])),table+' has a missing '+parent+' reference.');
       }
+    }
+  }
+
+  if(manifest.version===3){
+    const pById=new Map(data.tables.Winter_Participation.map(p=>[String(p.id),p]));
+    const seasonById=new Map(data.tables.Winter_Seasons.map(s=>[String(s.id),s]));
+    const colonyById=new Map(data.tables.Hive_Colonies.map(c=>[String(c.id),c]));
+    for(const s of data.tables.Winter_Seasons){
+      demand(Number.isInteger(s.start_year)&&s.start_year>=2000&&s.start_year<=2200,
+        'Invalid winter season year.');
+      demand(s.status==='open'||s.status==='closed','Invalid winter season status.');
+    }
+    for(const p of data.tables.Winter_Participation){
+      const season=seasonById.get(String(p.season_id));
+      const colony=colonyById.get(String(p.colony_id));
+      demand(p.participation==='included'||p.participation==='excluded','Invalid winter participation.');
+      demand(season&&colony,'Winter participation has invalid references.');
+      demand(p.user_id===season.user_id&&p.user_id===colony.user_id,
+        'Winter participant owner differs from season or colony.');
+    }
+    for(const [table,rows] of [
+      ['Winter_Checklist_Items',data.tables.Winter_Checklist_Items],
+      ['Winter_Observations',data.tables.Winter_Observations],
+      ['Winter_Outcomes',data.tables.Winter_Outcomes]
+    ]){
+      for(const row of rows){
+        const p=pById.get(String(row.participation_id));
+        demand(p&&row.user_id===p.user_id,table+' has mismatched owner and colony.');
+      }
+    }
+    const entityNames=new Set([
+      'Winter_Seasons','Winter_Participation','Winter_Checklist_Items',
+      'Winter_Observations','Winter_Outcomes'
+    ]);
+    for(const event of data.tables.Winter_Audit_History){
+      demand(entityNames.has(event.entity_type),'Unexpected winter audit entity.');
+      demand(ids[event.entity_type].has(String(event.entity_id)),
+        'Winter audit event points outside this backup.');
+      const target=(data.tables[event.entity_type]||[]).find(r=>String(r.id)===String(event.entity_id));
+      demand(target?.user_id===event.user_id,'Winter audit owner differs from its record.');
+      demand(['INSERT','UPDATE','DELETE'].includes(event.event_type),'Invalid winter audit event.');
+      demand(event.before_record==null||typeof event.before_record==='object','Invalid prior audit record.');
+      demand(event.after_record==null||typeof event.after_record==='object','Invalid new audit record.');
+    }
+    for(const snapshot of data.tables.Winter_Snapshots){
+      const parent=seasonById.get(String(snapshot.season_id));
+      demand(parent?.user_id===snapshot.user_id,'Winter snapshot owner differs from its season.');
+      demand(Number.isInteger(snapshot.version)&&snapshot.version>0,'Invalid winter snapshot version.');
+      demand(snapshot.snapshot&&typeof snapshot.snapshot==='object'&&!Array.isArray(snapshot.snapshot),
+        'Historical winter snapshot content is invalid.');
+      demand(String(snapshot.snapshot.season_id)===String(snapshot.season_id),
+        'Historical winter snapshot has wrong season ID.');
+      demand(Array.isArray(snapshot.snapshot.participants),'Historical snapshot participants are missing.');
     }
   }
   const rowMap=new Map();
@@ -163,7 +226,7 @@ export async function verifyApiaryBackupOnPage(file,status){
     status.textContent='ZIP INTEGRITY PASSED: '+result.records+' records across '+result.tables+
       ' tables; '+result.receipts+' receipt files; '+result.expenses+' expenses and '+result.income+
       ' income entries. ZIP checksums, receipt hashes and database relationships match. '+
-      'No data was uploaded or changed. V2 recurring schedules require an updated recovery importer for restoration.';
+      'No data was uploaded or changed. Complete winter-record restoration requires the updated Recovery Test importer.';
   }catch(error){
     status.textContent='ZIP VERIFICATION FAILED: '+(error?.message||String(error))+
       '. No data was uploaded or changed.';
