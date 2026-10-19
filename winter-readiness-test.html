@@ -309,6 +309,8 @@ async function selectColony(p){
 }
 async function refreshColony(){
  if(!current)return;
+ if(season?.status==='closed'){renderClosedColony();return;}
+ $('editingView').hidden=false;$('closedView').hidden=true;
  const col=colonies.find(c=>c.id===current.colony_id);
  const [ir,or,ar]=await Promise.all([
   client.from('Winter_Checklist_Items').select('*').eq('participation_id',current.id).order('id'),
@@ -316,9 +318,36 @@ async function refreshColony(){
   client.from('Winter_Audit_History').select('*').order('recorded_at',{ascending:false}).limit(1000)
  ]);
  items=requireResult(ir)||[];observations=requireResult(or)||[];const events=requireResult(ar)||[];
- renderAssessment();renderChecklist();renderObservations();renderHistory(events);
- await renderExisting(col);
+ renderAssessment();renderChecklist();renderObservations();
+ await renderExisting(col);await renderSpring(col);renderHistory(events);
 }
+
+function renderClosedColony(){
+ $('editingView').hidden=true;$('closedView').hidden=false;
+ const host=$('closedView');host.replaceChildren();
+ const latest=snapshots[0];
+ if(!latest){host.append(node('p','The historical snapshot is missing; edits remain locked.'));return;}
+ const data=(latest.snapshot?.participants||[]).find(entry=>entry.participation?.id===current.id);
+ if(!data){host.append(node('p','Colony not found in this closure snapshot.'));return;}
+ host.append(node('h3','Historical winter snapshot · Version '+latest.version));
+ host.append(node('p','Closed '+new Date(latest.created_at).toLocaleString()+' · read-only'));
+ host.append(node('p','Preparation assessment: '+(data.participation.prep_assessment||'Not assessed')));
+ host.append(node('p','Final spring outcome: '+(data.outcome?.outcome||'Not assessed')));
+ if(data.unresolved_reason)host.append(node('p','Unresolved explanation: '+data.unresolved_reason));
+ for(const [label,arr] of [['Checklist',data.checklist||[]],['Winter observations',data.observations||[]],['Existing spring inspections',data.spring_inspections||[]]]){
+  const d=node('details');d.append(node('summary',label+' ('+arr.length+')'));
+  for(const row of arr){
+   const text=label==='Checklist'
+    ?row.label+': '+row.status+(row.notes?' · '+row.notes:'')
+    :label==='Winter observations'
+     ?row.observed_on+' · '+row.activity+' · '+row.entrance+(row.notes?' · '+row.notes:'')
+     :row.inspection_date+' · '+(row.colony_strength||'Strength not recorded')+' · '+(row.honey_stores||'Stores not recorded');
+   d.append(node('p',text));
+  }host.append(d);
+ }
+ host.append(node('small','The displayed values are a saved snapshot, unaffected by later inspections or changes.'));
+}
+
 async function renderExisting(col){
  const host=$('existingRecords');host.replaceChildren();host.append(node('strong','Latest existing Apiary Log records (read-only)'));
  const defs=[['Last inspection','Hive_Inspections','inspection_date','colony_strength','honey_stores'],
