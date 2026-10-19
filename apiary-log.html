@@ -198,10 +198,10 @@
     @media(max-width:380px) {
       .section-tabs.apiary-main-tabs { grid-template-columns:minmax(0,1fr); }
     }
-    /* Uniform hive-section button boxes (does not affect main navigation). */
+    /* Uniform hive-section buttons: five per row on desktop; responsive on smaller screens. */
     .section-tabs[aria-label="Hive sections"] {
       display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
+      grid-template-columns:repeat(5,minmax(0,1fr));
       gap:10px;
     }
     .section-tabs[aria-label="Hive sections"] button {
@@ -210,17 +210,20 @@
       justify-content:center;
       width:100%;
       min-width:0;
-      min-height:60px;
+      min-height:65px;
       margin:0;
-      padding:10px 8px;
+      padding:10px 6px;
       text-align:center;
       white-space:normal;
       line-height:1.25;
     }
-    @media(max-width:650px) {
+    @media(max-width:760px) {
+      .section-tabs[aria-label="Hive sections"] { grid-template-columns:repeat(3,minmax(0,1fr)); }
+    }
+    @media(max-width:540px) {
       .section-tabs[aria-label="Hive sections"] { grid-template-columns:repeat(2,minmax(0,1fr)); }
     }
-    @media(max-width:410px) {
+    @media(max-width:380px) {
       .section-tabs[aria-label="Hive sections"] { grid-template-columns:minmax(0,1fr); }
     }
     .section-tab-hidden { display:none !important; }
