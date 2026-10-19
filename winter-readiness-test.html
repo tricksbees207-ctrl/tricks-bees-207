@@ -109,7 +109,7 @@ summary{font-weight:700;cursor:pointer;padding:6px}
 <div class="row"><button type="submit" id="saveObservation">Save TEST observation</button><button type="button" class="secondary" id="cancelEdit" hidden>Cancel edit</button></div>
 </form>
 </div>
-<div id="observationHistory"></div>
+<div id="observationHistory"></div><p id="observationActionStatus" class="status" role="status" aria-live="polite"></p>
 <details id="completeWinterHistory"><summary>Complete change history (all winter records)</summary><div id="auditHistory" class="history card"><p>Recorded when you change a winter status or observation.</p></div></details>
 <div class="card"><h3>🌱 Spring inspections and final outcome</h3>
 <p class="muted">Review existing regular spring inspections; no duplicate spring assessments are created.</p><div id="springInspections"></div>
@@ -329,7 +329,7 @@ async function refreshColony(){
  const col=colonies.find(c=>c.id===current.colony_id);
  const [ir,or,ar]=await Promise.all([
   client.from('Winter_Checklist_Items').select('*').eq('participation_id',current.id).order('id'),
-  client.from('Winter_Observations').select('*').eq('participation_id',current.id).order('observed_on',{ascending:false}),
+  client.from('Winter_Observations').select('*').eq('participation_id',current.id).is('deleted_at',null).order('observed_on',{ascending:false}),
   client.from('Winter_Audit_History').select('*').order('recorded_at',{ascending:false}).limit(1000)
  ]);
  items=requireResult(ir)||[];observations=requireResult(or)||[];const events=requireResult(ar)||[];
@@ -525,7 +525,22 @@ function renderObservations(){
     $('cancelEdit').hidden=false;$('saveObservation').textContent='Save correction';
     $('observationForm').scrollIntoView({behavior:'smooth',block:'center'});
   });
-  card.append(edit);host.append(card);
+  const remove=node('button','Delete','secondary');remove.type='button';
+  remove.style.marginLeft='10px';
+  remove.addEventListener('click',async()=>{
+    if(!confirm('Delete this TEST winter observation from the active list? It will be kept in change history.'))return;
+    remove.disabled=true;
+    try{
+      const deleted=requireResult(await client.from('Winter_Observations')
+        .update({deleted_at:new Date().toISOString(),updated_at:new Date().toISOString()})
+        .eq('id',o.id).eq('participation_id',current.id).is('deleted_at',null).select('id'));
+      if(!deleted||deleted.length!==1)throw new Error('Observation could not be deleted. Please refresh and try again.');
+      if($('editObservationId').value===String(o.id))resetObservation();
+      await refreshColony();
+      $('observationActionStatus').textContent='TEST observation deleted from the active list. Its change history is retained.';
+    }catch(err){remove.disabled=false;$('observationActionStatus').textContent='Delete failed: '+errorMessage(err);}
+  });
+  card.append(edit,remove);host.append(card);
  }
 }
 
@@ -579,14 +594,14 @@ function renderHistory(events){
  const ids=new Set([current.id,...items.map(i=>i.id),...observations.map(o=>o.id)]);
  const filtered=events.filter(e=>(e.entity_type==='Winter_Participation'&&e.entity_id===current.id)
  ||(e.entity_type==='Winter_Checklist_Items'&&items.some(i=>i.id===e.entity_id))
- ||(e.entity_type==='Winter_Observations'&&observations.some(o=>o.id===e.entity_id))
+ ||(e.entity_type==='Winter_Observations'&&String(e.after_record?.participation_id??e.before_record?.participation_id)===String(current.id))
  ||(e.entity_type==='Winter_Outcomes'&&currentOutcome?.id===e.entity_id));
  if(!filtered.length){host.append(node('p','No changes recorded yet.'));return;}
  for(const e of filtered.slice(0,35)){
   const div=node('div',undefined,'item');
   div.append(node('strong',new Date(e.recorded_at).toLocaleString()+' · '+e.entity_type.replace('Winter_','')+' · '+e.event_type));
   const prev=e.before_record||{},next=e.after_record||{};
-  const diffs=Object.keys(next).filter(k=>['status','notes','observed_on','activity','heft','entrance','moisture','supplemental_food','prep_assessment','participation','prep_notes','outcome','confirmed_on','loss_record_id','measured_weight','weight_unit','queen_status','colony_strength','food_stores'].includes(k)&&JSON.stringify(prev[k])!==JSON.stringify(next[k]));
+  const diffs=Object.keys(next).filter(k=>['status','notes','observed_on','activity','heft','entrance','moisture','supplemental_food','prep_assessment','participation','prep_notes','outcome','confirmed_on','loss_record_id','measured_weight','weight_unit','queen_status','colony_strength','food_stores','deleted_at'].includes(k)&&JSON.stringify(prev[k])!==JSON.stringify(next[k]));
   if(diffs.length)div.append(node('p',diffs.map(k=>k+': '+(prev[k]??'—')+' → '+(next[k]??'—')).join(' | ')));
   host.append(div);
  }
