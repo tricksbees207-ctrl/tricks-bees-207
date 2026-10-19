@@ -89,11 +89,20 @@ function backupData(version=3){
 }
 function buildZip(version,tables=backupData(version)){
  const at='2027-05-01T12:00:00.000Z';
+ const receiptFiles=(tables.Apiary_Expense_Receipts||[]).map(r=>({
+   bucket:'apiary-receipts',
+   storage_path:r.storage_path,
+   archive_path:'storage/apiary-receipts/'+r.storage_path,
+   bytes:5,
+   sha256:'2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824',
+   receipt_table:'Apiary_Expense_Receipts',
+   receipt_id:r.id
+ }));
  const manifest={
    format:'tricks-bees-207-records-and-receipts',
    version,exported_at:at,
    table_counts:Object.fromEntries(Object.entries(tables).map(([name,rows])=>[name,rows.length])),
-   receipt_count:0,receipt_bytes:0,receipt_files:[]
+   receipt_count:receiptFiles.length,receipt_bytes:receiptFiles.length*5,receipt_files:receiptFiles
  };
  const data={
    format:'tricks-bees-207-apiary-backup',
@@ -102,7 +111,8 @@ function buildZip(version,tables=backupData(version)){
  return buildStoredZip([
    ['README.txt','Synthetic test data only.'],
    ['manifest.json',JSON.stringify(manifest)],
-   ['apiary-data.json',JSON.stringify(data)]
+   ['apiary-data.json',JSON.stringify(data)],
+   ...receiptFiles.map(r=>[r.archive_path,Buffer.from('hello')])
  ]);
 }
 const verify=zip=>verifyApiaryBackup(new Blob([zip]));
@@ -113,6 +123,18 @@ const changed=mutate=>{
 test('v3 synthetic 25-table ZIP passes including winter snapshots and audit records',async()=>{
  const result=await verify(buildZip(3));
  assert.equal(result.tables,25);assert.equal(result.records,9);assert.equal(result.receipts,0);
+});
+test('v3 ZIP with a complete receipt and SHA-256 integrity check passes',async()=>{
+ const t=backupData(3),owner='11111111-1111-4111-8111-111111111111';
+ t.Apiary_Expenses=[{id:10,user_id:owner,hive_id:1,amount:12.99}];
+ t.Apiary_Expense_Receipts=[{
+   id:20,expense_id:10,user_id:owner,storage_path:owner+'/10/receipt.pdf',
+   file_size:5,mime_type:'application/pdf'
+ }];
+ const result=await verify(buildZip(3,t));
+ assert.equal(result.tables,25);
+ assert.equal(result.receipts,1);
+ assert.equal(result.records,11);
 });
 test('backward compatibility: 18-table ZIP passes',async()=>{
  const result=await verify(buildZip(2));assert.equal(result.tables,18);
