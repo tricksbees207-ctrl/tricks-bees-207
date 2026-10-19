@@ -124,7 +124,10 @@ const TEST_URL='https://xvthtxcinwbopoixaggv.supabase.co';
 const TEST_KEY='sb_publishable_tSxLXZmgyA7M2ybZIHsdZA_jOREMSxN';
 const client=createClient(TEST_URL,TEST_KEY,{auth:{detectSessionInUrl:false}});
 const tables=['Hives','Hive_Colonies','Colony_Transfers','Hive_Profiles','Hive_Inspections','Hive_Feedings','Hive_Treatments','Hive_Harvests','Hive_Queen_Replacements','Hive_Splits','Hive_Losses','Apiary_Activities','Apiary_Expenses','Apiary_Income','Apiary_Expense_Receipts','Apiary_Income_Receipts','varroa_watch_results'];
-const getTables=()=>archive?.manifest?.version===2?[...tables,'Apiary_Recurring_Expenses']:tables;
+const winterTables=['Winter_Seasons','Winter_Participation','Winter_Checklist_Items','Winter_Observations','Winter_Outcomes','Winter_Audit_History','Winter_Snapshots'];
+const getTables=()=>archive?.manifest?.version===3?[...tables,'Apiary_Recurring_Expenses',...winterTables]:
+  archive?.manifest?.version===2?[...tables,'Apiary_Recurring_Expenses']:tables;
+const archiveImporter=()=>archive?.manifest?.version===3?'recovery_test_import_v3':'recovery_test_import';
 const $=name=>document.getElementById(name);
 const log=text=>{$('log').textContent=text;};
 const errorText=err=>err?.message||String(err);
@@ -172,6 +175,25 @@ async function verifiedUser(){
  if(assurance.error||assurance.data?.currentLevel!=='aal2')throw new Error('Verify your Recovery Test authenticator code before accessing private records.');
  return data.user;
 }
+
+function canonicalJson(value){
+ if(Array.isArray(value))return '['+value.map(canonicalJson).join(',')+']';
+ if(value&&typeof value==='object')return '{'+Object.keys(value).sort().map(k=>JSON.stringify(k)+':'+canonicalJson(value[k])).join(',')+'}';
+ return JSON.stringify(value);
+}
+function remapDeepArchiveOwner(value){
+ const original=archive?.data?.tables?.Winter_Seasons?.[0]?.user_id||
+                archive?.data?.tables?.Winter_Participation?.[0]?.user_id;
+ if(!original)return value;
+ const traverse=item=>{
+   if(Array.isArray(item))return item.map(traverse);
+   if(item&&typeof item==='object'){
+     return Object.fromEntries(Object.entries(item).map(([key,val])=>[key,key==='user_id'&&val===original?user.id:traverse(val)]));
+   }
+   return item;
+ };
+ return traverse(value);
+}
 function getMappedReceipt(receipt){
  const path=receipt.storage_path;
  const parts=path.split('/');
@@ -208,11 +230,15 @@ async function verifiedRecordComparison(){
      if(!recovered)throw new Error(name+': record '+originalId+' was not recovered.');
      for(const [field,value] of Object.entries(original)){
        const wanted=field==='user_id'?user.id:
-         field==='storage_path'?getMappedReceipt({storage_path:value}):value;
+         field==='storage_path'?getMappedReceipt({storage_path:value}):
+         archive.manifest.version===3&&['snapshot','before_record','after_record'].includes(field)?
+           remapDeepArchiveOwner(value):value;
        const got=recovered[field];
        const equal=got===wanted ||
          (got!=null&&wanted!=null&&
            (typeof got==='number'||typeof wanted==='number')&&String(got)===String(wanted)) ||
+         (got!=null&&wanted!=null&&typeof got==='object'&&typeof wanted==='object'&&
+           canonicalJson(got)===canonicalJson(wanted)) ||
          (typeof got==='string'&&typeof wanted==='string'&&
            field.endsWith('_at')&&Date.parse(got)===Date.parse(wanted));
        if(!equal)throw new Error(name+': recovered field '+field+' differs for record '+originalId+'.');
@@ -363,7 +389,7 @@ $('preview').addEventListener('click',async()=>{
  log('Checking Recovery Test database. No data is being restored...');
  try{
    await verifiedUser();
-   const {data,error}=await client.rpc('recovery_test_import',{p_tables:archive.data.tables,p_apply:false});
+   const {data,error}=await client.rpc(archiveImporter(),{p_tables:archive.data.tables,p_apply:false});
    if(error)throw new Error(error.message);
    if(data?.mode!=='preview'||data.rows!==archive.summary.records||data.receipts!==archive.summary.receipts)
      throw new Error('The test database did not return the expected record/receipt counts.');
@@ -386,7 +412,7 @@ $('restore').addEventListener('click',async()=>{
  busy=true;controls();log('Restoring records to the separate Recovery Test database...');
  try{
    await verifiedUser();
-   const {data,error}=await client.rpc('recovery_test_import',{p_tables:archive.data.tables,p_apply:true});
+   const {data,error}=await client.rpc(archiveImporter(),{p_tables:archive.data.tables,p_apply:true});
    if(error)throw new Error(error.message);
    if(data?.mode!=='applied'||data.rows!==archive.summary.records)
      throw new Error('Unexpected restore result. Run Recheck recovered data.');
