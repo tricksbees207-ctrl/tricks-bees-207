@@ -462,18 +462,65 @@ function renderObservations(){
   card.append(edit);host.append(card);
  }
 }
+
+$('outcomeChoice').addEventListener('change',()=>{
+ $('lossLinkWrap').hidden=$('outcomeChoice').value!=='winter_loss';
+ $('outcomeDate').required=$('outcomeChoice').value!=='not_assessed';
+});
+async function renderSpring(col){
+ const target=$('springInspections');target.replaceChildren();
+ const year=season.start_year+1;
+ const spring=requireResult(await client.from('Hive_Inspections').select('*')
+  .eq('colony_id',col.id).gte('inspection_date',year+'-01-01')
+  .lte('inspection_date',year+'-06-30').order('inspection_date',{ascending:true}))||[];
+ target.append(node('p','Existing January–June '+year+' inspections for this colony: '+spring.length+'.'));
+ for(const i of spring){
+  const p=node('p',i.inspection_date+' · Queen: '+(i.queen_seen===null?'Not recorded':i.queen_seen?'Seen':'Not seen')+
+    ' · Eggs: '+(i.eggs_seen===null?'Not recorded':i.eggs_seen?'Seen':'Not seen')+
+    ' · Strength: '+(i.colony_strength||'Not recorded')+
+    ' · Stores: '+(i.honey_stores||'Not recorded'));
+  target.append(p);
+ }
+ currentOutcome=requireResult(await client.from('Winter_Outcomes').select('*').eq('participation_id',current.id).maybeSingle());
+ $('outcomeChoice').value=currentOutcome?.outcome||'not_assessed';
+ $('outcomeDate').value=currentOutcome?.confirmed_on||'';
+ $('outcomeNotes').value=currentOutcome?.notes||'';
+ $('outcomeDate').required=$('outcomeChoice').value!=='not_assessed';
+ $('lossLinkWrap').hidden=$('outcomeChoice').value!=='winter_loss';
+ const loss=$('outcomeLoss');loss.replaceChildren(new Option('Not linked',''));
+ const existing=requireResult(await client.from('Hive_Losses').select('id,loss_date,suspected_cause')
+  .eq('colony_id',col.id).order('loss_date',{ascending:false}))||[];
+ for(const item of existing)loss.append(new Option(item.loss_date+' · '+(item.suspected_cause||'Loss')+' (#'+item.id+')',String(item.id)));
+ loss.value=currentOutcome?.loss_record_id?String(currentOutcome.loss_record_id):'';
+}
+$('outcomeForm').addEventListener('submit',async event=>{
+ event.preventDefault();if(!current||season?.status!=='open')return;
+ const outcome=$('outcomeChoice').value;
+ const confirmed_on=outcome==='not_assessed'?null:$('outcomeDate').value;
+ if(outcome!=='not_assessed'&&!confirmed_on){say('Enter your final spring confirmation date.');return;}
+ const payload={outcome,confirmed_on,notes:$('outcomeNotes').value.trim()||null,
+   loss_record_id:outcome==='winter_loss'&&$('outcomeLoss').value?Number($('outcomeLoss').value):null};
+ try{
+  if(currentOutcome)requireResult(await client.from('Winter_Outcomes').update(payload).eq('id',currentOutcome.id));
+  else requireResult(await client.from('Winter_Outcomes').insert({...payload,participation_id:current.id}));
+  say('TEST spring outcome saved, with change history. Existing hive inspections were not changed.');
+  await refresh();
+ }catch(err){say('Final spring outcome failed: '+errorMessage(err));}
+});
+
 function renderHistory(events){
  const host=$('auditHistory');host.replaceChildren();
  const ids=new Set([current.id,...items.map(i=>i.id),...observations.map(o=>o.id)]);
  const filtered=events.filter(e=>(e.entity_type==='Winter_Participation'&&e.entity_id===current.id)
  ||(e.entity_type==='Winter_Checklist_Items'&&items.some(i=>i.id===e.entity_id))
- ||(e.entity_type==='Winter_Observations'&&observations.some(o=>o.id===e.entity_id)));
+ ||(e.entity_type==='Winter_Observations'&&observations.some(o=>o.id===e.entity_id))
+ ||(e.entity_type==='Winter_Outcomes'&&currentOutcome?.id===e.entity_id));
  if(!filtered.length){host.append(node('p','No changes recorded yet.'));return;}
  for(const e of filtered.slice(0,35)){
   const div=node('div',undefined,'item');
   div.append(node('strong',new Date(e.recorded_at).toLocaleString()+' · '+e.entity_type.replace('Winter_','')+' · '+e.event_type));
   const prev=e.before_record||{},next=e.after_record||{};
-  const diffs=Object.keys(next).filter(k=>['status','notes','observed_on','activity','heft','entrance','moisture','supplemental_food','prep_assessment','participation','prep_notes'].includes(k)&&JSON.stringify(prev[k])!==JSON.stringify(next[k]));
+  const diffs=Object.keys(next).filter(k=>['status','notes','observed_on','activity','heft','entrance','moisture','supplemental_food','prep_assessment','participation','prep_notes','outcome','confirmed_on','loss_record_id'].includes(k)&&JSON.stringify(prev[k])!==JSON.stringify(next[k]));
   if(diffs.length)div.append(node('p',diffs.map(k=>k+': '+(prev[k]??'—')+' → '+(next[k]??'—')).join(' | ')));
   host.append(div);
  }
