@@ -48,7 +48,7 @@ summary{font-weight:700;cursor:pointer;padding:6px}
 <body>
 <header><h1>❄️ Tricks Bees 207 · Winter Readiness</h1><p>TEST BUILD · Separate Supabase Recovery Test project · Not production</p></header>
 <main>
-<p class="warning"><strong>Development build only.</strong> This page connects exclusively to the Recovery Test database. It does not change the live Apiary Log, production data or OBS. Winter-season closing, historical snapshots and final spring outcomes are not yet enabled.</p>
+<p class="warning"><strong>Development build only.</strong> This page connects exclusively to the Recovery Test database. It does not change the live Apiary Log, production data or OBS. Browser review and backup integration are still pending.</p>
 <section id="auth" class="panel">
 <h2>Recovery Test sign-in</h2>
 <div id="signInPanel">
@@ -62,7 +62,7 @@ summary{font-weight:700;cursor:pointer;padding:6px}
 <section class="panel">
 <div class="row"><h2 class="grow">Winter seasons</h2><label for="seasonYear">Season year</label><select id="seasonYear" style="width:auto"><option value="2026">2026–2027</option><option value="2027">2027–2028</option></select></div>
 <p class="muted">Start each winter manually. All colonies active at the moment of startup are included. Later colonies require your decision.</p>
-<div id="seasonSummary"></div>
+<div id="seasonSummary"></div><div id="seasonAdmin"></div>
 <button type="button" id="startSeason" hidden>Start Winter Season (TEST)</button>
 </section>
 <section id="colonySection" class="panel" hidden>
@@ -76,7 +76,7 @@ summary{font-weight:700;cursor:pointer;padding:6px}
 <button type="button" disabled>Harvests</button><button type="button" disabled>Queens</button><button type="button" disabled>Splits</button><button type="button" disabled>Losses</button><button type="button" class="selected">Winter</button>
 </div>
 <p class="muted">The other nine buttons above are a layout demonstration. The existing Apiary Log navigation is unchanged.</p>
-<div id="existingRecords" class="card"></div>
+<div id="closedView" class="card" hidden></div><div id="editingView"><div id="existingRecords" class="card"></div>
 <h3>Fall preparation</h3>
 <div id="assessment"></div>
 <div id="checklist"></div>
@@ -100,7 +100,17 @@ summary{font-weight:700;cursor:pointer;padding:6px}
 </div>
 <div id="observationHistory"></div>
 <h3>Change history</h3><div id="auditHistory" class="history card"><p>Recorded when you change a winter status or observation.</p></div>
-<div class="card"><h3>Spring outcome and season closure</h3><p class="muted">Next development phase. Spring inspections will come from the existing regular inspection log. A personally confirmed final outcome and manual season closure will be added after backup and snapshot verification.</p></div>
+<div class="card"><h3>🌱 Spring inspections and final outcome</h3>
+<p class="muted">Review existing regular spring inspections; no duplicate spring assessments are created.</p><div id="springInspections"></div>
+<form id="outcomeForm">
+<label for="outcomeChoice">Personally confirmed final outcome</label>
+<select id="outcomeChoice"><option value="not_assessed">Not assessed</option><option value="survived">Survived winter</option><option value="winter_loss">Confirmed winter loss</option><option value="combined">Combined</option><option value="moved_sold">Moved or sold</option><option value="other">Other</option></select>
+<label for="outcomeDate">Date confirmed</label><input type="date" id="outcomeDate">
+<div id="lossLinkWrap" hidden><label for="outcomeLoss">Existing colony loss record (optional)</label><select id="outcomeLoss"></select><p class="muted">Add new losses through the regular Colony Loss Log; no duplicates will be created here.</p></div>
+<label for="outcomeNotes">Notes (optional)</label><textarea id="outcomeNotes"></textarea>
+<button type="submit">Save final spring outcome</button>
+</form></div>
+</div>
 </section>
 </div>
 <p id="appStatus" class="status" role="status" aria-live="polite"></p>
@@ -113,7 +123,7 @@ const node=(tag,text,cls)=>{const e=document.createElement(tag);if(text!==undefi
 const say=(message)=>{$('appStatus').textContent=message;};
 const errorMessage=e=>e?.message||String(e);
 const requireResult=r=>{if(r.error)throw r.error;return r.data;};
-let verified=null,season=null,colonies=[],hives=[],participations=[],current=null,items=[],observations=[];
+let verified=null,season=null,colonies=[],hives=[],participations=[],current=null,items=[],observations=[],seasonOutcomes=[],snapshots=[],currentOutcome=null;
 const latestObservationDate=()=>new Date().toLocaleDateString('en-CA');
 function setSections(mode){$('signInPanel').hidden=mode!=='login';$('mfaPanel').hidden=mode!=='mfa';$('signedInPanel').hidden=mode!=='signed';$('workspace').hidden=mode!=='signed';}
 async function authenticated(){
@@ -158,6 +168,9 @@ async function refresh(){
  ]);
  season=requireResult(s);colonies=requireResult(c)||[];hives=requireResult(h)||[];
  participations=season?requireResult(await client.from('Winter_Participation').select('*').eq('season_id',season.id)):[];
+ const ids=participations.map(p=>p.id);
+ seasonOutcomes=ids.length?requireResult(await client.from('Winter_Outcomes').select('*').in('participation_id',ids)):[];
+ snapshots=season?requireResult(await client.from('Winter_Snapshots').select('*').eq('season_id',season.id).order('version',{ascending:false})):[];
  renderSeason();renderColonies();
  if(current){
   const p=participations.find(x=>x.colony_id===current.colony_id);
@@ -173,10 +186,11 @@ function renderSeason(){
  const e=$('seasonSummary');e.replaceChildren();
  $('colonySection').hidden=!season;
  $('startSeason').hidden=!!season;
- if(!season){e.append(node('p','Season not started. No winter records exist for this year.'));return;}
+ if(!season){$('seasonAdmin').replaceChildren();e.append(node('p','Season not started. No winter records exist for this year.'));return;}
  e.append(node('p','Season: '+season.start_year+'–'+(season.start_year+1)+' · '+season.status.toUpperCase()+' · Started '+new Date(season.started_at).toLocaleString()));
  const participating=participations.filter(x=>x.participation==='included').length;
  e.append(node('p',participating+' included · '+(participations.length-participating)+' excluded · '+colonies.filter(c=>c.colony_status==='active'&&!participations.some(p=>p.colony_id===c.id)).length+' active colonies awaiting a decision.'));
+ renderSeasonAdmin();
 }
 $('startSeason').addEventListener('click',async()=>{
  const year=Number($('seasonYear').value);
@@ -199,7 +213,7 @@ function renderColonies(){
    const buttons=node('div',undefined,'row');
    if(p&&p.participation==='included'){
      const b=node('button','Open Winter');b.type='button';b.addEventListener('click',()=>selectColony(p).catch(err=>say(errorMessage(err))));buttons.append(b);
-     const x=node('button','Exclude','secondary');x.type='button';x.addEventListener('click',async()=>{
+     const x=node('button','Exclude','secondary');x.type='button';x.hidden=season.status!=='open';x.addEventListener('click',async()=>{
        const reason=prompt('Reason for excluding this colony from winter?');
        if(!reason?.trim())return;
        try{requireResult(await client.from('Winter_Participation').update({participation:'excluded',exclusion_reason:reason,prep_notes:null}).eq('id',p.id));current=null;$('winterDetail').hidden=true;await refresh();}
@@ -207,12 +221,12 @@ function renderColonies(){
      });buttons.append(x);
    }else if(p&&p.participation==='excluded'){
      buttons.append(node('small','Excluded: '+(p.exclusion_reason||'No reason recorded')));
-     const b=node('button','Include again','secondary');b.type='button';b.addEventListener('click',async()=>{
+     const b=node('button','Include again','secondary');b.type='button';b.hidden=season.status!=='open';b.addEventListener('click',async()=>{
        if(!confirm('Re-include this TEST colony?'))return;
        try{requireResult(await client.from('Winter_Participation').update({participation:'included',exclusion_reason:null}).eq('id',p.id));await ensureChecklist(p.id);await refresh();}
        catch(err){say('Inclusion failed: '+errorMessage(err));}
      });buttons.append(b);
-   }else if(c.colony_status==='active'){
+   }else if(c.colony_status==='active'&&season.status==='open'){
      const include=node('button','Include colony');include.type='button';include.addEventListener('click',()=>addNewColony(c,true));
      const exclude=node('button','Exclude','secondary');exclude.type='button';exclude.addEventListener('click',()=>addNewColony(c,false));
      buttons.append(include,exclude);
