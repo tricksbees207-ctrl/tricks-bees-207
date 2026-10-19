@@ -530,7 +530,7 @@ function renderHistory(events){
   const div=node('div',undefined,'item');
   div.append(node('strong',new Date(e.recorded_at).toLocaleString()+' · '+e.entity_type.replace('Winter_','')+' · '+e.event_type));
   const prev=e.before_record||{},next=e.after_record||{};
-  const diffs=Object.keys(next).filter(k=>['status','notes','observed_on','activity','heft','entrance','moisture','supplemental_food','prep_assessment','participation','prep_notes','outcome','confirmed_on','loss_record_id'].includes(k)&&JSON.stringify(prev[k])!==JSON.stringify(next[k]));
+  const diffs=Object.keys(next).filter(k=>['status','notes','observed_on','activity','heft','entrance','moisture','supplemental_food','prep_assessment','participation','prep_notes','outcome','confirmed_on','loss_record_id','measured_weight','weight_unit','queen_status','colony_strength','food_stores'].includes(k)&&JSON.stringify(prev[k])!==JSON.stringify(next[k]));
   if(diffs.length)div.append(node('p',diffs.map(k=>k+': '+(prev[k]??'—')+' → '+(next[k]??'—')).join(' | ')));
   host.append(div);
  }
