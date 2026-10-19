@@ -192,6 +192,50 @@ function renderSeason(){
  e.append(node('p',participating+' included · '+(participations.length-participating)+' excluded · '+colonies.filter(c=>c.colony_status==='active'&&!participations.some(p=>p.colony_id===c.id)).length+' active colonies awaiting a decision.'));
  renderSeasonAdmin();
 }
+
+function renderSeasonAdmin(){
+ const root=$('seasonAdmin');root.replaceChildren();
+ if(!season)return;
+ const card=node('div',undefined,'card'),latest=snapshots[0];
+ if(latest)card.append(node('p',snapshots.length+' historical snapshot version(s); latest is '+latest.version+'.'));
+ if(season.status==='closed'){
+  card.append(node('strong','This season is closed. Its historical snapshot is read-only.'));
+  const reopen=node('button','Reopen season (TEST)','secondary');reopen.type='button';
+  reopen.addEventListener('click',async()=>{
+   const reason=prompt('A reason for reopening is required:');
+   if(!reason?.trim())return;
+   if(!confirm('Reopen this TEST season? Its older snapshots will be preserved.'))return;
+   try{requireResult(await client.rpc('winter_reopen_season',{p_season_id:season.id,p_reason:reason.trim()}));
+     say('TEST season reopened; old snapshots preserved.');await refresh();}
+   catch(err){say('Reopen failed: '+errorMessage(err));}
+  });card.append(reopen);
+ }else{
+  card.append(node('h3','Manually close this winter season'));
+  card.append(node('p','Each unresolved spring outcome needs its own explanation. Closure preserves an immutable historical snapshot.','muted'));
+  const unresolved=participations.filter(p=>p.participation==='included'&&!seasonOutcomes.some(o=>o.participation_id===p.id&&o.outcome!=='not_assessed'));
+  const inputs=new Map();
+  for(const p of unresolved){
+   const c=colonies.find(c=>c.id===p.colony_id);
+   const label=node('label','Unresolved outcome: '+(c?hiveName(c):'Colony '+p.colony_id));
+   const input=node('textarea');input.maxLength=1600;input.placeholder='Required explanation for this colony';
+   inputs.set(String(p.id),input);card.append(label,input);
+  }
+  if(!unresolved.length)card.append(node('p','All included colonies have a confirmed outcome.','muted'));
+  card.append(node('label','Closure notes (optional)'));
+  const notes=node('textarea');notes.maxLength=2500;
+  const close=node('button','Close TEST winter season');close.type='button';
+  close.addEventListener('click',async()=>{
+   const reasons={};
+   for(const [id,input]of inputs){if(!input.value.trim()){say('An explanation is required for every unresolved colony.');input.focus();return;}reasons[id]=input.value.trim();}
+   if(!confirm('Close this TEST winter season and freeze its historical snapshot?'))return;
+   try{const version=requireResult(await client.rpc('winter_close_season',{p_season_id:season.id,p_unresolved:reasons,p_closure_notes:notes.value.trim()||null}));
+       say('TEST winter season closed. Snapshot version '+version+' saved.');await refresh();}
+   catch(err){say('Closure failed: '+errorMessage(err));}
+  });card.append(notes,close);
+ }
+ root.append(card);
+}
+
 $('startSeason').addEventListener('click',async()=>{
  const year=Number($('seasonYear').value);
  if(!confirm('Start TEST winter '+year+'–'+(year+1)+' and include all currently active TEST colonies?'))return;
