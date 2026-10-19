@@ -567,3 +567,14 @@ html{scroll-behavior:smooth}.big-icon{font-size:32px}.varroa-section{background:
 .apiary-monthly-guide{margin-top:28px;padding-top:23px;border-top:1px solid #d8d0bc}
 .apiary-monthly-guide h3{margin:0 0 9px;color:#263a2a;font-family:Georgia,serif;font-size:23px}
 .apiary-monthly-guide .section-intro{margin-bottom:20px}
+
+/* Homepage six-camera social links: accessible, responsive, and independent of OBS. */
+.camera-follow{max-width:1400px;margin:16px auto 0;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;border:1px solid #657667;border-radius:10px;background:#1e3125}
+.camera-follow p{margin:0;line-height:1.5;color:#f7f3e8;flex:1 1 320px}
+.camera-follow p strong{color:#e8bd3f}
+.camera-follow__links{display:flex;flex-wrap:wrap;gap:10px}
+.camera-follow__button{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 16px;border:1px solid #e8bd3f;border-radius:8px;background:#e8bd3f;color:#1f3023;text-decoration:none;font-size:14px;font-weight:700;line-height:1.3;text-align:center}
+.camera-follow__button:hover,.camera-follow__button:focus-visible{background:#f1cf68;border-color:#f1cf68;color:#1f3023}
+.camera-follow__button--secondary{background:transparent;color:#fff}
+.camera-follow__button--secondary:hover,.camera-follow__button--secondary:focus-visible{background:#405b46;border-color:#e8bd3f;color:#fff}
+@media(max-width:700px){.camera-follow{padding:16px}.camera-follow__links{width:100%}.camera-follow__button{flex:1 1 180px}}
