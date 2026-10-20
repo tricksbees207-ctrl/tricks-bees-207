@@ -210,12 +210,14 @@ function renderSeason(){
 }
 
 function renderSeasonAdmin(){
- const root=$('seasonAdmin'),previous=root.querySelector('#manualSeasonClosure');
- const wasOpen=!!previous?.open&&previous.dataset.seasonId===String(season?.id);
+ const root=$('seasonAdmin'),previous=root.querySelector('#seasonClosureControls');
+ const wasOpen=previous?.open===true&&previous.dataset.seasonId===String(season?.id)&&previous.dataset.status===season?.status;
  root.replaceChildren();
  if(!season)return;
  const card=node('div',undefined,'card'),latest=snapshots[0];
  if(latest)card.append(node('p',snapshots.length+' historical snapshot version(s); latest is '+latest.version+'.'));
+ const closure=node('details');closure.id='seasonClosureControls';closure.dataset.seasonId=String(season.id);closure.dataset.status=season.status;closure.open=wasOpen;
+ closure.append(node('summary',season.status==='closed'?'Closed season options':'Manually close this winter season'));
  if(season.status==='closed'){
   card.append(node('strong','This season is closed. Its historical snapshot is read-only.'));
   const reopen=node('button','Reopen season (TEST)','secondary');reopen.type='button';
@@ -226,10 +228,8 @@ function renderSeasonAdmin(){
    try{requireResult(await client.rpc('winter_reopen_season',{p_season_id:season.id,p_reason:reason.trim()}));
      say('TEST season reopened; old snapshots preserved.');await refresh();}
    catch(err){say('Reopen failed: '+errorMessage(err));}
-  });card.append(reopen);
+  });closure.append(reopen);
  }else{
-  const closure=node('details');closure.id='manualSeasonClosure';closure.dataset.seasonId=String(season.id);closure.open=wasOpen;
-  closure.append(node('summary','Manually close this winter season'));
   closure.append(node('p','Each unresolved spring outcome needs its own explanation. Closure preserves an immutable historical snapshot.','muted'));
   const unresolved=participations.filter(p=>p.participation==='included'&&!seasonOutcomes.some(o=>o.participation_id===p.id&&o.outcome!=='not_assessed'));
   const inputs=new Map();
@@ -250,8 +250,9 @@ function renderSeasonAdmin(){
    try{const version=requireResult(await client.rpc('winter_close_season',{p_season_id:season.id,p_unresolved:reasons,p_closure_notes:notes.value.trim()||null}));
        say('TEST winter season closed. Snapshot version '+version+' saved.');await refresh();}
    catch(err){say('Closure failed: '+errorMessage(err));}
-  });closure.append(notes,close);card.append(closure);
+  });closure.append(notes,close);
  }
+ card.append(closure);
  root.append(card);
 }
 
