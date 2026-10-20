@@ -128,10 +128,20 @@ summary{font-weight:700;cursor:pointer;padding:6px}
 <p id="appStatus" class="status" role="status" aria-live="polite"></p>
 </main>
 <script type="module">
-import {createClient} from 'https://esm.sh/@supabase/supabase-js@2';
+import {createClient} from 'https://esm.sh/@supabase/supabase-js@2.118.0';
 import {downloadCompleteBackup} from './js/apiary-complete-backup-v3-test.js';
 const client=createClient('https://xvthtxcinwbopoixaggv.supabase.co','sb_publishable_tSxLXZmgyA7M2ybZIHsdZA_jOREMSxN',{auth:{detectSessionInUrl:false}});
 const $=id=>document.getElementById(id);
+const route=new URLSearchParams(location.search);
+const embedded=route.get('embedded')==='1';
+const scopedHive=route.has('hive')?route.get('hive'):null;
+const validScope=scopedHive===null||/^[1-9][0-9]*$/.test(scopedHive);
+const belongsToHive=c=>!!c&&validScope&&(scopedHive===null||String(c.hive_id)===scopedHive);
+if(embedded){
+ document.querySelector('[aria-label="Proposed hive navigation layout"]').hidden=true;
+ document.querySelector('[aria-label="Proposed hive navigation layout"]').nextElementSibling.hidden=true;
+}
+
 const node=(tag,text,cls)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=String(text);if(cls)e.className=cls;return e;};
 const say=(message)=>{$('appStatus').textContent=message;};
 const errorMessage=e=>e?.message||String(e);
@@ -177,6 +187,7 @@ $('downloadWinterBackup').addEventListener('click',()=>{
 $('seasonYear').addEventListener('change',()=>refresh().catch(err=>say(errorMessage(err))));
 async function refresh(){
  if(!verified)return;
+ if(!validScope||(embedded&&scopedHive===null))throw new Error('Invalid hive link. Return to the Apiary Log and select a hive.');
  const [s,c,h]=await Promise.all([
    client.from('Winter_Seasons').select('*').eq('start_year',Number($('seasonYear').value)).maybeSingle(),
    client.from('Hive_Colonies').select('*'),
@@ -188,9 +199,13 @@ async function refresh(){
  seasonOutcomes=ids.length?requireResult(await client.from('Winter_Outcomes').select('*').in('participation_id',ids)):[];
  snapshots=season?requireResult(await client.from('Winter_Snapshots').select('*').eq('season_id',season.id).order('version',{ascending:false})):[];
  renderSeason();renderColonies();
+ if(scopedHive!==null&&!current){
+   const candidates=participations.filter(p=>p.participation==='included'&&belongsToHive(colonies.find(c=>c.id===p.colony_id)));
+   if(candidates.length===1)current=candidates[0];
+ }
  if(current){
   const p=participations.find(x=>x.colony_id===current.colony_id);
-  if(p&&p.participation==='included')await selectColony(p);
+  if(p&&p.participation==='included'&&belongsToHive(colonies.find(c=>c.id===p.colony_id)))await selectColony(p);
   else{$('winterDetail').hidden=true;current=null;}
  }
 }
@@ -265,11 +280,12 @@ $('startSeason').addEventListener('click',async()=>{
 function renderColonies(){
  const host=$('colonyList');host.replaceChildren();
  if(!season)return;
- const sorted=[...colonies].filter(c=>c.colony_status==='active'||participations.some(p=>p.colony_id===c.id)).sort((a,b)=>{
+ const sorted=[...colonies].filter(belongsToHive).filter(c=>c.colony_status==='active'||participations.some(p=>p.colony_id===c.id)).sort((a,b)=>{
   const hA=hives.find(h=>h.id===a.hive_id)?.hive_number||9999;
   const hB=hives.find(h=>h.id===b.hive_id)?.hive_number||9999;
   return hA-hB;
  });
+ if(!sorted.length)host.append(node('p','No winter colonies are available for this hive and season.'));
  for(const c of sorted){
    const p=participations.find(p=>p.colony_id===c.id);
    const card=node('div',undefined,'card');
@@ -320,12 +336,13 @@ async function ensureChecklist(pId){
  if(missing.length)requireResult(await client.from('Winter_Checklist_Items').insert(missing));
 }
 async function selectColony(p){
+ if(!belongsToHive(colonies.find(c=>c.id===p.colony_id)))throw new Error('This colony does not belong to the selected hive.');
  current=p;
  const col=colonies.find(c=>c.id===p.colony_id);
  $('colonyHeading').textContent='❄️ '+hiveName(col)+' · Winter '+season.start_year+'–'+(season.start_year+1);
  $('winterDetail').hidden=false;
  await refreshColony();
- $('winterDetail').scrollIntoView({behavior:'smooth',block:'start'});
+ if(!embedded)$('winterDetail').scrollIntoView({behavior:'smooth',block:'start'});
 }
 async function refreshColony(){
  if(!current)return;
@@ -643,3 +660,4 @@ function renderHistory(events){
 </script>
 </body>
 </html>
+
