@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<title>Tricks Bees 207 | Receipt Recovery TEST</title>
+<style>
+:root{font-family:Arial,Helvetica,sans-serif;color:#292319;background:#fff8e8}*{box-sizing:border-box}body{margin:0}header{background:#292319;color:#f5bc34;padding:24px max(18px,calc((100% - 900px)/2))}h1{font-size:clamp(24px,4vw,33px);margin:0 0 7px}header p{margin:0;color:#f8dfaa}main{max-width:930px;margin:20px auto 50px;padding:0 16px}section{background:#fff;border:1px solid #ecdcb9;border-radius:13px;padding:23px;margin:15px 0}h2{margin:0 0 12px;font-size:23px}p{line-height:1.6}label{display:block;font-weight:700;margin:14px 0 7px}input{font:inherit;width:100%;max-width:100%;border:1px solid #bbab85;border-radius:8px;padding:12px;background:#fffcf4}button{font:inherit;font-weight:700;border:0;border-radius:8px;padding:13px 18px;background:#edb62f;color:#292319;margin:12px 8px 0 0;cursor:pointer}button:disabled{opacity:.45;cursor:not-allowed}.secondary{background:#eee7d8}.info{background:#fff4da;padding:12px 15px;border-left:4px solid #dfa820;border-radius:5px}.status{padding:14px;background:#f5f1e9;border-radius:7px;white-space:pre-wrap;overflow-wrap:anywhere}.status.good{background:#e8f5eb;color:#235032}.status.bad{background:#fff0e9;color:#812c23}.small{font-size:14px;color:#675a43}button:focus-visible,input:focus-visible{outline:3px solid #286f53;outline-offset:2px}[hidden]{display:none!important}
+</style>
+</head><body>
+<header><h1>🐝 Receipt Recovery Test</h1><p>Separate Recovery Test project · Existing receipts are preserved</p></header>
+<main>
+<section><h2>Test recovery from your ZIP</h2>
+<p>This test uploads a temporary copy of each receipt, downloads it to compare its checksum, and removes that temporary copy afterward.</p>
+<p class="info">Your existing records and receipts stay in place. This page connects only to the separate Recovery Test project. Keep this tab open until the test finishes.</p>
+</section>
+<section><h2>1. Recovery Test sign-in</h2>
+<form id="loginForm"><label for="email">TEST account email</label><input id="email" type="email" autocomplete="username" required><label for="password">TEST account password</label><input id="password" type="password" autocomplete="current-password" required><button id="signIn">Sign in to TEST</button></form>
+<form id="mfaForm" hidden><label for="mfaCode">Six-digit TEST authenticator code</label><input id="mfaCode" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required><button id="verifyMfa">Verify TEST authenticator</button></form>
+<div id="signedIn" hidden><p id="sessionLabel"></p><button id="signOut" class="secondary">Sign out of TEST</button></div>
+<p id="authStatus" role="status"></p></section>
+<section><h2>2. Select your Winter Readiness ZIP</h2><label for="file">Choose the records-and-receipts ZIP</label><input id="file" type="file" accept=".zip,application/zip"><p id="zipStatus" class="status" role="status">Choose the ZIP to verify it locally.</p></section>
+<section><h2>3. Run the receipt recovery test</h2><button id="run" disabled>Run TEST receipt recovery</button><p id="result" class="status" role="status" aria-live="polite">Sign in with your test authenticator and select a verified ZIP.</p><button id="downloadReport" class="secondary" disabled>Download test result</button><p class="small">This page checks receipt files. Database-record restoration is verified separately. Temporary copies are private and are never added to your financial records.</p></section>
+</main>
+<script type="module">
+import {createClient} from 'https://esm.sh/@supabase/supabase-js@2.118.0';
+import {readVerifiedApiaryZip} from './js/apiary-backup-verifier-v3-test.js';
+import {verifyReceiptRecovery,sha256} from './js/winter-receipt-recovery-test.js';
+const project='xvthtxcinwbopoixaggv';
+const client=createClient('https://'+project+'.supabase.co','sb_publishable_tSxLXZmgyA7M2ybZIHsdZA_jOREMSxN',{auth:{detectSessionInUrl:false}});
+const $=id=>document.getElementById(id);let user=null,archive=null,archiveInfo=null,report=null,busy=false,generation=0;
+const checked=r=>{if(r.error)throw r.error;return r.data;};
+const message=e=>e?.message||String(e);
+function controls(){for(const id of ['signIn','verifyMfa','signOut','file'])$(id).disabled=busy;$('run').disabled=busy||!user||!archive;$('downloadReport').disabled=busy||!report;}
+async function authenticated(){
+ const session=checked(await client.auth.getSession()).session;
+ if(!session){user=null;$('loginForm').hidden=false;$('mfaForm').hidden=true;$('signedIn').hidden=true;controls();return;}
+ const assurance=checked(await client.auth.mfa.getAuthenticatorAssuranceLevel());
+ if(assurance.currentLevel!=='aal2'){user=null;$('loginForm').hidden=true;$('mfaForm').hidden=false;$('signedIn').hidden=true;$('authStatus').textContent='Verify your Recovery Test authenticator.';controls();return;}
+ user=checked(await client.auth.getUser()).user;
+ $('loginForm').hidden=true;$('mfaForm').hidden=true;$('signedIn').hidden=false;$('sessionLabel').textContent='MFA verified: '+user.email;$('authStatus').textContent='Recovery Test sign-in ready.';controls();
+}
+$('loginForm').addEventListener('submit',async e=>{e.preventDefault();busy=true;controls();try{checked(await client.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value}));await authenticated();}catch(e){$('authStatus').textContent=message(e);}finally{$('password').value='';busy=false;controls();}});
+$('mfaForm').addEventListener('submit',async e=>{e.preventDefault();busy=true;controls();try{const factors=checked(await client.auth.mfa.listFactors());const factor=(factors.totp||[]).find(f=>f.status==='verified');if(!factor)throw new Error('No verified TEST authenticator factor.');const challenge=checked(await client.auth.mfa.challenge({factorId:factor.id}));checked(await client.auth.mfa.verify({factorId:factor.id,challengeId:challenge.id,code:$('mfaCode').value.trim()}));await authenticated();}catch(e){$('authStatus').textContent=message(e);}finally{$('mfaCode').value='';busy=false;controls();}});
+$('signOut').addEventListener('click',async()=>{checked(await client.auth.signOut());await authenticated();});
+$('file').addEventListener('change',async e=>{const mine=++generation;archive=null;archiveInfo=null;report=null;controls();const file=e.target.files?.[0];if(!file)return;$('zipStatus').className='status';$('zipStatus').textContent='Checking the archive and receipt checksums...';try{const selected=await readVerifiedApiaryZip(file);if(mine!==generation)return;if(selected.manifest.version!==3||selected.summary.tables!==25)throw new Error('Choose the 25-table Winter Readiness ZIP.');const selectedHash=await sha256(await file.arrayBuffer());if(mine!==generation)return;archive=selected;archiveInfo={name:file.name,sha256:selectedHash,...selected.summary};$('zipStatus').className='status good';$('zipStatus').textContent='ZIP verified: '+archive.summary.records+' records, '+archive.summary.tables+' tables, '+archive.summary.receipts+' receipts, '+archive.data.tables.Winter_Snapshots.length+' winter snapshots.';}catch(e){archive=null;$('zipStatus').className='status bad';$('zipStatus').textContent=message(e);}controls();});
+$('run').addEventListener('click',async()=>{if(busy||!archive)return;busy=true;controls();$('result').className='status';try{await authenticated();if(!user)throw new Error('Complete the TEST authenticator sign-in first.');const owner=user.id;report=await verifyReceiptRecovery({client,archive,userId:owner,onProgress:text=>$('result').textContent=text});report.project=project;report.archive=archiveInfo;$('result').className='status '+(report.passed?'good':'bad');$('result').textContent=report.passed?'✓ RECEIPT RECOVERY PASSED: '+report.downloaded_and_matched+' receipts uploaded, downloaded, and matched. All '+report.temporary_files_removed+' temporary copies removed. Existing receipts were preserved.':'TEST INCOMPLETE: '+report.errors.join(' ')+'\n'+report.downloaded_and_matched+' receipt checks passed; '+report.cleanup_pending.length+' temporary paths need inspection. Download the result before closing this tab.';}catch(e){$('result').className='status bad';$('result').textContent=message(e);}finally{busy=false;controls();}});
+$('downloadReport').addEventListener('click',()=>{if(!report)return;const url=URL.createObjectURL(new Blob([JSON.stringify(report,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='tricks-bees-207-receipt-recovery-result-'+report.run_id+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
+window.addEventListener('beforeunload',e=>{if(busy){e.preventDefault();e.returnValue='';}});
+authenticated().catch(e=>{$('authStatus').textContent=message(e);});
+</script></body></html>
