@@ -21,7 +21,7 @@ textarea{min-height:75px}
 button{font:inherit;font-weight:700;cursor:pointer;min-height:43px;padding:8px 13px;border:0;border-radius:8px;background:var(--gold);color:#29241b}
 button.secondary{border:1px solid #bda977;background:#fffdf7}
 button:disabled{cursor:wait;opacity:.5}
-button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #217a67;outline-offset:1px}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{outline:3px solid #217a67;outline-offset:1px}
 [hidden]{display:none!important}
 .row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .row > .grow{flex:1 1 200px}
@@ -210,7 +210,9 @@ function renderSeason(){
 }
 
 function renderSeasonAdmin(){
- const root=$('seasonAdmin');root.replaceChildren();
+ const root=$('seasonAdmin'),previous=root.querySelector('#manualSeasonClosure');
+ const wasOpen=!!previous?.open&&previous.dataset.seasonId===String(season?.id);
+ root.replaceChildren();
  if(!season)return;
  const card=node('div',undefined,'card'),latest=snapshots[0];
  if(latest)card.append(node('p',snapshots.length+' historical snapshot version(s); latest is '+latest.version+'.'));
@@ -226,18 +228,19 @@ function renderSeasonAdmin(){
    catch(err){say('Reopen failed: '+errorMessage(err));}
   });card.append(reopen);
  }else{
-  card.append(node('h3','Manually close this winter season'));
-  card.append(node('p','Each unresolved spring outcome needs its own explanation. Closure preserves an immutable historical snapshot.','muted'));
+  const closure=node('details');closure.id='manualSeasonClosure';closure.dataset.seasonId=String(season.id);closure.open=wasOpen;
+  closure.append(node('summary','Manually close this winter season'));
+  closure.append(node('p','Each unresolved spring outcome needs its own explanation. Closure preserves an immutable historical snapshot.','muted'));
   const unresolved=participations.filter(p=>p.participation==='included'&&!seasonOutcomes.some(o=>o.participation_id===p.id&&o.outcome!=='not_assessed'));
   const inputs=new Map();
   for(const p of unresolved){
    const c=colonies.find(c=>c.id===p.colony_id);
    const label=node('label','Unresolved outcome: '+(c?hiveName(c):'Colony '+p.colony_id));
    const input=node('textarea');input.maxLength=1600;input.placeholder='Required explanation for this colony';
-   inputs.set(String(p.id),input);card.append(label,input);
+   inputs.set(String(p.id),input);closure.append(label,input);
   }
-  if(!unresolved.length)card.append(node('p','All included colonies have a confirmed outcome.','muted'));
-  card.append(node('label','Closure notes (optional)'));
+  if(!unresolved.length)closure.append(node('p','All included colonies have a confirmed outcome.','muted'));
+  closure.append(node('label','Closure notes (optional)'));
   const notes=node('textarea');notes.maxLength=2500;
   const close=node('button','Close TEST winter season');close.type='button';
   close.addEventListener('click',async()=>{
@@ -247,7 +250,7 @@ function renderSeasonAdmin(){
    try{const version=requireResult(await client.rpc('winter_close_season',{p_season_id:season.id,p_unresolved:reasons,p_closure_notes:notes.value.trim()||null}));
        say('TEST winter season closed. Snapshot version '+version+' saved.');await refresh();}
    catch(err){say('Closure failed: '+errorMessage(err));}
-  });card.append(notes,close);
+  });closure.append(notes,close);card.append(closure);
  }
  root.append(card);
 }
