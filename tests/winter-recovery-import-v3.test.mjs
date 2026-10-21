@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const page=fs.readFileSync('recovery-test.html','utf8');
+const sql=fs.readFileSync('database/migrations/20261021_winter_v3_recovery_test_import.sql','utf8');
+assert(page.includes("apiary-backup-verifier-v3-test.js"),'read v3 ZIP');
+assert(page.includes("archive?.manifest?.version===3"),'v3 routing');
+assert(page.includes("recovery_test_import_v3"),'v3 importer RPC');
+assert(page.includes("canonical(got)===canonical(wanted)"),'nested comparison');
+assert(sql.includes("count(*) FROM jsonb_object_keys(p_tables)) <> 25"),'require 25 tables');
+assert(sql.indexOf('IF v_before<>0')<sql.indexOf('IF NOT p_apply'),'refuse nonempty destination before writes');
+assert(sql.includes("'aal2'"),'require MFA');
+assert(sql.includes("NOT recovery_test_private.is_owner()"),'require owner');
+assert(sql.includes('Winter_Snapshots'),'preserve snapshots');
+assert(sql.includes('Winter_Audit_History'),'preserve audits');
+assert(!/\\bTRUNCATE\\b/i.test(sql),'no truncate');
+assert(!page.includes("client.rpc('recovery_test_import',{p_tables:archive.data.tables"),'RPC routed by archive');
+console.log('Winter Recovery v3 source safety checks pass.');
