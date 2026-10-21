@@ -10,6 +10,7 @@ on:
       - 'tests/winter-live-integration.test.mjs'
       - 'tests/winter-actual-dom.test.mjs'
       - 'tests/winter-browser-smoke.mjs'
+      - 'tests/winter-embedded-auth.test.mjs'
       - 'tests/winter-migration-fixture.sql'
       - 'tests/winter-migration-smoke.sql'
       - 'database/migrations/20261021_winter_readiness_production_schema.sql'
@@ -32,6 +33,7 @@ on:
       - 'tests/winter-live-integration.test.mjs'
       - 'tests/winter-actual-dom.test.mjs'
       - 'tests/winter-browser-smoke.mjs'
+      - 'tests/winter-embedded-auth.test.mjs'
       - 'tests/winter-migration-fixture.sql'
       - 'tests/winter-migration-smoke.sql'
       - 'database/migrations/20261021_winter_readiness_production_schema.sql'
@@ -133,6 +135,8 @@ jobs:
         run: node tests/winter-actual-dom.test.mjs
       - name: Test Winter navigation in headless Chrome without network
         run: node tests/winter-browser-smoke.mjs
+      - name: Test embedded Winter shared-session sign-out in Chrome
+        run: node tests/winter-embedded-auth.test.mjs
       - name: Test automatic recurring entries and backup compatibility
         run: node --test tests/recurring-ui.test.mjs tests/recurring-backup.test.mjs
       - name: Test recurring UI in headless Chrome browser
