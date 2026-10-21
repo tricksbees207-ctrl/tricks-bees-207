@@ -6,7 +6,7 @@
 ## Completed and verified
 
 - [x] Stage exactly ten hive tabs, with Winter selected from the current hive.
-- [x] Verify the ten-tab DOM and mobile-responsive rules in GitHub CI (not a real-device browser test).
+- [x] Verify the ten-tab DOM in GitHub CI, plus a **no-network headless Chrome** test at 1200px desktop and 420px mobile widths: 5/2 grid columns, scoped Winter iframe URLs, switching hives, Feedings tab return, and signed-out link clearing. Synthetic hive selection only; no real account or Supabase sign-in.
 - [x] Produce a guarded, transactional production Winter migration for seven tables, 70 columns, 49 constraints, nine functions, 12 triggers and 15 ownership/MFA RLS policies.
 - [x] Test SQL installation and season start/close/reopen against a disposable PostgreSQL fixture using the real definitions of all 19 production application tables (no production data copied).
 - [x] Exercise snapshot immutability, two closure versions, internal function grants, caller/owner boundaries, and AAL1/AAL2 restrictions in disposable CI.
@@ -29,7 +29,7 @@ These are **not cleared warnings** and must stay documented:
 - [ ] Obtain an independent review of `database/migrations/20261021_winter_readiness_production_schema.sql` including SECURITY DEFINER bodies, permissions, audit immutability, and trigger behavior.
 - [ ] Execute a **fresh real Supabase migration rehearsal** on an appropriately isolated project that supports it. The existing plan declined Supabase branching with `Branching is supported only on the Pro plan or above`; no branch was created. The online Recovery Test has the older working schema, but is not a fresh-install rehearsal for this migration.
 - [ ] Confirm Recovery Test's full 25-table ZIP restore workflow from a verified user-held archive in another empty isolated destination before changing the production backup exporter. Do not restore into production or overwrite populated test records.
-- [ ] Browser/device acceptance checks for 10-button layout, hive changes, MFA session refresh, iframe isolation, accessibility, winter closures and snapshots, and download/verification of a private archive.
+- [ ] **Manual real-device and signed-in Supabase acceptance** remains: real account MFA/session refresh, iframe authentication, hive ownership, mobile usability, closed-season history and verified ZIP downloads. Headless Chrome layout/navigation testing has passed but is not a substitute.
 - [ ] Obtain explicit owner approval before **executing production schema changes**. Take/verify a fresh separate production data-and-receipts backup, and document safe rollback of a schema deployment before applying it.
 - [ ] Only after above, separately obtain explicit owner approval before **merging** Draft PR #27 and publishing. Verify production data counts, alerts and receipt scheduler after deployment.
 
