@@ -32,6 +32,10 @@ try {
  await page.evaluate(()=>document.dispatchEvent(new Event('DOMContentLoaded')));
  await page.addScriptTag({content:'let selectedHiveId=null;'+controller+
    'window.__hiveTest={select(id){selectedHiveId=id;syncWinterFrame();},logout(){selectedHiveId=null;syncWinterFrame();}};'});
+ // Authentication is deliberately not executed. Reveal the protected dashboard with
+ // dummy browser state so computed grid layout reflects what a signed-in user sees.
+ await page.evaluate(()=>document.querySelector('#dashboard').classList.remove('hidden'));
+ await page.getByRole('tab',{name:'Hives',exact:true}).click();
  const nav=page.locator('nav[role="tablist"][aria-label="Hive sections"]');
  const btns=nav.locator('[role="tab"]');
  const expected=['Inspection','Hive Profile','Colony History','Feedings','Treatments','Harvests','Queens','Splits','Losses','Winter'];
