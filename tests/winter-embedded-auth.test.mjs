@@ -28,6 +28,21 @@ window.__winterTest={
   $('winterDetail').dataset.syntheticSecret='private-should-clear';
   setSections('signed');
  },
+ scopeTwoHives(){
+  season={id:1,status:'open',start_year:2026,started_at:'2026-10-21T12:00:00Z'};
+  current=null;
+  hives=[{id:42,hive_number:1,hive_name:'North Test Hive'},
+         {id:43,hive_number:2,hive_name:'South Test Hive'}];
+  colonies=[{id:101,hive_id:42,colony_name:'North Colony',colony_status:'active'},
+            {id:102,hive_id:43,colony_name:'South Colony',colony_status:'active'}];
+  participations=[{id:201,season_id:1,colony_id:101,participation:'included'},
+                  {id:202,season_id:1,colony_id:102,participation:'included'}];
+  snapshots=[];seasonOutcomes=[];
+  renderSeason();renderColonies();
+ },
+ selectWrongHive(){
+  return selectColony(participations.find(p=>p.colony_id===102));
+ },
  getState(){return {verified:!!verified,season:!!season,current:!!current,
   participants:participations.length,snapshots:snapshots.length,items:items.length,
   observations:observations.length,outcomes:seasonOutcomes.length,hasCurrentOutcome:!!currentOutcome
@@ -68,6 +83,17 @@ window.__syntheticWinterClient={
  assert.equal(await page.locator('#workspace').isVisible(),true,'Authenticated workspace visible in synthetic state');
  assert.equal(await page.locator('#winterDetail').isVisible(),true,'Synthetic winter detail visible');
  assert.equal(await page.locator('#sessionLabel').innerText(),'Synthetic private data');
+ await page.evaluate(()=>window.__winterTest.scopeTwoHives());
+ const visibleColonies=await page.locator('#colonyList').innerText();
+ assert.match(visibleColonies,/North Colony/,'The selected hive colony must show');
+ assert.doesNotMatch(visibleColonies,/South Colony/,'Never show another hive colony in the selected view');
+ assert.match(await page.locator('#seasonSummary').innerText(),/1 included · 0 excluded/,
+  'Winter participation summary must reflect only the selected hive');
+ assert.equal(await page.locator('#startSeason').isVisible(),false,'No all-hive season start from an individual hive');
+ assert.equal(await page.locator('#seasonClosureControls').count(),0,'No all-hive close/reopen controls inside one hive');
+ assert.equal(await page.getByRole('link',{name:'Open full Winter Readiness'}).getAttribute('href'),'winter-readiness.html');
+ await assert.rejects(page.evaluate(()=>window.__winterTest.selectWrongHive()),/does not belong to the selected hive/,
+  'Must reject direct opening of a colony from another hive');
  await page.evaluate(()=>window.__authCallback('SIGNED_OUT',null));
  assert.equal(await page.locator('#workspace').isVisible(),false,'Cross-tab sign-out hides the private workspace');
  assert.equal(await page.locator('#winterDetail').isVisible(),false,'Cross-tab sign-out hides old hive detail');
@@ -80,7 +106,7 @@ window.__syntheticWinterClient={
  assert.equal(await page.locator('#workspace').isVisible(),false,'Winter explicit sign-out also hides private workspace');
  assert.equal(await page.locator('#sessionLabel').innerText(),'');
  assert.deepEqual(errors,[],'No browser errors');
- console.log('PASS Chrome: embedded Winter hides duplicate navigation, gated private ZIP, external SIGNED_OUT clears cached state, and explicit sign-out hides records.');
+ console.log('PASS Chrome: embedded Winter scopes two synthetic hives, denies cross-hive selection, hides global season controls, and clears records on both forms of sign-out.');
 }finally{
  await context.close();await browser.close();
 }
