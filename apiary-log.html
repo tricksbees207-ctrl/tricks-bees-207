@@ -839,8 +839,8 @@
   <script type="module">
     import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
     import { setupSplitFollowups } from "./js/split-followups-dashboard.js";
-    import { downloadCompleteBackup } from "./js/apiary-complete-backup.js";
-    import { verifyApiaryBackupOnPage } from "./js/apiary-backup-verifier.js";
+    import { downloadCompleteBackup } from "./js/apiary-complete-backup-v3.js";
+    import { verifyApiaryBackupOnPage } from "./js/apiary-backup-verifier-v3.js";
     import { setupRecurringExpenses } from "./js/recurring-expenses.js";
     const supabase = createClient("https://mkypanucvttinkjggxzv.supabase.co", "sb_publishable_-mN1hBm5z7YCjBzg_LDU4g_5C3N8ejJ");
     const $ = id => document.getElementById(id);
