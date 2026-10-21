@@ -41,6 +41,13 @@ These are **not cleared warnings** and must stay documented:
 
 - [x] **Private in-memory roundtrip using the same October 21 ZIP PASSED**: a temporary, memory-only relational representation reconstructed all 182 source records and 18 original receipt files, verified exact JSON payload and receipt SHA-256 agreement, enforced cross-table relationships, and rejected a duplicate import without changing records. This additional SQLite simulation is **not** the real PostgreSQL/Supabase restore function and does not replace the final empty-destination hosted/manual restore gate.
 
+### Private restore rehearsal environment: October 21 decision
+- The active Supabase organization currently has **two active projects**: production Apiary Log and the populated Recovery Test. The Free plan allows **two active projects** across owner/admin organizations, per Supabase's current official documentation. A zero-dollar project price quote does not override the active-project limit.
+- Do **not** pause, delete, reset, reuse or overwrite either existing project to make space. Do not upload the private user ZIP into GitHub or a public CI artifact, including as a Actions secret.
+- Checked the temporary assistant compute environment: no PostgreSQL server/client, no Docker/Podman, and no external package DNS access, so it cannot conduct a true local PostgreSQL restore.
+- Preferred no-additional-cost route: **user's Mac** with a local disposable Supabase database (Supabase CLI + Docker), subject to a read-only prerequisite check first. Never link the local CLI to the hosted production or Recovery Test projects. Install production-shaped source tables and Winter migration plus the **test-only** recovery importer in the local database only, then test the actual October 21 private ZIP. Verify 182 database rows / 25 tables, 18 receipt SHA-256s, original immutable snapshots and audit history. This is pending, not complete.
+- Avoid GitHub-hosted replay with the actual private archive. The existing disposable GitHub workflow tests a wholly fictional 25-table archive and is already green.
+
 ## Release blockers
 
 - [ ] Obtain an independent review of `database/migrations/20261021_winter_readiness_production_schema.sql` including SECURITY DEFINER bodies, permissions, audit immutability, and trigger behavior.
