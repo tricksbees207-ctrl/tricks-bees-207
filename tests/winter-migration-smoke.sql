@@ -110,4 +110,81 @@ BEGIN
 END
 $immutable$;
 
+-- Verify that the proposed production migration removes the exact grants flagged
+-- by the online Recovery Test Supabase security advisor. No online DB is changed.
+RESET ROLE;
+DO $grants$
+DECLARE
+ f record;
+ is_client_rpc boolean;
+ anon_can_call boolean;
+ signed_can_call boolean;
+BEGIN
+ FOR f IN
+  SELECT p.oid, p.proname
+  FROM pg_proc p
+  JOIN pg_namespace n ON n.oid=p.pronamespace
+  WHERE n.nspname='public' AND p.proname LIKE 'winter_%'
+ LOOP
+  anon_can_call := has_function_privilege('anon',f.oid,'EXECUTE');
+  signed_can_call := has_function_privilege('authenticated',f.oid,'EXECUTE');
+  is_client_rpc := f.proname=ANY(ARRAY[
+   'winter_start_season','winter_add_colony','winter_close_season','winter_reopen_season'
+  ]);
+  IF anon_can_call THEN
+   RAISE EXCEPTION 'Anonymous EXECUTE unexpectedly allowed: %', f.proname;
+  END IF;
+  IF signed_can_call IS DISTINCT FROM is_client_rpc THEN
+   RAISE EXCEPTION 'Incorrect signed-in EXECUTE permission: % (actual %, expected %)',
+    f.proname,signed_can_call,is_client_rpc;
+  END IF;
+ END LOOP;
+ IF has_table_privilege('authenticated','public."Winter_Audit_History"','INSERT')
+    OR has_table_privilege('authenticated','public."Winter_Audit_History"','UPDATE')
+    OR has_table_privilege('authenticated','public."Winter_Audit_History"','DELETE')
+    OR has_table_privilege('authenticated','public."Winter_Snapshots"','INSERT')
+    OR has_table_privilege('authenticated','public."Winter_Snapshots"','UPDATE')
+    OR has_table_privilege('authenticated','public."Winter_Snapshots"','DELETE')
+ THEN RAISE EXCEPTION 'Winter audit/snapshot DML privileges must be revoked'; END IF;
+ RAISE NOTICE 'RPC GRANTS: anonymous blocked for every Winter routine; authenticated limited to four guarded season RPCs';
+ RAISE NOTICE 'IMMUTABLE HISTORY GRANTS: signed-in table writes blocked';
+END
+$grants$;
+
+-- AAL1 cannot invoke a privileged season-creation RPC.
+SELECT set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
+SELECT set_config('request.jwt.claims',
+ '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated","aal":"aal1"}',false);
+SET ROLE authenticated;
+DO $mfa_rpc$
+DECLARE denied boolean:=false;
+BEGIN
+ BEGIN
+  PERFORM public.winter_start_season(2040);
+ EXCEPTION WHEN raise_exception THEN denied:=true;
+ END;
+ IF NOT denied THEN RAISE EXCEPTION 'AAL1 started a Winter season'; END IF;
+ RAISE NOTICE 'WINTER MFA RPC: AAL1 blocked';
+END
+$mfa_rpc$;
+
+-- Another signed-in owner cannot manipulate an existing season.
+RESET ROLE;
+SELECT set_config('request.jwt.claim.sub','22222222-2222-4222-8222-222222222222',false);
+SELECT set_config('request.jwt.claims',
+ '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated","aal":"aal2"}',false);
+SET ROLE authenticated;
+DO $cross_write$
+DECLARE denied boolean:=false;
+BEGIN
+ BEGIN
+  PERFORM public.winter_reopen_season(1,'Unauthorized attempt');
+ EXCEPTION WHEN raise_exception THEN denied:=true;
+ END;
+ IF NOT denied THEN RAISE EXCEPTION 'Other owner reopened a Winter season'; END IF;
+ RAISE NOTICE 'WINTER CROSS-OWNER RPC: blocked';
+END
+$cross_write$;
+RESET ROLE;
+
 SELECT 'ISOLATED WINTER MIGRATION SMOKE: PASSED' AS result;
