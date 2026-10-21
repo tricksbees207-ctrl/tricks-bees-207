@@ -187,9 +187,24 @@ $('mfaForm').addEventListener('submit',async e=>{
 // Clear any displayed private Winter state if the owner signs out in either view.
 function clearWinterSession(){
  verified=null;season=null;current=null;
- participations=[];snapshots=[];items=[];observations=[];seasonOutcomes=[];currentOutcome=null;
+ colonies=[];hives=[];participations=[];snapshots=[];items=[];observations=[];seasonOutcomes=[];currentOutcome=null;
+ // Hiding a page is not enough on a shared device: erase previously rendered private content.
+ for(const id of ['seasonSummary','seasonAdmin','colonyList','closedView','existingRecords',
+   'assessment','checklist','observationHistory','auditHistory','springInspections',
+   'appStatus','winterBackupMessage','observationActionStatus','outcomeSaveStatus']){
+  $(id).replaceChildren();
+ }
+ for(const input of document.querySelectorAll('#workspace input, #workspace textarea')){
+  if(input.type==='checkbox'||input.type==='radio')input.checked=false;
+  else input.value='';
+ }
+ $('colonyHeading').textContent='Winter preparation';
+ $('colonySection').hidden=true;
  $('winterDetail').hidden=true;
+ $('closedView').hidden=true;
  $('sessionLabel').textContent='';
+ $('password').value='';
+ $('mfaCode').value='';
  setSections('login');
  $('authStatus').textContent='Signed out.';
 }
