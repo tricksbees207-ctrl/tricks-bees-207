@@ -14,6 +14,7 @@ DECLARE
  historical_sid bigint;
  historical_part bigint;
  archived jsonb;
+ validation_error text;
 BEGIN
  sid := public.winter_start_season(2026);
  IF sid IS NULL THEN RAISE EXCEPTION 'No Winter season created'; END IF;
@@ -21,6 +22,45 @@ BEGIN
  IF part_id IS NULL THEN RAISE EXCEPTION 'Active colony not included'; END IF;
  SELECT count(*) INTO total FROM public."Winter_Checklist_Items" WHERE participation_id=part_id;
  IF total <> 10 THEN RAISE EXCEPTION 'Expected 10 checklist items, got %',total; END IF;
+
+ -- The client-side requirement for an exclusion reason must also hold for
+ -- direct REST UPDATE and for an RPC call with a NULL boolean.
+ blocked := false;
+ BEGIN
+   UPDATE public."Winter_Participation"
+      SET participation='excluded', exclusion_reason='   '
+    WHERE id=part_id;
+ EXCEPTION WHEN check_violation THEN
+   blocked := true;
+ END;
+ IF NOT blocked THEN
+   RAISE EXCEPTION 'Direct REST-style exclusion without a reason was allowed';
+ END IF;
+ IF EXISTS (
+   SELECT 1 FROM public."Winter_Participation"
+   WHERE id=part_id AND participation<>'included'
+ ) THEN RAISE EXCEPTION 'Rejected exclusion altered participation'; END IF;
+ RAISE NOTICE 'DIRECT EXCLUSION WITHOUT REASON: BLOCKED';
+
+ blocked := false;
+ BEGIN
+   PERFORM public.winter_add_colony(
+     sid, (SELECT colony_id FROM public."Winter_Participation" WHERE id=part_id),
+     NULL, NULL
+   );
+ EXCEPTION WHEN raise_exception THEN
+   GET STACKED DIAGNOSTICS validation_error = MESSAGE_TEXT;
+   IF validation_error = 'Include/exclude choice is required' THEN
+     blocked := true;
+   ELSE
+     RAISE EXCEPTION 'Unexpected NULL include error: %', validation_error;
+   END IF;
+ END;
+ IF NOT blocked THEN
+   RAISE EXCEPTION 'NULL include/exclude choice was allowed';
+ END IF;
+ RAISE NOTICE 'NULL INCLUDE/EXCLUDE RPC: BLOCKED';
+
 
  snapshot_version := public.winter_close_season(sid,jsonb_build_object(part_id::text,'Test unresolved outcome'),null);
  IF snapshot_version <> 1 THEN RAISE EXCEPTION 'Expected snapshot 1, got %',snapshot_version; END IF;
