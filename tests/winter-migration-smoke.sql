@@ -147,6 +147,15 @@ BEGIN
     OR has_table_privilege('authenticated','public."Winter_Snapshots"','DELETE')
  THEN RAISE EXCEPTION 'Winter audit/snapshot DML privileges must be revoked'; END IF;
  RAISE NOTICE 'RPC GRANTS: anonymous blocked for every Winter routine; authenticated limited to four guarded season RPCs';
+ IF has_table_privilege('authenticated','public."Winter_Seasons"','UPDATE')
+    OR has_table_privilege('authenticated','public."Winter_Seasons"','DELETE')
+ THEN RAISE EXCEPTION 'Winter seasons must only be updated by guarded season RPCs'; END IF;
+ IF has_table_privilege('authenticated','public."Winter_Participation"','DELETE')
+    OR has_table_privilege('authenticated','public."Winter_Checklist_Items"','DELETE')
+    OR has_table_privilege('authenticated','public."Winter_Observations"','DELETE')
+    OR has_table_privilege('authenticated','public."Winter_Outcomes"','DELETE')
+ THEN RAISE EXCEPTION 'Winter history must not have direct DELETE grants'; END IF;
+ RAISE NOTICE 'LEAST PRIVILEGE: direct deletes blocked; season update reserved for guarded RPCs';
  RAISE NOTICE 'IMMUTABLE HISTORY GRANTS: signed-in table writes blocked';
 END
 $grants$;
