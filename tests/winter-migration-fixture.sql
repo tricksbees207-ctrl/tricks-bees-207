@@ -478,3 +478,19 @@ INSERT INTO public."Hives" (id,hive_number,hive_name) VALUES (1, 1, 'Isolated CI
 
 INSERT INTO public."Hive_Colonies" (id,hive_id,user_id,colony_name,colony_status) VALUES (1,1,'11111111-1111-4111-8111-111111111111','Isolated CI Colony','active');
 
+-- Deliberately inconsistent legacy records: same colony ID but a DIFFERENT hive.
+-- The winter snapshot must never copy these wrong-hive observations or management rows.
+INSERT INTO public."Hives" (id,hive_number,hive_name)
+VALUES (2,2,'Different Synthetic Hive');
+INSERT INTO public."Hive_Inspections" (hive_id,colony_id,inspection_date,inspection_notes)
+VALUES
+ (1,1,'2026-03-10','MATCHED-HIVE-INSPECTION'),
+ (2,1,'2026-03-11','WRONG-HIVE-INSPECTION');
+INSERT INTO public."Hive_Feedings" (hive_id,colony_id,user_id,feed_date,feed_type,quantity,unit,notes)
+VALUES
+ (1,1,'11111111-1111-4111-8111-111111111111','2026-03-10','Sugar',1,'lb','MATCHED-HIVE-FEEDING'),
+ (2,1,'11111111-1111-4111-8111-111111111111','2026-03-11','Sugar',1,'lb','WRONG-HIVE-FEEDING');
+INSERT INTO public."Hive_Treatments" (hive_id,colony_id,user_id,treatment_date,product,notes)
+VALUES
+ (1,1,'11111111-1111-4111-8111-111111111111','2026-03-10','MATCHED-HIVE-TREATMENT','fixture'),
+ (2,1,'11111111-1111-4111-8111-111111111111','2026-03-11','WRONG-HIVE-TREATMENT','fixture');
