@@ -35,6 +35,8 @@ These are **not cleared warnings** and must stay documented:
 - `public.winter_close_season`, `public.winter_reopen_season`: guarded `SECURITY DEFINER` endpoints needed by the Winter UI to transition seasons and preserve snapshots. They demand owner/MFA checks. A standard Supabase advisor flags the privileged execution despite these internal gates; review their bodies and explicitly accept any residual risk.
 - **Leaked password protection disabled**: Supabase Authentication account setting warning. Not caused by the Winter migration and not remediated in this change. Review in dashboard before public rollout. [Supabase password documentation](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection).
 
+- [x] Independently audited a previously user-uploaded **private** v3 25-table records/receipts ZIP **locally and read-only**: CRCs, manifest counts, all receipt SHA-256 digests, receipt metadata/path ownership, duplicate entry paths, per-table record identity, and 99 archive relationships passed. The original ZIP and records were **not committed, uploaded to CI, or restored**. The separate online Recovery Test has additional Winter observations/audit/snapshot history beyond the archived copy, so a fresh export is still needed for the final private backup restore gate.
+
 ## Release blockers
 
 - [ ] Obtain an independent review of `database/migrations/20261021_winter_readiness_production_schema.sql` including SECURITY DEFINER bodies, permissions, audit immutability, and trigger behavior.
