@@ -81,6 +81,7 @@ window.__syntheticWinterClient={
  assert.equal(await page.locator('#downloadWinterBackup').isVisible(),false,'Private ZIP is hidden while logged out');
  await page.evaluate(()=>window.__winterTest.fakeLogin());
  assert.equal(await page.locator('#workspace').isVisible(),true,'Authenticated workspace visible in synthetic state');
+ assert.equal(await page.locator('#winterBackupSection').isVisible(),false,'Whole-apiary backup is not shown in a selected hive tab');
  assert.equal(await page.locator('#winterDetail').isVisible(),true,'Synthetic winter detail visible');
  assert.equal(await page.locator('#sessionLabel').innerText(),'Synthetic private data');
  await page.evaluate(()=>window.__winterTest.scopeTwoHives());
