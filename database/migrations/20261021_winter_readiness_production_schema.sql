@@ -335,10 +335,10 @@ begin
                     where o.participation_id=p.id and o.user_id=v_owner),
      'spring_inspections',(select coalesce(jsonb_agg(to_jsonb(i) order by i.inspection_date,i.id),'[]'::jsonb)
                            from public."Hive_Inspections" i
-                           where i.colony_id=p.colony_id
+                           where i.colony_id=p.colony_id and i.hive_id=c.hive_id
                              and i.inspection_date between make_date(v_start_year+1,1,1) and v_closed::date),
      'last_inspection',(select to_jsonb(i) from public."Hive_Inspections" i
-                        where i.colony_id=p.colony_id and i.inspection_date<=v_closed::date
+                        where i.colony_id=p.colony_id and i.hive_id=c.hive_id and i.inspection_date<=v_closed::date
                         order by i.inspection_date desc,i.id desc limit 1),
      'last_feeding',(select to_jsonb(f) from public."Hive_Feedings" f
                      where f.colony_id=p.colony_id and f.user_id=v_owner and f.feed_date<=v_closed::date
