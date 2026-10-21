@@ -63,12 +63,39 @@ try {
  assert.equal(await frame.getAttribute('src'),'winter-readiness.html?embedded=1&hive=43');
  await page.evaluate(()=>window.__hiveTest.logout());
  assert.equal(await frame.getAttribute('src'),null,'Logout must unload selected hive URL');
- await page.setViewportSize({width:420,height:850});
- const mobileColumns=await nav.evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').filter(Boolean).length);
- assert.equal(mobileColumns,2,'Mobile must have two tab columns');
- assert.equal(await btns.count(),10,'Mobile keeps all ten hive tabs');
+ // Four narrow-screen sizes catch regressions at the CSS 380px/540px breakpoints.
+ // Inspect the HIVE tab grid, not unrelated existing Apiary Log layouts.
+ for(const width of [320,360,390,420]){
+  await page.setViewportSize({width,height:850});
+  const metrics=await nav.evaluate(el=>{
+   const navBox=el.getBoundingClientRect();
+   const buttons=[...el.querySelectorAll('button')];
+   const boxes=buttons.map(b=>b.getBoundingClientRect());
+   const rows=[...new Set(boxes.map(b=>Math.round(b.top)))];
+   const columns=getComputedStyle(el).gridTemplateColumns.split(' ').filter(Boolean).length;
+   return {columns,rows:rows.length,
+    withinViewport:navBox.left>=-1&&navBox.right<=innerWidth+1,
+    buttonsFit:boxes.every(b=>b.width>=90&&b.height>=44&&b.left>=navBox.left-1&&b.right<=navBox.right+1),
+    selected:buttons.filter(b=>b.getAttribute('aria-selected')==='true').length,
+    named:buttons.every(b=>b.textContent.trim()&&b.getAttribute('aria-controls')),
+    frameTitle:document.querySelector('#winterFrame')?.getAttribute('title')};
+  });
+  assert.equal(metrics.columns,2,`Phone ${width}px must retain two columns`);
+  assert.equal(metrics.rows,5,`Phone ${width}px must have five uniform tab rows`);
+  assert(metrics.withinViewport,`Hive navigation must fit ${width}px viewport`);
+  assert(metrics.buttonsFit,`Hive tabs must stay visible and >=44px tall at ${width}px`);
+  assert.equal(metrics.selected,1,'One active tab per hive navigation');
+  assert(metrics.named,'Hive tabs must keep accessible names and controlled panels');
+  assert(metrics.frameTitle?.trim(),'Winter iframe must have an accessible title');
+  assert.equal(await btns.count(),10,'Phone keeps all ten hive tabs');
+ }
+ // Check that keyboard operation remains possible at narrow phone width.
+ await btns.nth(0).focus();
+ await page.keyboard.press('ArrowLeft');
+ assert.equal(await btns.nth(9).getAttribute('aria-selected'),'true',
+  'Keyboard wraparound should reach Winter tab');
  assert.deepEqual(errors,[],'Unexpected browser script errors');
- console.log('PASS Chrome: 10 tabs, 5 desktop columns, 2 mobile columns, scoped Winter URL, hive switch, Feedings navigation, sign-out clearing.');
+ console.log('PASS Chrome: responsive 320/360/390/420px hive grid, accessible tabs, keyboard navigation, scoped Winter URL and sign-out clearing.');
 }finally{
  await context.close();
  await browser.close();
