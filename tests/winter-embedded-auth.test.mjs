@@ -99,6 +99,10 @@ window.__syntheticWinterClient={
  assert.equal(await page.locator('#workspace').isVisible(),false,'Cross-tab sign-out hides the private workspace');
  assert.equal(await page.locator('#winterDetail').isVisible(),false,'Cross-tab sign-out hides old hive detail');
  assert.equal(await page.locator('#sessionLabel').innerText(),'','Clear prior account info');
+ assert.equal(await page.locator('#colonyList').textContent(),'',
+  'Sign-out must erase cached rendered colony details rather than simply hide them');
+ assert.equal(await page.locator('#seasonSummary').textContent(),'',
+  'Sign-out must erase rendered season information');
  assert.deepEqual(await page.evaluate(()=>window.__winterTest.getState()),
   {verified:false,season:false,current:false,participants:0,snapshots:0,items:0,
    observations:0,outcomes:0,hasCurrentOutcome:false});
