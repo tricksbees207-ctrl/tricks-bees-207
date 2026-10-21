@@ -179,6 +179,12 @@ BEGIN
     OR has_table_privilege('authenticated','public."Winter_Observations"','DELETE')
     OR has_table_privilege('authenticated','public."Winter_Outcomes"','DELETE')
  THEN RAISE EXCEPTION 'Winter history must not have direct DELETE grants'; END IF;
+ IF has_sequence_privilege('authenticated','public."Winter_Audit_History_id_seq"','USAGE')
+     OR has_sequence_privilege('authenticated','public."Winter_Audit_History_id_seq"','SELECT')
+     OR has_sequence_privilege('authenticated','public."Winter_Snapshots_id_seq"','USAGE')
+     OR has_sequence_privilege('authenticated','public."Winter_Snapshots_id_seq"','SELECT')
+ THEN RAISE EXCEPTION 'Authenticated role must not use protected history identity sequences'; END IF;
+ RAISE NOTICE 'HISTORY SEQUENCE GRANTS: authenticated blocked';
  RAISE NOTICE 'LEAST PRIVILEGE: direct deletes blocked; season update reserved for guarded RPCs';
  RAISE NOTICE 'IMMUTABLE HISTORY GRANTS: signed-in table writes blocked';
 END
