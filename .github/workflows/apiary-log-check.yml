@@ -129,6 +129,21 @@ jobs:
           node --input-type=module --check < js/apiary-complete-backup-v3.js
           node --input-type=module --check < js/apiary-backup-verifier-v3.js
           node tests/winter-live-integration.test.mjs
+      - name: Check Winter page module syntax
+        run: |
+          node <<'NODE'
+          const fs=require('node:fs');
+          const cp=require('node:child_process');
+          const os=require('node:os');
+          const path=require('node:path');
+          const html=fs.readFileSync('winter-readiness.html','utf8');
+          const match=html.match(/<script type="module">([\\s\\S]*?)<\\/script>/);
+          if(!match)throw Error('Winter app module script missing');
+          const file=path.join(os.tmpdir(),'tricks-bees-winter-module.mjs');
+          fs.writeFileSync(file,match[1]);
+          cp.execFileSync(process.execPath,['--check',file],{stdio:'inherit'});
+          console.log('Winter page module syntax passed.');
+          NODE
       - name: Install DOM test dependency
         run: npm install --no-save --no-package-lock --ignore-scripts jsdom@26 playwright@1.56.1
       - name: Render Winter hive navigation in disposable DOM
