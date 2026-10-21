@@ -4,6 +4,10 @@ on:
   pull_request:
     paths:
       - 'apiary-log.html'
+      - 'winter-readiness.html'
+      - 'js/apiary-complete-backup-v3.js'
+      - 'js/apiary-backup-verifier-v3.js'
+      - 'tests/winter-live-integration.test.mjs'
       - 'recovery-test.html'
       - 'js/recurring-expenses.js'
       - 'database/migrations/20261018_automatic_recurring_core.sql'
@@ -17,6 +21,10 @@ on:
   push:
     paths:
       - 'apiary-log.html'
+      - 'winter-readiness.html'
+      - 'js/apiary-complete-backup-v3.js'
+      - 'js/apiary-backup-verifier-v3.js'
+      - 'tests/winter-live-integration.test.mjs'
       - 'recovery-test.html'
       - 'js/recurring-expenses.js'
       - 'database/migrations/20261018_automatic_recurring_core.sql'
@@ -104,6 +112,11 @@ jobs:
           assert.match(verifier, /manifest\.version===1\|\|manifest\.version===2/);
           console.log('Recurring and recovery static safety checks passed.');
           NODE
+      - name: Check staged Winter Readiness integration
+        run: |
+          node --input-type=module --check < js/apiary-complete-backup-v3.js
+          node --input-type=module --check < js/apiary-backup-verifier-v3.js
+          node tests/winter-live-integration.test.mjs
       - name: Install DOM test dependency
         run: npm install --no-save --no-package-lock --ignore-scripts jsdom@26 playwright@1.56.1
       - name: Test automatic recurring entries and backup compatibility
