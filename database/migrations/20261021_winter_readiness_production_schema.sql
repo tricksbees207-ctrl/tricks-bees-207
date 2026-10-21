@@ -645,7 +645,7 @@ GRANT SELECT ON TABLE public."Winter_Audit_History" TO authenticated;
 
 GRANT ALL ON TABLE public."Winter_Audit_History" TO service_role;
 
-GRANT USAGE, SELECT ON SEQUENCE public."Winter_Audit_History_id_seq" TO authenticated, service_role;
+GRANT USAGE, SELECT ON SEQUENCE public."Winter_Audit_History_id_seq" TO service_role;
 
 REVOKE ALL ON TABLE public."Winter_Snapshots" FROM PUBLIC, anon;
 
@@ -653,7 +653,7 @@ GRANT SELECT ON TABLE public."Winter_Snapshots" TO authenticated;
 
 GRANT ALL ON TABLE public."Winter_Snapshots" TO service_role;
 
-GRANT USAGE, SELECT ON SEQUENCE public."Winter_Snapshots_id_seq" TO authenticated, service_role;
+GRANT USAGE, SELECT ON SEQUENCE public."Winter_Snapshots_id_seq" TO service_role;
 
 REVOKE ALL ON FUNCTION public."winter_add_colony"(p_season_id bigint, p_colony_id bigint, p_include boolean, p_reason text) FROM PUBLIC, anon, authenticated;
 
