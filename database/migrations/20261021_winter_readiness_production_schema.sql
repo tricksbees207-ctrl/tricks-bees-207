@@ -601,7 +601,7 @@ CREATE POLICY "winter_snapshots_read" ON public."Winter_Snapshots" AS PERMISSIVE
 
 REVOKE ALL ON TABLE public."Winter_Seasons" FROM PUBLIC, anon;
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public."Winter_Seasons" TO authenticated;
+GRANT SELECT, INSERT ON TABLE public."Winter_Seasons" TO authenticated;
 
 GRANT ALL ON TABLE public."Winter_Seasons" TO service_role;
 
@@ -609,7 +609,7 @@ GRANT USAGE, SELECT ON SEQUENCE public."Winter_Seasons_id_seq" TO authenticated,
 
 REVOKE ALL ON TABLE public."Winter_Participation" FROM PUBLIC, anon;
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public."Winter_Participation" TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON TABLE public."Winter_Participation" TO authenticated;
 
 GRANT ALL ON TABLE public."Winter_Participation" TO service_role;
 
@@ -617,7 +617,7 @@ GRANT USAGE, SELECT ON SEQUENCE public."Winter_Participation_id_seq" TO authenti
 
 REVOKE ALL ON TABLE public."Winter_Checklist_Items" FROM PUBLIC, anon;
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public."Winter_Checklist_Items" TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON TABLE public."Winter_Checklist_Items" TO authenticated;
 
 GRANT ALL ON TABLE public."Winter_Checklist_Items" TO service_role;
 
@@ -625,7 +625,7 @@ GRANT USAGE, SELECT ON SEQUENCE public."Winter_Checklist_Items_id_seq" TO authen
 
 REVOKE ALL ON TABLE public."Winter_Observations" FROM PUBLIC, anon;
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public."Winter_Observations" TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON TABLE public."Winter_Observations" TO authenticated;
 
 GRANT ALL ON TABLE public."Winter_Observations" TO service_role;
 
@@ -633,7 +633,7 @@ GRANT USAGE, SELECT ON SEQUENCE public."Winter_Observations_id_seq" TO authentic
 
 REVOKE ALL ON TABLE public."Winter_Outcomes" FROM PUBLIC, anon;
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public."Winter_Outcomes" TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON TABLE public."Winter_Outcomes" TO authenticated;
 
 GRANT ALL ON TABLE public."Winter_Outcomes" TO service_role;
 
