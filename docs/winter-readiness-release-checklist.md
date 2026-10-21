@@ -16,6 +16,8 @@
 - [x] Independently test, in READ-ONLY/ROLLBACK transactions, that all three test-only importers reject an unrelated AAL2 account and reject the legitimate owner at AAL1.
 - [x] Run backup ZIP integrity and staged application checks with GitHub Actions.
 - [x] Test the embedded Winter page's shared-session sign-out behavior in a no-network Chrome fixture: duplicate navigation hidden, private ZIP gated before login, external SIGNED_OUT event clears cached winter records, and the embedded Sign Out control clears them too.
+- [x] Verify **two synthetic hives** in Chrome: individual Winter tab lists only selected hive's colony, refuses cross-hive colony selection, shows hive-specific included/excluded counts, and hides all-apiary Start/Close/Reopen controls. Whole-apiary ZIP backup is also hidden within the single-hive view, with access retained on the standalone administration page.
+- [x] Include the Winter HTML JavaScript module in the CI syntax checks to catch errors before browser testing.
 
 ## Intentional remaining Recovery Test advisories
 
