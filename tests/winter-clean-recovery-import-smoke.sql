@@ -30,27 +30,27 @@ BEGIN
  SELECT jsonb_object_agg(n,'[]'::jsonb) INTO archive FROM unnest(names) n;
  archive:=archive || jsonb_build_object(
   'Hives',jsonb_build_array(jsonb_build_object(
-    'id',7,'hive_number',7,'hive_name','Synthetic Recovery Hive')),
+    'id',7,'created_at','2026-10-01T00:00:00Z','hive_number',7,'hive_name','Synthetic Recovery Hive','hive_status','active')),
   'Hive_Colonies',jsonb_build_array(jsonb_build_object(
-    'id',11,'hive_id',7,'colony_name','Restored Synthetic Colony','colony_status','active')),
+    'id',11,'hive_id',7,'user_id','22222222-2222-4222-8222-222222222222','colony_name','Restored Synthetic Colony','colony_status','active','created_at','2026-10-01T00:00:00Z')),
   'Winter_Seasons',jsonb_build_array(jsonb_build_object(
-    'id',31,'start_year',2026,'status','closed',
+    'id',31,'user_id','22222222-2222-4222-8222-222222222222','start_year',2026,'status','closed',
     'started_at','2026-10-01T00:00:00Z',
     'closed_at','2027-04-01T00:00:00Z',
     'updated_at','2027-04-01T00:00:00Z')),
   'Winter_Participation',jsonb_build_array(jsonb_build_object(
-    'id',41,'season_id',31,'colony_id',11,'participation','included')),
+    'id',41,'user_id','22222222-2222-4222-8222-222222222222','season_id',31,'colony_id',11,'participation','included','prep_assessment','unassessed','added_at','2026-10-01T00:00:00Z')),
   'Winter_Checklist_Items',jsonb_build_array(jsonb_build_object(
-    'id',46,'participation_id',41,'item_key','health_queen',
-    'section','health','label','Queen status reviewed','status','complete')),
+    'id',46,'user_id','22222222-2222-4222-8222-222222222222','participation_id',41,'item_key','health_queen',
+    'section','health','label','Queen status reviewed','is_custom',false,'status','complete','created_at','2026-10-01T00:00:00Z')),
   'Winter_Snapshots',jsonb_build_array(jsonb_build_object(
-    'id',50,'season_id',31,'version',1,
+    'id',50,'user_id','22222222-2222-4222-8222-222222222222','season_id',31,'version',1,
     'snapshot',jsonb_build_object('schema_version',1,
       'participants',jsonb_build_array(jsonb_build_object('colony_id',11)),
       'sentinel','immutable-original'),
     'created_at','2027-04-01T00:00:00Z')),
   'Winter_Audit_History',jsonb_build_array(jsonb_build_object(
-    'id',51,'entity_type','Winter_Seasons','entity_id',31,
+    'id',51,'user_id','22222222-2222-4222-8222-222222222222','entity_type','Winter_Seasons','entity_id',31,
     'event_type','INSERT','after_record',jsonb_build_object('status','open'),
     'recorded_at','2026-10-01T00:00:00Z'))
  );
