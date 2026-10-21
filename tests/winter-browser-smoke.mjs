@@ -36,6 +36,8 @@ try {
  // dummy browser state so computed grid layout reflects what a signed-in user sees.
  await page.evaluate(()=>document.querySelector('#dashboard').classList.remove('hidden'));
  await page.getByRole('tab',{name:'Hives',exact:true}).click();
+ // Real hive selection reveals this panel. Simulate it without signing in or contacting Supabase.
+ await page.evaluate(()=>{document.querySelector('#inspectionPanel').style.display='block';});
  const nav=page.locator('nav[role="tablist"][aria-label="Hive sections"]');
  const btns=nav.locator('[role="tab"]');
  const expected=['Inspection','Hive Profile','Colony History','Feedings','Treatments','Harvests','Queens','Splits','Losses','Winter'];
