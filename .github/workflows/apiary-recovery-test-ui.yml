@@ -4,6 +4,9 @@ on:
     paths:
       - 'recovery-test.html'
       - 'js/apiary-backup-verifier.js'
+      - 'js/apiary-backup-verifier-v3-test.js'
+      - 'database/migrations/20261021_winter_v3_recovery_test_import.sql'
+      - 'tests/winter-recovery-import-v3.test.mjs'
       - 'tests/apiary-recovery-test-ui.test.mjs'
       - '.github/workflows/apiary-recovery-test-ui.yml'
   push:
@@ -12,6 +15,9 @@ on:
     paths:
       - 'recovery-test.html'
       - 'js/apiary-backup-verifier.js'
+      - 'js/apiary-backup-verifier-v3-test.js'
+      - 'database/migrations/20261021_winter_v3_recovery_test_import.sql'
+      - 'tests/winter-recovery-import-v3.test.mjs'
       - 'tests/apiary-recovery-test-ui.test.mjs'
       - '.github/workflows/apiary-recovery-test-ui.yml'
 jobs:
@@ -26,3 +32,5 @@ jobs:
         run: |
           node --check js/apiary-backup-verifier.js
           node tests/apiary-recovery-test-ui.test.mjs
+          node --check js/apiary-backup-verifier-v3-test.js
+          node tests/winter-recovery-import-v3.test.mjs
