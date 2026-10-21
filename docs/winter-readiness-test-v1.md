@@ -1,3 +1,18 @@
+## October 20 milestone: isolated real-ZIP restore and live receipt test
+
+**RECORDED PASS, recovery-testing task #1 (isolated rehearsal).** The project report `Tricks_Bees_207_Recovery_Test_Result_2026-10-20.md` documents that the actual October 19 archive (SHA-256 `a74ffcd9f934975d796a92629aba7dcf7ca3ab6df19371b0097c83cf51873680`) was loaded into temporary, isolated Recovery Test tables and its records compared:
+- 25 tables, all 175 archive rows matched.
+- 51 reconstructed foreign-key relationship checks passed.
+- Both historical winter snapshots and all 61 winter audit entries matched.
+- The separate authenticated receipt-recovery page uploaded, downloaded and compared 18 receipt copies by SHA-256, then removed the temporary objects.
+- The test report states that existing records and sequences were preserved. No production project was changed.
+
+**Scope limit:** The isolated temporary-table restore did *not* call the normal `recovery_test_import_v3` application importer or exercise all of its triggers. The full importer previously passed a rollback-only 25-table SQL rehearsal, but combining a real downloaded ZIP with that exact importer in a browser remains a **separate production-release acceptance test**. Do not wipe the existing Recovery Test database to force that test. The receipt report references a successful screenshot; its detailed exported receipt-run JSON was not supplied at report time.
+
+On October 21 a separate read-only query confirmed the Recovery Test project still held winter records (1 season, 4 participants, 40 checklists, 3 observations, 1 outcome, 66 audit events and 3 snapshots) and 18 receipt metadata rows. These are *newer* than the October 19 ZIP's two snapshots and 61 audit events, as expected after subsequent test activity.
+
+**Decision:** Do not repeat the completed isolated ZIP recovery and receipt test. Move on to production integration planning (#2) while retaining normal-importer acceptance and security/release review as explicit gates before any production merge.
+
 ## October 19 browser test: downloaded 25-table ZIP
 
 **PASSED in Chrome using a real TEST ZIP download and the published, local-only verifier.** The beekeeper selected their actual downloaded ZIP in `winter-backup-verify-test.html`, and its on-screen result reported **ZIP INTEGRITY PASSED: 25 tables, 175 database records, 18 receipt files, 2 historical winter snapshots**. The verifier checks local ZIP directory CRCs, receipt SHA-256 hashes, backup-record relationships, audit records and snapshots without uploading the archive or changing Supabase data.
