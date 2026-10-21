@@ -37,6 +37,8 @@ These are **not cleared warnings** and must stay documented:
 
 - [x] Independently audited a previously user-uploaded **private** v3 25-table records/receipts ZIP **locally and read-only**: CRCs, manifest counts, all receipt SHA-256 digests, receipt metadata/path ownership, duplicate entry paths, per-table record identity, and 99 archive relationships passed. The original ZIP and records were **not committed, uploaded to CI, or restored**. The separate online Recovery Test has additional Winter observations/audit/snapshot history beyond the archived copy, so a fresh export is still needed for the final private backup restore gate.
 
+- [x] **Actual October 21 private v3 ZIP read-only verification PASSED** locally on the user-provided archive, without uploading its contents to GitHub: all **25 tables**, **182 database records**, **18 receipt files (18 SHA-256 digests)**, **101 non-null foreign-key relationships**, safe/unique ZIP entries, manifest counts, primary ID uniqueness and ownership/path checks passed. The archived Winter history includes **3 snapshots, 66 audit entries and 3 observations**. A separate read-only query to the existing Recovery Test database confirmed **all 25 table counts and primary-key ID-set digests agree** with the archive. No records, receipts or authentication data were written to any hosted database. Full import of **this actual ZIP** to a separately empty test destination is still outstanding.
+
 ## Release blockers
 
 - [ ] Obtain an independent review of `database/migrations/20261021_winter_readiness_production_schema.sql` including SECURITY DEFINER bodies, permissions, audit immutability, and trigger behavior.
