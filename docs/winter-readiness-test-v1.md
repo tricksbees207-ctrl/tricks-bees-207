@@ -1,3 +1,11 @@
+## October 21: Draft hive-tab integration and existing browser preview
+
+- **Development draft:** `apiary-log.html` on PR #25 now includes the Winter tab as tenth hive section in a responsive five-column layout (two rows of five on desktop). The nine existing tabs remain, and their DOM panels are not replaced.
+- The draft's Winter panel tracks the selected hive using a custom selection event, clears any previous iframe on hive changes, and loads winter records only when that tab is active. The draft *deliberately blocks* TEST iframe loading on the actual production path and is not ready for merging.
+- **Existing public TEST preview:** `apiary-log-winter-test.html`, already published separately, uses the **Recovery Test** Supabase project and scoped `winter-readiness-test.html?embedded=1&hive=<id>`. The draft reuses this published preview instead of creating a competing page. User login with Recovery Test MFA is required to see private records.
+- Verified by static checks: the published production `apiary-log.html` remains unchanged, the draft has all ten tabs and responsive five-column layout, the preview contains no production Supabase project ID, both implementations switch scoped hives without retaining the preceding iframe, and PR #25 remains a draft.
+- **Still pending:** Owner browser acceptance test of choosing Hive 1, Winter, switching to Hive 2, and confirming hive-specific records and nine other tabs. Then perform actual production schema/permissions, normal importer and integrated backup acceptance checks; do **not** merge this test-only code into production as-is. A future production Winter component must use the production project after migrations, rather than the Recovery Test iframe.
+
 ## October 20 milestone: isolated real-ZIP restore and live receipt test
 
 **RECORDED PASS, recovery-testing task #1 (isolated rehearsal).** The project report `Tricks_Bees_207_Recovery_Test_Result_2026-10-20.md` documents that the actual October 19 archive (SHA-256 `a74ffcd9f934975d796a92629aba7dcf7ca3ab6df19371b0097c83cf51873680`) was loaded into temporary, isolated Recovery Test tables and its records compared:
