@@ -17,9 +17,9 @@ const controller=source.slice(moduleStart,moduleEnd);
 assert(controller.includes("document.addEventListener('hive-section-selected'"),'Winter listener missing');
 // Avoid executing any production API code. Only the navigation script and scoped-frame controller run.
 const safeHtml=source
- .replace(/<script\\b[^>]*>[\\s\\S]*?<\\/script>/gi,'')
- .replace(/<link\\b[^>]*href=[^>]+>/gi,'')
- .replace(/<iframe\\b[^>]*>/gi,tag=>tag.replace(/\\ssrc=(["']).*?\\1/i,''));
+ .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'')
+ .replace(/<link\b[^>]*href=[^>]+>/gi,'')
+ .replace(/<iframe\b[^>]*>/gi,tag=>tag.replace(/\ssrc=(["']).*?\1/i,''));
 const browser=await chromium.launch({channel:'chrome',headless:true,args:['--no-sandbox']});
 const context=await browser.newContext({viewport:{width:1200,height:900}});
 const page=await context.newPage();
@@ -31,7 +31,7 @@ try {
  await page.addScriptTag({content:navigation});
  await page.evaluate(()=>document.dispatchEvent(new Event('DOMContentLoaded')));
  await page.addScriptTag({content:'let selectedHiveId=null;'+controller+
-   '\\nwindow.__hiveTest={select(id){selectedHiveId=id;syncWinterFrame();},logout(){selectedHiveId=null;syncWinterFrame();}};'});
+   'window.__hiveTest={select(id){selectedHiveId=id;syncWinterFrame();},logout(){selectedHiveId=null;syncWinterFrame();}};'});
  const nav=page.locator('nav[role="tablist"][aria-label="Hive sections"]');
  const btns=nav.locator('[role="tab"]');
  const expected=['Inspection','Hive Profile','Colony History','Feedings','Treatments','Harvests','Queens','Splits','Losses','Winter'];
