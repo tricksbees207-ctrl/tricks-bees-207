@@ -8,6 +8,9 @@ on:
       - 'tests/prepare-winter-supabase-fixture.mjs'
       - 'tests/enable-winter-local-mfa.mjs'
       - 'tests/winter-local-auth-api.test.mjs'
+      - 'tests/winter-local-browser-auth.test.mjs'
+      - 'apiary-log.html'
+      - 'winter-readiness.html'
       - '.github/workflows/winter-local-auth-api-rehearsal.yml'
 
 permissions:
@@ -58,6 +61,10 @@ jobs:
           psql -X -v ON_ERROR_STOP=1 -f database/migrations/20261021_winter_readiness_production_schema.sql
       - name: Exercise local email sessions, real TOTP MFA and REST ownership controls
         run: node tests/winter-local-auth-api.test.mjs
+      - name: Install pinned browser test dependencies
+        run: npm install --no-save --no-package-lock @supabase/supabase-js@2.118.0 esbuild@0.25.10 playwright@1.56.1
+      - name: Run actual staged parent and Winter iframe through Chrome with local MFA
+        run: node tests/winter-local-browser-auth.test.mjs
       - name: Dispose ephemeral Supabase containers
         if: always()
         run: |
