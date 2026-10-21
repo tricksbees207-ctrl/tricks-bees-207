@@ -39,6 +39,8 @@ These are **not cleared warnings** and must stay documented:
 
 - [x] **Actual October 21 private v3 ZIP read-only verification PASSED** locally on the user-provided archive, without uploading its contents to GitHub: all **25 tables**, **182 database records**, **18 receipt files (18 SHA-256 digests)**, **101 non-null foreign-key relationships**, safe/unique ZIP entries, manifest counts, primary ID uniqueness and ownership/path checks passed. The archived Winter history includes **3 snapshots, 66 audit entries and 3 observations**. A separate read-only query to the existing Recovery Test database confirmed **all 25 table counts and primary-key ID-set digests agree** with the archive. No records, receipts or authentication data were written to any hosted database. Full import of **this actual ZIP** to a separately empty test destination is still outstanding.
 
+- [x] **Private in-memory roundtrip using the same October 21 ZIP PASSED**: a temporary, memory-only relational representation reconstructed all 182 source records and 18 original receipt files, verified exact JSON payload and receipt SHA-256 agreement, enforced cross-table relationships, and rejected a duplicate import without changing records. This additional SQLite simulation is **not** the real PostgreSQL/Supabase restore function and does not replace the final empty-destination hosted/manual restore gate.
+
 ## Release blockers
 
 - [ ] Obtain an independent review of `database/migrations/20261021_winter_readiness_production_schema.sql` including SECURITY DEFINER bodies, permissions, audit immutability, and trigger behavior.
