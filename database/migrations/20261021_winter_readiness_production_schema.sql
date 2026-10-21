@@ -331,7 +331,7 @@ begin
      'outcome',(select to_jsonb(o) from public."Winter_Outcomes" o
                 where o.participation_id=p.id and o.user_id=v_owner),
      'linked_loss',(select to_jsonb(l) from public."Winter_Outcomes" o
-                    join public."Hive_Losses" l on l.id=o.loss_record_id and l.user_id=v_owner
+                    join public."Hive_Losses" l on l.id=o.loss_record_id and l.user_id=v_owner and l.hive_id=c.hive_id
                     where o.participation_id=p.id and o.user_id=v_owner),
      'spring_inspections',(select coalesce(jsonb_agg(to_jsonb(i) order by i.inspection_date,i.id),'[]'::jsonb)
                            from public."Hive_Inspections" i
@@ -341,10 +341,10 @@ begin
                         where i.colony_id=p.colony_id and i.hive_id=c.hive_id and i.inspection_date<=v_closed::date
                         order by i.inspection_date desc,i.id desc limit 1),
      'last_feeding',(select to_jsonb(f) from public."Hive_Feedings" f
-                     where f.colony_id=p.colony_id and f.user_id=v_owner and f.feed_date<=v_closed::date
+                     where f.colony_id=p.colony_id and f.hive_id=c.hive_id and f.user_id=v_owner and f.feed_date<=v_closed::date
                      order by f.feed_date desc,f.id desc limit 1),
      'last_treatment',(select to_jsonb(t) from public."Hive_Treatments" t
-                       where t.colony_id=p.colony_id and t.user_id=v_owner and t.treatment_date<=v_closed::date
+                       where t.colony_id=p.colony_id and t.hive_id=c.hive_id and t.user_id=v_owner and t.treatment_date<=v_closed::date
                        order by t.treatment_date desc,t.id desc limit 1)
    ) order by p.id),'[]'::jsonb)
  into v_people
