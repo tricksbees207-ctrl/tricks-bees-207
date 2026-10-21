@@ -8,6 +8,8 @@ on:
       - 'js/apiary-complete-backup-v3.js'
       - 'js/apiary-backup-verifier-v3.js'
       - 'tests/winter-live-integration.test.mjs'
+      - 'tests/winter-migration-fixture.sql'
+      - 'tests/winter-migration-smoke.sql'
       - 'database/migrations/20261021_winter_readiness_production_schema.sql'
       - 'recovery-test.html'
       - 'js/recurring-expenses.js'
@@ -26,6 +28,8 @@ on:
       - 'js/apiary-complete-backup-v3.js'
       - 'js/apiary-backup-verifier-v3.js'
       - 'tests/winter-live-integration.test.mjs'
+      - 'tests/winter-migration-fixture.sql'
+      - 'tests/winter-migration-smoke.sql'
       - 'database/migrations/20261021_winter_readiness_production_schema.sql'
       - 'recovery-test.html'
       - 'js/recurring-expenses.js'
@@ -125,3 +129,34 @@ jobs:
         run: node --test tests/recurring-ui.test.mjs tests/recurring-backup.test.mjs
       - name: Test recurring UI in headless Chrome browser
         run: node tests/recurring-browser-smoke.mjs
+
+  winter-database-smoke:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install fake auth and hive dependencies in disposable DB
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/winter-migration-fixture.sql
+      - name: Execute Winter schema migration in disposable DB
+        run: psql -X -v ON_ERROR_STOP=1 -f database/migrations/20261021_winter_readiness_production_schema.sql
+      - name: Test live Winter SQL routines and access controls
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/winter-migration-smoke.sql
