@@ -11,6 +11,9 @@ DECLARE
  snapshot_version integer;
  total bigint;
  blocked boolean;
+ historical_sid bigint;
+ historical_part bigint;
+ archived jsonb;
 BEGIN
  sid := public.winter_start_season(2026);
  IF sid IS NULL THEN RAISE EXCEPTION 'No Winter season created'; END IF;
@@ -49,6 +52,27 @@ BEGIN
  SELECT count(*) INTO total FROM public."Winter_Snapshots" WHERE season_id=sid;
  IF total <> 2 THEN RAISE EXCEPTION 'Historical snapshot versions not preserved'; END IF;
  RAISE NOTICE 'WINTER REOPEN/CLOSE HISTORY: PASS (two snapshots preserved)';
+
+ -- A 2025-26 historical closure must reject pre-existing inspection/feeding/
+ -- treatment records whose colony ID matches but hive ID does not.
+ historical_sid := public.winter_start_season(2025);
+ SELECT id INTO historical_part FROM public."Winter_Participation" WHERE season_id=historical_sid;
+ IF historical_part IS NULL THEN RAISE EXCEPTION 'Historical season colony missing'; END IF;
+ PERFORM public.winter_close_season(historical_sid,
+     jsonb_build_object(historical_part::text,'Fixture historical assessment'),null);
+ SELECT snapshot->'participants'->0 INTO archived
+ FROM public."Winter_Snapshots" WHERE season_id=historical_sid AND version=1;
+ IF archived IS NULL THEN RAISE EXCEPTION 'Historical snapshot payload missing'; END IF;
+ IF jsonb_array_length(archived->'spring_inspections')<>1 THEN
+   RAISE EXCEPTION 'Historical spring inspections include the wrong hive or omit correct hive';
+ END IF;
+ IF archived->'spring_inspections'->0->>'inspection_notes'<>'MATCHED-HIVE-INSPECTION'
+   OR archived->'last_inspection'->>'inspection_notes'<>'MATCHED-HIVE-INSPECTION'
+   OR archived->'last_feeding'->>'notes'<>'MATCHED-HIVE-FEEDING'
+   OR archived->'last_treatment'->>'product'<>'MATCHED-HIVE-TREATMENT'
+ THEN RAISE EXCEPTION 'Historical closure captured a wrong-hive record'; END IF;
+ RAISE NOTICE 'WINTER SNAPSHOT HIVE-COLONY CROSS-CHECK: PASS';
+
 
 END
 $smoke$;
