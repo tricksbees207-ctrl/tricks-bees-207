@@ -138,6 +138,37 @@ try{
  assert.equal(await frame.locator('#winterBackupSection').isVisible(),false);
  console.log('PASS CHROME: embedded Winter inherits authenticated session and scoped colony');
 
+ // Exercise the actual authenticated iframe in a mobile-sized browser, not
+ // just the isolated navigation fixture. No hosted accounts or devices used.
+ for(const width of [320,390,420]){
+  await page.setViewportSize({width,height:844});
+  const metrics=await page.locator('nav[aria-label="Hive sections"]').evaluate(nav=>{
+   const rect=nav.getBoundingClientRect();
+   const buttons=[...nav.querySelectorAll('button')].map(b=>b.getBoundingClientRect());
+   return {columns:getComputedStyle(nav).gridTemplateColumns.split(' ').filter(Boolean).length,
+    tabs:buttons.length,navFits:rect.left>=-1&&rect.right<=innerWidth+1,
+    touchTargets:buttons.every(r=>r.height>=44&&r.width>=90)};
+  });
+  assert.equal(metrics.columns,2,`Mobile ${width}px must have two hive tab columns`);
+  assert.equal(metrics.tabs,10,'All ten hive tabs must be accessible');
+  assert(metrics.navFits&&metrics.touchTargets,`Mobile hive tab targets must fit ${width}px`);
+  const child=await frame.locator('body').evaluate(el=>{
+   const width=innerWidth;
+   const full=document.documentElement.scrollWidth;
+   return {width,full,
+    signOutVisible:!!document.querySelector('#signOut')?.getBoundingClientRect().width,
+    colonyVisible:!!document.querySelector('#colonyList')?.getBoundingClientRect().width};
+  });
+  assert(child.width>=250,`Embedded mobile frame should be usable at ${width}px`);
+  assert(child.full<=child.width+2,
+   `Embedded Winter should not require horizontal scrolling at ${width}px (${child.full} > ${child.width})`);
+  assert(child.signOutVisible&&child.colonyVisible,
+   'Signed-in mobile view must retain sign-out and scoped colony content');
+  assert.equal(await frame.locator('#colonyList').getByText('Genuine Browser Colony').count(),1);
+ }
+ await page.setViewportSize({width:1200,height:900});
+ console.log('PASS CHROME: 320/390/420px real MFA mobile iframe has two-column navigation and no horizontal overflow');
+
  const hive2=page.locator('#hiveList button').filter({hasText:'Hive 2:'});
  await hive2.click();
  await page.waitForFunction(()=>document.querySelector('#winterFrame')?.getAttribute('src')?.endsWith('hive=2'));
