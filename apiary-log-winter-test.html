@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
-  <title>Tricks Bees 207 | Apiary Log Winter Integration TEST</title>
+  <title>TEST · Tricks Bees 207 | Apiary Log</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -198,40 +198,6 @@
     @media(max-width:380px) {
       .section-tabs.apiary-main-tabs { grid-template-columns:minmax(0,1fr); }
     }
-    /* Uniform hive-section buttons: five per row on desktop; responsive on smaller screens. */
-    .section-tabs[aria-label="Hive sections"] {
-      display:grid;
-      grid-template-columns:repeat(5,minmax(0,1fr));
-      gap:10px;
-    }
-    .section-tabs[aria-label="Hive sections"] button {
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      width:100%;
-      min-width:0;
-      min-height:65px;
-      margin:0;
-      padding:10px 6px;
-      text-align:center;
-      white-space:normal;
-      line-height:1.25;
-    }
-    @media(max-width:760px) {
-      .section-tabs[aria-label="Hive sections"] { grid-template-columns:repeat(3,minmax(0,1fr)); }
-    }
-    @media(max-width:540px) {
-      .section-tabs[aria-label="Hive sections"] { grid-template-columns:repeat(2,minmax(0,1fr)); }
-    }
-    @media(max-width:380px) {
-      .section-tabs[aria-label="Hive sections"] { grid-template-columns:minmax(0,1fr); }
-    }
-    
-    /* Development-only Winter panel: the live Apiary Log is unchanged. */
-    #winterTabPage{max-width:100%;overflow:hidden}
-    #winterIntegrationFrame{display:block;width:100%;height:1350px;border:1px solid #dfcca3;border-radius:10px;background:#fffdf7}
-    #winterIntegrationNotice{border-left:4px solid #e6ad25;padding:10px 12px;background:#fff8e5;margin-bottom:12px}
-    @media(max-width:540px){#winterIntegrationFrame{height:1580px}}
     .section-tab-hidden { display:none !important; }
     .location-card{border:1px solid #e8dcbf;border-radius:10px;padding:14px;margin:12px 0;background:#fffdf7}
     .location-card h4{margin:0 0 6px}.location-card .toolbar button{min-width:100px}
@@ -251,23 +217,24 @@
 .colony-entry-picker label{display:block;margin-bottom:6px}
 .colony-entry-picker select{width:100%;padding:9px}
 .colony-entry-picker small{display:block;margin-top:7px;color:#575f52}
+/* Uniform hive navigation: two rows of five on desktop. */
+.hive-section-tabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));}
+.hive-section-tabs button{width:100%;min-height:48px;padding:9px 5px;overflow-wrap:anywhere;}
+#winterFrame[hidden]{display:none;}
+#winterFrame{display:block;width:100%;height:900px;border:0;}
+@media(max-width:540px){.hive-section-tabs{grid-template-columns:repeat(2,minmax(0,1fr));}}
 </style>
 </head>
 <body>
   <header>
     <h1>🐝 Tricks Bees 207</h1>
-    <p>Winter Integration · RECOVERY TEST ONLY</p>
+    <p>TEST Apiary Log · Winter navigation</p>
   </header>
 
   <main>
-    <div role="status" style="border-left:5px solid #d99d11;padding:14px 16px;margin-bottom:20px;border-radius:6px;background:#fff0c3;font-weight:bold">
-      TEST PREVIEW ONLY. This page uses the separate Tricks Bees 207 Recovery Test database and
-      its authenticator account. Changes made in this preview affect TEST records only.
-      The live Apiary Log is not connected to this page.
-    </div>
     <section id="login" class="panel">
       <h2>Owner Sign In</h2>
-      <p>Sign in with your Apiary Log account.</p>
+      <p>Sign in with your Recovery Test account. All records on this page belong to TEST.</p>
       <form id="loginForm">
         <input id="email" type="email"
           placeholder="Email address" required>
@@ -795,6 +762,7 @@
       const nav = document.createElement('nav');
       nav.className='section-tabs';
       if(label==='Apiary sections')nav.classList.add('apiary-main-tabs');
+      if(label==='Hive sections')nav.classList.add('hive-section-tabs');
       nav.setAttribute('role','tablist');
       nav.setAttribute('aria-label',label);
       parent.insertBefore(nav,before);
@@ -812,12 +780,12 @@
         return button;
       });
       function select(index){
+        if(label==='Hive sections')document.dispatchEvent(new CustomEvent('hive-section-selected',{detail:pages[index][0]}));
         pages.forEach(([,panel],i)=>{
           panel.classList.toggle('section-tab-hidden',i!==index);
           buttons[i].setAttribute('aria-selected',String(i===index));
           buttons[i].tabIndex=i===index?0:-1;
         });
-        if(label==='Hive sections'&&pages[index]?.[0]==='Winter')refreshWinterFrame();
       }
       nav.addEventListener('keydown',e=>{
         const index=buttons.indexOf(document.activeElement);
@@ -829,36 +797,6 @@
       return {select};
     }
     createTabs(topPages,mainPanel,overview,'Apiary sections');
-
-    // Preview-only embedded Winter Readiness. No production winter connection is
-    // permitted here: the production integration remains gated for release.
-    const winterPreviewRoute=/\/apiary-log-winter-test\.html$/i.test(window.location.pathname);
-    let currentWinterHive=null;
-    let winterFrame=null;
-    let winterPanel=null;
-    function refreshWinterFrame(){
-      if(!winterPanel)return;
-      const notice=document.getElementById('winterIntegrationNotice');
-      if(!winterPreviewRoute){
-        notice.textContent='Winter Readiness is pending production database migration and release approval. This development branch must not be merged yet.';
-        return;
-      }
-      if(!currentWinterHive){
-        notice.textContent='Select a hive above to open its Winter Readiness records.';
-        winterFrame?.removeAttribute('src');
-        return;
-      }
-      notice.textContent='Recovery Test preview · Hive ID '+currentWinterHive+'. This page reads and writes TEST records only.';
-      const newRoute='./winter-readiness-test.html?embedded=1&hive='+encodeURIComponent(currentWinterHive);
-      if(winterFrame.getAttribute('src')!==newRoute)winterFrame.setAttribute('src',newRoute);
-    }
-    window.addEventListener('tricksbees:hive-selected',event=>{
-      const id=event.detail?.hiveId;
-      currentWinterHive=(id!=null && /^[1-9][0-9]*$/.test(String(id)))?String(id):null;
-      // Never leave the previous hive's records visible after selection changes.
-      if(winterFrame)winterFrame.removeAttribute('src');
-      if(winterPanel&&!winterPanel.classList.contains('section-tab-hidden'))refreshWinterFrame();
-    });
 
     if (inspectionPanel) {
       const profile = document.getElementById('currentHiveProfile');
@@ -874,23 +812,10 @@
           inspectionTabPage.appendChild(item);
           item=next;
         }
-        winterPanel=document.createElement('section');
-        winterPanel.id='winterTabPage';
-        winterPanel.className='hive-section';
-        winterPanel.setAttribute('aria-label','Winter Readiness');
-        const heading=document.createElement('h3');
-        heading.textContent='❄️ Winter Readiness';
-        const notice=document.createElement('p');
-        notice.id='winterIntegrationNotice';
-        notice.setAttribute('role','status');
-        notice.textContent='Select a hive above to review its Winter Readiness records.';
-        winterFrame=document.createElement('iframe');
-        winterFrame.id='winterIntegrationFrame';
-        winterFrame.title='Winter Readiness for the selected TEST hive';
-        winterFrame.loading='lazy';
-        winterFrame.referrerPolicy='no-referrer';
-        winterPanel.append(heading,notice,winterFrame);
-        inspectionPanel.appendChild(winterPanel);
+        const winterPanel=document.createElement('section');
+        winterPanel.id='winterSection';
+        winterPanel.innerHTML='<h3>Winter · TEST</h3><p class="muted">Winter records for this hive. Use the buttons above to return to any other section.</p><iframe id="winterFrame" title="Selected hive Winter records" hidden></iframe>';
+        inspectionPanel.append(winterPanel);
         const pages=[
           ['Inspection',inspectionTabPage],
           ['Hive Profile',firstManagement],
@@ -912,7 +837,7 @@
 </script>
 
   <script type="module">
-    import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+    import { createClient } from "https://esm.sh/@supabase/supabase-js@2.118.0";
     import { setupSplitFollowups } from "./js/split-followups-dashboard.js";
     import { downloadCompleteBackup } from "./js/apiary-complete-backup-v3-test.js";
     import { verifyApiaryBackupOnPage } from "./js/apiary-backup-verifier-v3-test.js";
@@ -1377,7 +1302,23 @@
       ["Treatment Follow-Up Date", "treatment_follow_up_date"],
       ["Notes", "inspection_notes"]
     ];
-    let selectedHiveId = null;
+    let winterActive=false;
+    function syncWinterFrame(){
+      const frame=$('winterFrame');
+      if(!frame)return;
+      const hive=selectedHiveId==null?'':String(selectedHiveId);
+      if(frame.dataset.hive!==hive){
+        frame.removeAttribute('src');frame.hidden=true;frame.dataset.hive=hive;
+      }
+      if(winterActive && /^[1-9][0-9]*$/.test(hive) && !frame.hasAttribute('src')){
+        frame.src='winter-readiness-test.html?embedded=1&hive='+encodeURIComponent(hive);
+        frame.hidden=false;
+      }
+    }
+    document.addEventListener('hive-section-selected',event=>{
+      winterActive=event.detail==='Winter';syncWinterFrame();
+    });
+    let selectedHiveId=null;
     let hives = [];
     let allInspections = [];
     let dashboardRequest = 0;
@@ -1523,7 +1464,7 @@
     function clearSelectedHive() {
       managementRequest++;
       selectedHiveId=null;
-      window.dispatchEvent(new CustomEvent('tricksbees:hive-selected',{detail:{hiveId:null}}));
+      syncWinterFrame();
       resetInspectionForm();
       savedProfileId=null;
       $("editHiveProfile").hidden=true;
@@ -2818,11 +2759,11 @@ function incomeReceiptControls(record){
         button.type="button";button.style.textAlign="left";
         button.addEventListener("click",()=>{
           selectedHiveId=hive.id;
-          window.dispatchEvent(new CustomEvent('tricksbees:hive-selected',{detail:{hiveId:hive.id}}));
+          syncWinterFrame();
           renderSelectedHiveColonyHistory();
           updateRecordColonySelector();
           refreshSplitDaughterOptions();
-          $("inspectionTitle").textContent=`Hive ${hive.hive_number}: ${hive.hive_name||"Unnamed"} Inspection`;
+          $("inspectionTitle").textContent=`Hive ${hive.hive_number}: ${hive.hive_name||"Unnamed"}`;
           $("inspectionPanel").style.display="block";
           $("inspectionMessage").textContent="";
           // Do not carry an edit, or its data, into a different hive.
@@ -2838,7 +2779,7 @@ function incomeReceiptControls(record){
       refreshSplitDaughterOptions();
       await Promise.all([loadDashboardData(),refreshStats(),refreshLocations()]);
       await recurringManager.refresh();
-      await cleanupPendingReceipts();
+      // Navigation testing does not run automatic receipt cleanup.
     }
     async function loadInspectionHistory(hiveId) {
       const request=++historyRequest;
@@ -3332,3 +3273,4 @@ function incomeReceiptControls(record){
   </script>
 </body>
 </html>
+
