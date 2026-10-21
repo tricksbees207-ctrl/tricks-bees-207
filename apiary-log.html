@@ -217,6 +217,12 @@
 .colony-entry-picker label{display:block;margin-bottom:6px}
 .colony-entry-picker select{width:100%;padding:9px}
 .colony-entry-picker small{display:block;margin-top:7px;color:#575f52}
+  /* Uniform hive navigation: two rows of five on desktop. */
+  .hive-section-tabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));}
+  .hive-section-tabs button{width:100%;min-height:48px;padding:9px 5px;overflow-wrap:anywhere;}
+  #winterFrame[hidden]{display:none;}
+  #winterFrame{display:block;width:100%;height:900px;border:0;}
+  @media(max-width:540px){.hive-section-tabs{grid-template-columns:repeat(2,minmax(0,1fr));}}
 </style>
 </head>
 <body>
@@ -756,6 +762,7 @@
       const nav = document.createElement('nav');
       nav.className='section-tabs';
       if(label==='Apiary sections')nav.classList.add('apiary-main-tabs');
+      if(label==='Hive sections')nav.classList.add('hive-section-tabs');
       nav.setAttribute('role','tablist');
       nav.setAttribute('aria-label',label);
       parent.insertBefore(nav,before);
@@ -773,6 +780,7 @@
         return button;
       });
       function select(index){
+        if(label==='Hive sections')document.dispatchEvent(new CustomEvent('hive-section-selected',{detail:pages[index][0]}));
         pages.forEach(([,panel],i)=>{
           panel.classList.toggle('section-tab-hidden',i!==index);
           buttons[i].setAttribute('aria-selected',String(i===index));
@@ -804,6 +812,10 @@
           inspectionTabPage.appendChild(item);
           item=next;
         }
+        const winterPanel=document.createElement('section');
+        winterPanel.id='winterSection';
+        winterPanel.innerHTML='<h3>Winter</h3><p class="muted">Winter records for this hive. Use the buttons above to return to any other section.</p><iframe id="winterFrame" title="Selected hive Winter records" hidden></iframe>';
+        inspectionPanel.append(winterPanel);
         const pages=[
           ['Inspection',inspectionTabPage],
           ['Hive Profile',firstManagement],
@@ -813,7 +825,8 @@
           ['Harvests',document.getElementById('harvestSection')],
           ['Queens',document.getElementById('queenSection')],
           ['Splits',document.getElementById('splitSection')],
-          ['Losses',document.getElementById('lossSection')]
+          ['Losses',document.getElementById('lossSection')],
+          ['Winter',winterPanel]
         ].filter(([,el])=>!!el);
         const oldNav=inspectionPanel.querySelector('.quick-nav');
         if(oldNav)oldNav.classList.add('section-tab-hidden');
@@ -1289,6 +1302,22 @@
       ["Treatment Follow-Up Date", "treatment_follow_up_date"],
       ["Notes", "inspection_notes"]
     ];
+    let winterActive=false;
+    function syncWinterFrame(){
+      const frame=$('winterFrame');
+      if(!frame)return;
+      const hive=selectedHiveId==null?'':String(selectedHiveId);
+      if(frame.dataset.hive!==hive){
+        frame.removeAttribute('src');frame.hidden=true;frame.dataset.hive=hive;
+      }
+      if(winterActive && /^[1-9][0-9]*$/.test(hive) && !frame.hasAttribute('src')){
+        frame.src='winter-readiness.html?embedded=1&hive='+encodeURIComponent(hive);
+        frame.hidden=false;
+      }
+    }
+    document.addEventListener('hive-section-selected',event=>{
+      winterActive=event.detail==='Winter';syncWinterFrame();
+    });
     let selectedHiveId = null;
     let hives = [];
     let allInspections = [];
@@ -1435,6 +1464,7 @@
     function clearSelectedHive() {
       managementRequest++;
       selectedHiveId=null;
+      syncWinterFrame();
       resetInspectionForm();
       savedProfileId=null;
       $("editHiveProfile").hidden=true;
@@ -2729,6 +2759,7 @@ function incomeReceiptControls(record){
         button.type="button";button.style.textAlign="left";
         button.addEventListener("click",()=>{
           selectedHiveId=hive.id;
+          syncWinterFrame();
           renderSelectedHiveColonyHistory();
           updateRecordColonySelector();
           refreshSplitDaughterOptions();
