@@ -137,10 +137,13 @@ jobs:
           const os=require('node:os');
           const path=require('node:path');
           const html=fs.readFileSync('winter-readiness.html','utf8');
-          const match=html.match(/<script type="module">([\\s\\S]*?)<\\/script>/);
-          if(!match)throw Error('Winter app module script missing');
+          const start=html.indexOf('<script type="module">');
+          const end=html.indexOf('</script>',start);
+          if(start<0||end<=start)throw Error('Winter app module script missing');
+          const code=html.slice(start+'<script type="module">'.length,end);
+
           const file=path.join(os.tmpdir(),'tricks-bees-winter-module.mjs');
-          fs.writeFileSync(file,match[1]);
+          fs.writeFileSync(file,code);
           cp.execFileSync(process.execPath,['--check',file],{stdio:'inherit'});
           console.log('Winter page module syntax passed.');
           NODE
