@@ -15,6 +15,7 @@
 - [x] Revoke direct anonymous/authenticated EXECUTE from four internal Recovery Test Winter trigger helpers; verify all 11 trigger attachments remain and the four related advisor warnings disappear.
 - [x] Independently test, in READ-ONLY/ROLLBACK transactions, that all three test-only importers reject an unrelated AAL2 account and reject the legitimate owner at AAL1.
 - [x] Run backup ZIP integrity and staged application checks with GitHub Actions.
+- [x] Test the embedded Winter page's shared-session sign-out behavior in a no-network Chrome fixture: duplicate navigation hidden, private ZIP gated before login, external SIGNED_OUT event clears cached winter records, and the embedded Sign Out control clears them too.
 
 ## Intentional remaining Recovery Test advisories
 
@@ -29,7 +30,7 @@ These are **not cleared warnings** and must stay documented:
 - [ ] Obtain an independent review of `database/migrations/20261021_winter_readiness_production_schema.sql` including SECURITY DEFINER bodies, permissions, audit immutability, and trigger behavior.
 - [ ] Execute a **fresh real Supabase migration rehearsal** on an appropriately isolated project that supports it. The existing plan declined Supabase branching with `Branching is supported only on the Pro plan or above`; no branch was created. The online Recovery Test has the older working schema, but is not a fresh-install rehearsal for this migration.
 - [ ] Confirm Recovery Test's full 25-table ZIP restore workflow from a verified user-held archive in another empty isolated destination before changing the production backup exporter. Do not restore into production or overwrite populated test records.
-- [ ] **Manual real-device and signed-in Supabase acceptance** remains: real account MFA/session refresh, iframe authentication, hive ownership, mobile usability, closed-season history and verified ZIP downloads. Headless Chrome layout/navigation testing has passed but is not a substitute.
+- [ ] **Manual real-device and signed-in Supabase acceptance** remains: real account MFA/session refresh, true cross-tab authentication broadcast, iframe authentication, hive ownership, mobile usability, closed-season history and verified ZIP downloads. Synthetic Chrome tests prove the DOM and callback behavior, not an authenticated production session.
 - [ ] Obtain explicit owner approval before **executing production schema changes**. Take/verify a fresh separate production data-and-receipts backup, and document safe rollback of a schema deployment before applying it.
 - [ ] Only after above, separately obtain explicit owner approval before **merging** Draft PR #27 and publishing. Verify production data counts, alerts and receipt scheduler after deployment.
 
