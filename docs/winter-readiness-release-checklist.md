@@ -11,6 +11,9 @@
 - [x] Test SQL installation and season start/close/reopen against a disposable PostgreSQL fixture using the real definitions of all 19 production application tables (no production data copied).
 - [x] Exercise snapshot immutability, two closure versions, internal function grants, caller/owner boundaries, and AAL1/AAL2 restrictions in disposable CI.
 - [x] Verify separate **existing** Supabase Recovery Test has all seven Winter tables with RLS and intact 1 season, 4 participation records, 3 snapshots, and 66 audit entries.
+- [x] Perform manual migration defense-in-depth review of Winter snapshot reads: hive and colony must agree for inspections, feedings, treatments, and linked loss records. The disposable PostgreSQL fixture deliberately creates wrong-hive rows sharing a colony ID; historic season closure excludes them and preserves the matching rows.
+- [x] Restrict ID-sequence grants for Winter_Audit_History and Winter_Snapshots to service-role only. The disposable database now asserts ordinary authenticated users cannot select or advance those sequences.
+- [x] Inspect **production source-table policy metadata read-only**: all six referenced Hive/Hives tables have RLS enabled, with separate restrictive MFA policies; owner's read/write policies remain in place. No production policy changed.
 - [x] Verify owner AAL2 sees Recovery Test history; AAL1 and unrelated AAL2 users see none (read-only simulated JWT context).
 - [x] Revoke direct anonymous/authenticated EXECUTE from four internal Recovery Test Winter trigger helpers; verify all 11 trigger attachments remain and the four related advisor warnings disappear.
 - [x] Independently test, in READ-ONLY/ROLLBACK transactions, that all three test-only importers reject an unrelated AAL2 account and reject the legitimate owner at AAL1.
