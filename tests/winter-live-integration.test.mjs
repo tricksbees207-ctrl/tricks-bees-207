@@ -74,4 +74,13 @@ assert(child.includes('apiary-complete-backup-v3.js'));
 assert(!parent.includes('apiary-log-winter-test.html'));
 assert(!child.includes('apiary-complete-backup-v3-test.js'));
 
-console.log('PASS: production-only wiring, ten-tab layout, hive scoping, frame lifecycle and seven Winter backup tables.');
+const migration = fs.readFileSync('database/migrations/20261021_winter_readiness_production_schema.sql', 'utf8');
+assert.equal((migration.match(/CREATE TABLE public\\."Winter_/g) || []).length, 7, 'Seven Winter tables required');
+assert.equal((migration.match(/CREATE POLICY /g) || []).length, 15, 'Winter RLS policies required');
+assert.equal((migration.match(/CREATE TRIGGER /g) || []).length, 12, 'History, guard and snapshot triggers required');
+assert(migration.includes('Winter schema already partially or fully installed'), 'Fail-closed migration guard required');
+assert(migration.includes('GRANT SELECT ON TABLE public."Winter_Snapshots" TO authenticated;'), 'Snapshots must be read-only');
+assert(migration.includes('GRANT SELECT ON TABLE public."Winter_Audit_History" TO authenticated;'), 'Audit history must be read-only');
+assert(!migration.includes('CREATE OR REPLACE FUNCTION public.recovery_test_import'), 'Test-only importer must not be installed in production');
+
+console.log('PASS: production-only wiring, ten-tab layout, hive scoping, frame lifecycle and seven Winter backup tables and schema safeguards.');
