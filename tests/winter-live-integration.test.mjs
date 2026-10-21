@@ -75,7 +75,7 @@ assert(!parent.includes('apiary-log-winter-test.html'));
 assert(!child.includes('apiary-complete-backup-v3-test.js'));
 
 const migration = fs.readFileSync('database/migrations/20261021_winter_readiness_production_schema.sql', 'utf8');
-assert.equal((migration.match(/CREATE TABLE public\\."Winter_/g) || []).length, 7, 'Seven Winter tables required');
+assert.equal(migration.split('CREATE TABLE public."Winter_').length - 1, 7, 'Seven Winter tables required');
 assert.equal((migration.match(/CREATE POLICY /g) || []).length, 15, 'Winter RLS policies required');
 assert.equal((migration.match(/CREATE TRIGGER /g) || []).length, 12, 'History, guard and snapshot triggers required');
 assert(migration.includes('Winter schema already partially or fully installed'), 'Fail-closed migration guard required');
