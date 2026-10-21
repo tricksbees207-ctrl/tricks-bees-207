@@ -10,6 +10,7 @@ DECLARE
  part_id bigint;
  snapshot_version integer;
  total bigint;
+ blocked boolean;
 BEGIN
  sid := public.winter_start_season(2026);
  IF sid IS NULL THEN RAISE EXCEPTION 'No Winter season created'; END IF;
@@ -25,6 +26,30 @@ BEGIN
  SELECT count(*) INTO total FROM public."Winter_Audit_History";
  IF total < 12 THEN RAISE EXCEPTION 'Audit history incomplete: %',total; END IF;
  RAISE NOTICE 'WINTER LIFECYCLE: PASS (season %, snapshot %, audit entries %)', sid,snapshot_version,total;
+ -- Closed seasons must reject checklist changes, even by the correct MFA-verified owner.
+ blocked := false;
+ BEGIN
+  UPDATE public."Winter_Checklist_Items" SET status='complete'
+   WHERE participation_id=part_id;
+ EXCEPTION WHEN raise_exception THEN
+  blocked := true;
+ END;
+ IF NOT blocked THEN RAISE EXCEPTION 'Closed season checklist was editable'; END IF;
+ RAISE NOTICE 'CLOSED SEASON MUTATION: BLOCKED';
+
+ IF NOT public.winter_reopen_season(sid,'Controlled test reopening') THEN
+  RAISE EXCEPTION 'Season did not reopen';
+ END IF;
+ SELECT count(*) INTO total FROM public."Winter_Snapshots" WHERE season_id=sid;
+ IF total <> 1 THEN RAISE EXCEPTION 'Original snapshot vanished after reopening'; END IF;
+ snapshot_version := public.winter_close_season(sid,jsonb_build_object(part_id::text,'Second closure test'),null);
+ IF snapshot_version <> 2 THEN
+  RAISE EXCEPTION 'Expected second immutable snapshot version, got %', snapshot_version;
+ END IF;
+ SELECT count(*) INTO total FROM public."Winter_Snapshots" WHERE season_id=sid;
+ IF total <> 2 THEN RAISE EXCEPTION 'Historical snapshot versions not preserved'; END IF;
+ RAISE NOTICE 'WINTER REOPEN/CLOSE HISTORY: PASS (two snapshots preserved)';
+
 END
 $smoke$;
 
