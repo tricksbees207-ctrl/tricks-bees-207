@@ -198,6 +198,40 @@
     @media(max-width:380px) {
       .section-tabs.apiary-main-tabs { grid-template-columns:minmax(0,1fr); }
     }
+    /* Uniform hive-section buttons: five per row on desktop; responsive on smaller screens. */
+    .section-tabs[aria-label="Hive sections"] {
+      display:grid;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:10px;
+    }
+    .section-tabs[aria-label="Hive sections"] button {
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      width:100%;
+      min-width:0;
+      min-height:65px;
+      margin:0;
+      padding:10px 6px;
+      text-align:center;
+      white-space:normal;
+      line-height:1.25;
+    }
+    @media(max-width:760px) {
+      .section-tabs[aria-label="Hive sections"] { grid-template-columns:repeat(3,minmax(0,1fr)); }
+    }
+    @media(max-width:540px) {
+      .section-tabs[aria-label="Hive sections"] { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
+    @media(max-width:380px) {
+      .section-tabs[aria-label="Hive sections"] { grid-template-columns:minmax(0,1fr); }
+    }
+    
+    /* Development-only Winter panel: the live Apiary Log is unchanged. */
+    #winterTabPage{max-width:100%;overflow:hidden}
+    #winterIntegrationFrame{display:block;width:100%;height:1350px;border:1px solid #dfcca3;border-radius:10px;background:#fffdf7}
+    #winterIntegrationNotice{border-left:4px solid #e6ad25;padding:10px 12px;background:#fff8e5;margin-bottom:12px}
+    @media(max-width:540px){#winterIntegrationFrame{height:1580px}}
     .section-tab-hidden { display:none !important; }
     .location-card{border:1px solid #e8dcbf;border-radius:10px;padding:14px;margin:12px 0;background:#fffdf7}
     .location-card h4{margin:0 0 6px}.location-card .toolbar button{min-width:100px}
@@ -778,6 +812,7 @@
           buttons[i].setAttribute('aria-selected',String(i===index));
           buttons[i].tabIndex=i===index?0:-1;
         });
+        if(label==='Hive sections'&&pages[index]?.[0]==='Winter')refreshWinterFrame();
       }
       nav.addEventListener('keydown',e=>{
         const index=buttons.indexOf(document.activeElement);
@@ -789,6 +824,36 @@
       return {select};
     }
     createTabs(topPages,mainPanel,overview,'Apiary sections');
+
+    // Preview-only embedded Winter Readiness. No production winter connection is
+    // permitted here: the production integration remains gated for release.
+    const winterPreviewRoute=/\/apiary-log-winter-test\.html$/i.test(window.location.pathname);
+    let currentWinterHive=null;
+    let winterFrame=null;
+    let winterPanel=null;
+    function refreshWinterFrame(){
+      if(!winterPanel)return;
+      const notice=document.getElementById('winterIntegrationNotice');
+      if(!winterPreviewRoute){
+        notice.textContent='Winter Readiness is pending production database migration and release approval. This development branch must not be merged yet.';
+        return;
+      }
+      if(!currentWinterHive){
+        notice.textContent='Select a hive above to open its Winter Readiness records.';
+        winterFrame?.removeAttribute('src');
+        return;
+      }
+      notice.textContent='Recovery Test preview · Hive ID '+currentWinterHive+'. This page reads and writes TEST records only.';
+      const newRoute='./winter-readiness-test.html?embedded=1&hive='+encodeURIComponent(currentWinterHive);
+      if(winterFrame.getAttribute('src')!==newRoute)winterFrame.setAttribute('src',newRoute);
+    }
+    window.addEventListener('tricksbees:hive-selected',event=>{
+      const id=event.detail?.hiveId;
+      currentWinterHive=(id!=null && /^[1-9][0-9]*$/.test(String(id)))?String(id):null;
+      // Never leave the previous hive's records visible after selection changes.
+      if(winterFrame)winterFrame.removeAttribute('src');
+      if(winterPanel&&!winterPanel.classList.contains('section-tab-hidden'))refreshWinterFrame();
+    });
 
     if (inspectionPanel) {
       const profile = document.getElementById('currentHiveProfile');
@@ -804,6 +869,23 @@
           inspectionTabPage.appendChild(item);
           item=next;
         }
+        winterPanel=document.createElement('section');
+        winterPanel.id='winterTabPage';
+        winterPanel.className='hive-section';
+        winterPanel.setAttribute('aria-label','Winter Readiness');
+        const heading=document.createElement('h3');
+        heading.textContent='❄️ Winter Readiness';
+        const notice=document.createElement('p');
+        notice.id='winterIntegrationNotice';
+        notice.setAttribute('role','status');
+        notice.textContent='Select a hive above to review its Winter Readiness records.';
+        winterFrame=document.createElement('iframe');
+        winterFrame.id='winterIntegrationFrame';
+        winterFrame.title='Winter Readiness for the selected TEST hive';
+        winterFrame.loading='lazy';
+        winterFrame.referrerPolicy='no-referrer';
+        winterPanel.append(heading,notice,winterFrame);
+        inspectionPanel.appendChild(winterPanel);
         const pages=[
           ['Inspection',inspectionTabPage],
           ['Hive Profile',firstManagement],
@@ -813,7 +895,8 @@
           ['Harvests',document.getElementById('harvestSection')],
           ['Queens',document.getElementById('queenSection')],
           ['Splits',document.getElementById('splitSection')],
-          ['Losses',document.getElementById('lossSection')]
+          ['Losses',document.getElementById('lossSection')],
+          ['Winter',winterPanel]
         ].filter(([,el])=>!!el);
         const oldNav=inspectionPanel.querySelector('.quick-nav');
         if(oldNav)oldNav.classList.add('section-tab-hidden');
@@ -1435,6 +1518,7 @@
     function clearSelectedHive() {
       managementRequest++;
       selectedHiveId=null;
+      window.dispatchEvent(new CustomEvent('tricksbees:hive-selected',{detail:{hiveId:null}}));
       resetInspectionForm();
       savedProfileId=null;
       $("editHiveProfile").hidden=true;
@@ -2729,6 +2813,7 @@ function incomeReceiptControls(record){
         button.type="button";button.style.textAlign="left";
         button.addEventListener("click",()=>{
           selectedHiveId=hive.id;
+          window.dispatchEvent(new CustomEvent('tricksbees:hive-selected',{detail:{hiveId:hive.id}}));
           renderSelectedHiveColonyHistory();
           updateRecordColonySelector();
           refreshSplitDaughterOptions();
