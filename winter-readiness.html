@@ -241,7 +241,7 @@ function renderSeason(){
  const scopedParticipations=participations.filter(p=>scopedIds.has(String(p.colony_id)));
  const participating=scopedParticipations.filter(x=>x.participation==='included').length;
  const awaiting=scopedColonies.filter(c=>c.colony_status==='active'&&!scopedParticipations.some(p=>p.colony_id===c.id)).length;
- e.append(node('p',participating+' included · '+(scopedParticipations.length-participating)+' excluded · '+awaiting+' active colonies awaiting a decision'+(embedded?' for this hive.':'.'));
+ e.append(node('p',participating+' included · '+(scopedParticipations.length-participating)+' excluded · '+awaiting+' active colonies awaiting a decision'+(embedded?' for this hive.':'.')));
  renderSeasonAdmin();
 }
 
