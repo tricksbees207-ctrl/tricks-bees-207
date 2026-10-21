@@ -144,8 +144,31 @@ try{
  await frame.locator('#workspace').waitFor({state:'visible',timeout:35000});
  assert.equal(await frame.locator('#colonyList').getByText('Genuine Browser Colony').count(),0,
   'Other hive must not display first hive colony');
+
+ // Open a second, separate top-level tab in the same browser context. This must
+ // reuse the real AAL2 session and respond to sign-out initiated in the first tab.
+ const secondTab=await context.newPage();
+ await secondTab.goto(host+'/winter-readiness.html?embedded=1&hive=1',
+  {waitUntil:'domcontentloaded'});
+ await secondTab.locator('#workspace').waitFor({state:'visible',timeout:35000});
+ await secondTab.locator('#colonyList').getByText('Genuine Browser Colony')
+  .waitFor({state:'visible',timeout:25000});
+ assert.equal(await secondTab.locator('#signInPanel').isVisible(),false,
+  'Second tab should inherit the verified local Supabase session');
+ console.log('PASS CHROME: simultaneous tabs share a real verified session');
+
  await page.locator('#logout').click();
  await page.waitForFunction(()=>!document.querySelector('#winterFrame')?.hasAttribute('src'));
+ await secondTab.locator('#workspace').waitFor({state:'hidden',timeout:30000});
+ assert.equal(await secondTab.locator('#signInPanel').isVisible(),true,
+  'Sign-out in parent tab must display login in second tab');
+ assert.equal(await secondTab.locator('#sessionLabel').textContent(),'',
+  'Clear private account identity in second tab');
+ assert.equal(await secondTab.locator('#colonyList').textContent(),'',
+  'Erase rendered colony data, not merely hide it');
+ assert.equal(await secondTab.locator('#winterDetail').isVisible(),false,
+  'Second tab must hide private Winter detail');
+ console.log('PASS CHROME: sign-out in first tab revokes and clears second tab');
  assert.equal(await page.locator('#dashboard').isVisible(),false);
  assert.deepEqual(outside,[],'Unexpected external network request');
  assert.deepEqual(errors,[],'Unexpected browser JavaScript error');
