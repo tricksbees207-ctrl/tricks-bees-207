@@ -68,8 +68,8 @@ a{color:var(--green)}
 <div id="signedIn" hidden><p id="session">Signed into test account.</p><button id="signOut" class="secondary" type="button">Sign out of TEST</button></div>
 </section>
 <section class="panel">
-<h2>Clear previous TEST receipt files</h2>
-<p class="warning"><strong>TEST ONLY:</strong> Use this once before a fresh restore. It removes receipt copies from the two private buckets in the separate Recovery Test project. It cannot reach your production database or your Mac/Samsung backups.</p>
+<h2>Legacy TEST receipt cleanup (disabled)</h2>
+<p class="warning"><strong>TEST ONLY:</strong> Cleanup is disabled while winter-record recovery is being certified. Existing test receipts and historical records must be preserved. Use a separate empty test destination for the next complete recovery.</p>
 <p class="small">Sign into the test account with its authenticator first. This deletes TEST receipt files while keeping test database rows in place until the remaining cleanup is verified.</p>
 <label for="clearTestStoragePhrase">To confirm, type <code>REMOVE TEST RECEIPTS</code></label>
 <input type="text" id="clearTestStoragePhrase" placeholder="REMOVE TEST RECEIPTS" autocomplete="off" spellcheck="false">
@@ -144,7 +144,7 @@ function controls(){
   $('restore').disabled=busy||!user||!archive||!ready||recordsRestored||$('confirmation').value.trim()!=='RESTORE TEST';
   $('upload').disabled=busy||!user||!archive||!recordsRestored;
   $('recheck').disabled=busy||!user||!archive;
-  $('clearTestStorage').disabled=busy||!user||$('clearTestStoragePhrase').value.trim()!=='REMOVE TEST RECEIPTS';
+  $('clearTestStorage').disabled=true; // Preserve existing Recovery Test receipts until certification.
 }
 async function finishTestSignIn(profile){
  const {data,error}=await client.auth.mfa.getAuthenticatorAssuranceLevel();
