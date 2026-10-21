@@ -233,11 +233,15 @@ function hiveName(c){
 function renderSeason(){
  const e=$('seasonSummary');e.replaceChildren();
  $('colonySection').hidden=!season;
- $('startSeason').hidden=!!season;
- if(!season){$('seasonAdmin').replaceChildren();e.append(node('p','Season not started. No winter records exist for this year.'));return;}
+ $('startSeason').hidden=!!season||embedded;
+ if(!season){e.append(node('p','Season not started. No winter records exist for this year.'));renderSeasonAdmin();return;}
  e.append(node('p','Season: '+season.start_year+'–'+(season.start_year+1)+' · '+season.status.toUpperCase()+' · Started '+new Date(season.started_at).toLocaleString()));
- const participating=participations.filter(x=>x.participation==='included').length;
- e.append(node('p',participating+' included · '+(participations.length-participating)+' excluded · '+colonies.filter(c=>c.colony_status==='active'&&!participations.some(p=>p.colony_id===c.id)).length+' active colonies awaiting a decision.'));
+ const scopedColonies=colonies.filter(belongsToHive);
+ const scopedIds=new Set(scopedColonies.map(c=>String(c.id)));
+ const scopedParticipations=participations.filter(p=>scopedIds.has(String(p.colony_id)));
+ const participating=scopedParticipations.filter(x=>x.participation==='included').length;
+ const awaiting=scopedColonies.filter(c=>c.colony_status==='active'&&!scopedParticipations.some(p=>p.colony_id===c.id)).length;
+ e.append(node('p',participating+' included · '+(scopedParticipations.length-participating)+' excluded · '+awaiting+' active colonies awaiting a decision'+(embedded?' for this hive.':'.'));
  renderSeasonAdmin();
 }
 
@@ -245,6 +249,13 @@ function renderSeasonAdmin(){
  const root=$('seasonAdmin'),previous=root.querySelector('#seasonClosureControls');
  const wasOpen=previous?.open===true&&previous.dataset.seasonId===String(season?.id)&&previous.dataset.status===season?.status;
  root.replaceChildren();
+ if(embedded){
+  const note=node('p','Start, close or reopen a season for all hives from the full Winter Readiness administration page. Those controls are unavailable inside an individual hive.','muted');
+  const link=node('a','Open full Winter Readiness');
+  link.href='winter-readiness.html';link.target='_blank';link.rel='noopener noreferrer';
+  root.append(note,link);
+  return;
+ }
  if(!season)return;
  const card=node('div',undefined,'card'),latest=snapshots[0];
  if(latest)card.append(node('p',snapshots.length+' historical snapshot version(s); latest is '+latest.version+'.'));
@@ -289,6 +300,7 @@ function renderSeasonAdmin(){
 }
 
 $('startSeason').addEventListener('click',async()=>{
+ if(embedded){say('Open full Winter Readiness to start a season for the entire apiary.');return;}
  const year=Number($('seasonYear').value);
  if(!confirm('Start winter '+year+'–'+(year+1)+' and include all currently active colonies?'))return;
  try{const id=requireResult(await client.rpc('winter_start_season',{p_start_year:year}));say('Season '+id+' started.');await refresh();}
