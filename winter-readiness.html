@@ -180,7 +180,24 @@ $('mfaForm').addEventListener('submit',async e=>{
    $('mfaCode').value='';await authenticated();$('authStatus').textContent='MFA verified.';
  }catch(err){$('mfaCode').value='';$('authStatus').textContent=errorMessage(err);}
 });
-$('signOut').addEventListener('click',async()=>{await client.auth.signOut();verified=null;season=null;current=null;setSections('login');$('authStatus').textContent='Signed out.';});
+// The embedded page shares a Supabase browser session with the main Apiary Log.
+// Clear any displayed private Winter state if the owner signs out in either view.
+function clearWinterSession(){
+ verified=null;season=null;current=null;
+ participations=[];snapshots=[];items=[];observations=[];seasonOutcomes=[];currentOutcome=null;
+ $('winterDetail').hidden=true;
+ $('sessionLabel').textContent='';
+ setSections('login');
+ $('authStatus').textContent='Signed out.';
+}
+client.auth.onAuthStateChange((event,session)=>{
+ if(event==='SIGNED_OUT'||(!session&&event!=='INITIAL_SESSION'))clearWinterSession();
+});
+$('signOut').addEventListener('click',async()=>{
+ const {error}=await client.auth.signOut();
+ if(error){$('authStatus').textContent='Sign-out failed: '+error.message;return;}
+ clearWinterSession();
+});
 $('downloadWinterBackup').addEventListener('click',()=>{
  downloadCompleteBackup({supabase:client,button:$('downloadWinterBackup'),message:$('winterBackupMessage')});
 });
