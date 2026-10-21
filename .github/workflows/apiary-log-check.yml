@@ -9,6 +9,7 @@ on:
       - 'js/apiary-backup-verifier-v3.js'
       - 'tests/winter-live-integration.test.mjs'
       - 'tests/winter-actual-dom.test.mjs'
+      - 'tests/winter-browser-smoke.mjs'
       - 'tests/winter-migration-fixture.sql'
       - 'tests/winter-migration-smoke.sql'
       - 'database/migrations/20261021_winter_readiness_production_schema.sql'
@@ -30,6 +31,7 @@ on:
       - 'js/apiary-backup-verifier-v3.js'
       - 'tests/winter-live-integration.test.mjs'
       - 'tests/winter-actual-dom.test.mjs'
+      - 'tests/winter-browser-smoke.mjs'
       - 'tests/winter-migration-fixture.sql'
       - 'tests/winter-migration-smoke.sql'
       - 'database/migrations/20261021_winter_readiness_production_schema.sql'
@@ -129,6 +131,8 @@ jobs:
         run: npm install --no-save --no-package-lock --ignore-scripts jsdom@26 playwright@1.56.1
       - name: Render Winter hive navigation in disposable DOM
         run: node tests/winter-actual-dom.test.mjs
+      - name: Test Winter navigation in headless Chrome without network
+        run: node tests/winter-browser-smoke.mjs
       - name: Test automatic recurring entries and backup compatibility
         run: node --test tests/recurring-ui.test.mjs tests/recurring-backup.test.mjs
       - name: Test recurring UI in headless Chrome browser
