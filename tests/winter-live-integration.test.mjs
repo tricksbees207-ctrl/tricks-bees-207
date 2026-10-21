@@ -14,10 +14,10 @@ for (const [name, source] of [['Apiary Log', parent], ['Winter', child]]) {
   assert(source.includes(productionProject), name + ' must use the production project in this staging branch');
   assert(!source.includes(recoveryProject), name + ' must never point to the online Recovery Test');
 }
-assert.equal((parent.match(/\\['Winter',winterPanel\\]/g) || []).length, 1);
-assert.match(parent, /grid-template-columns:repeat\\(5,minmax\\(0,1fr\\)\\)/);
+assert.equal(parent.split("['Winter',winterPanel]").length - 1, 1);
+assert(parent.includes('grid-template-columns:repeat(5,minmax(0,1fr))'));
 assert.match(parent, /hive-section-selected/);
-assert.match(parent, /winter-readiness\\.html\\?embedded=1&hive=/);
+assert(parent.includes('winter-readiness.html?embedded=1&hive='));
 
 const route = child.slice(child.indexOf('const route='), child.indexOf('if(embedded){'));
 for (const [search, allowed] of [
@@ -68,9 +68,9 @@ for (const table of [
   assert(backup.includes("'" + table + "'"), 'Backup missing ' + table);
   assert(verifier.includes("'" + table + "'"), 'Verifier missing ' + table);
 }
-assert.match(parent, /apiary-complete-backup-v3\\.js/);
-assert.match(parent, /apiary-backup-verifier-v3\\.js/);
-assert.match(child, /apiary-complete-backup-v3\\.js/);
+assert(parent.includes('apiary-complete-backup-v3.js'));
+assert(parent.includes('apiary-backup-verifier-v3.js'));
+assert(child.includes('apiary-complete-backup-v3.js'));
 assert(!parent.includes('apiary-log-winter-test.html'));
 assert(!child.includes('apiary-complete-backup-v3-test.js'));
 
