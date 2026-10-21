@@ -172,6 +172,10 @@ ALTER TABLE public."Winter_Participation" ADD CONSTRAINT "Winter_Participation_p
 
 ALTER TABLE public."Winter_Participation" ADD CONSTRAINT "Winter_Participation_prep_assessment_check" CHECK (prep_assessment = ANY (ARRAY['unassessed'::text, 'complete'::text, 'concerns'::text, 'incomplete'::text]));
 
+-- Direct REST updates must not bypass the exclusion explanation required by the UI.
+ALTER TABLE public."Winter_Participation" ADD CONSTRAINT "Winter_Participation_exclusion_reason_check"
+  CHECK (participation <> 'excluded' OR NULLIF(btrim(exclusion_reason), '') IS NOT NULL);
+
 ALTER TABLE public."Winter_Seasons" ADD CONSTRAINT "Winter_Seasons_check" CHECK (status = 'open'::text AND closed_at IS NULL OR status = 'closed'::text AND closed_at IS NOT NULL);
 
 ALTER TABLE public."Winter_Seasons" ADD CONSTRAINT "Winter_Seasons_start_year_check" CHECK (start_year >= 2000 AND start_year <= 2200);
@@ -226,6 +230,9 @@ begin
  if not exists(select 1 from public."Hive_Colonies"
                where id=p_colony_id and user_id=v_owner and colony_status='active') then
    raise exception 'Only your active colonies can be added';
+ end if;
+ if p_include is null then
+   raise exception 'Include/exclude choice is required';
  end if;
  if not p_include and nullif(trim(coalesce(p_reason,'')),'') is null then
    raise exception 'Please record a reason for excluding this colony';
