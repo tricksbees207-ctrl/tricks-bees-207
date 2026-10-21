@@ -5,10 +5,12 @@ import {JSDOM} from 'jsdom';
 const html = readFileSync('apiary-log.html','utf8');
 const dom = new JSDOM(html,{url:'https://example.test/apiary-log.html',runScripts:'outside-only'});
 const {window} = dom;
-const scripts=[...html.matchAll(/<script\\b([^>]*)>([\\s\\S]*?)<\\/script>/gi)];
-const navScript=scripts.find(m=>!m[1].includes('module') && m[2].includes("Hive sections"));
-assert(navScript, 'Missing inline navigation script');
-window.eval(navScript[2]);
+const scriptOpen=html.indexOf('<script>');
+const scriptClose=html.indexOf('</script>',scriptOpen);
+assert(scriptOpen>0 && scriptClose>scriptOpen,'Navigation inline script missing');
+const navScript=html.slice(scriptOpen+'<script>'.length,scriptClose);
+assert(navScript.includes('Hive sections'),'Hive navigation script missing');
+window.eval(navScript);
 window.document.dispatchEvent(new window.Event('DOMContentLoaded'));
 
 const hiveNav=window.document.querySelector('[role="tablist"][aria-label="Hive sections"]');
