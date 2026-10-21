@@ -64,7 +64,7 @@ summary{font-weight:700;cursor:pointer;padding:6px}
 <p id="authStatus" class="status" role="status"></p>
 </section>
 <div id="workspace" hidden>
-<section class="panel">
+<section id="winterBackupSection" class="panel">
 <h2>Winter-aware backup</h2>
 <p class="muted">Download a private 25-table ZIP containing your Apiary Log records, including winter audit history, snapshots, and receipt files. Keep backup copies securely outside your Mac.</p>
 <button type="button" id="downloadWinterBackup">Download winter-record ZIP</button>
@@ -138,6 +138,9 @@ const scopedHive=route.has('hive')?route.get('hive'):null;
 const validScope=scopedHive===null||/^[1-9][0-9]*$/.test(scopedHive);
 const belongsToHive=c=>!!c&&validScope&&(scopedHive===null||String(c.hive_id)===scopedHive);
 if(embedded){
+ // The archive covers every apiary record. Do not suggest it is hive-scoped
+ // by showing that download inside a single-hive tab.
+ document.getElementById('winterBackupSection').hidden=true;
  document.querySelector('[aria-label="Proposed hive navigation layout"]').hidden=true;
  document.querySelector('[aria-label="Proposed hive navigation layout"]').nextElementSibling.hidden=true;
 }
