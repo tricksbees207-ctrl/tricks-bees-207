@@ -1,0 +1,42 @@
+# Winter Readiness: deployment readiness checklist
+
+**Status:** REVIEW ONLY. Draft pull request #27 must not be merged until all remaining gates pass.
+**Prepared:** October 21, 2026. **Production data and schema:** unchanged.
+
+## Completed and verified
+
+- [x] Stage exactly ten hive tabs, with Winter selected from the current hive.
+- [x] Verify the ten-tab DOM and mobile-responsive rules in GitHub CI (not a real-device browser test).
+- [x] Produce a guarded, transactional production Winter migration for seven tables, 70 columns, 49 constraints, nine functions, 12 triggers and 15 ownership/MFA RLS policies.
+- [x] Test SQL installation and season start/close/reopen against a disposable PostgreSQL fixture using the real definitions of all 19 production application tables (no production data copied).
+- [x] Exercise snapshot immutability, two closure versions, internal function grants, caller/owner boundaries, and AAL1/AAL2 restrictions in disposable CI.
+- [x] Verify separate **existing** Supabase Recovery Test has all seven Winter tables with RLS and intact 1 season, 4 participation records, 3 snapshots, and 66 audit entries.
+- [x] Verify owner AAL2 sees Recovery Test history; AAL1 and unrelated AAL2 users see none (read-only simulated JWT context).
+- [x] Revoke direct anonymous/authenticated EXECUTE from four internal Recovery Test Winter trigger helpers; verify all 11 trigger attachments remain and the four related advisor warnings disappear.
+- [x] Independently test, in READ-ONLY/ROLLBACK transactions, that all three test-only importers reject an unrelated AAL2 account and reject the legitimate owner at AAL1.
+- [x] Run backup ZIP integrity and staged application checks with GitHub Actions.
+
+## Intentional remaining Recovery Test advisories
+
+These are **not cleared warnings** and must stay documented:
+
+- `public.recovery_test_import`, `public.recovery_test_import_v3`, `public.recovery_test_import_winter`: `SECURITY DEFINER` test-only restore RPCs, permitted to signed-in callers, guarded internally by the confirmed test-owner allowlist and AAL2/MFA, and configured not to overwrite existing populated tables. Revoking authenticated EXECUTE would disable the Recovery Test restore UI. Do not copy them into production.
+- `public.winter_close_season`, `public.winter_reopen_season`: guarded `SECURITY DEFINER` endpoints needed by the Winter UI to transition seasons and preserve snapshots. They demand owner/MFA checks. A standard Supabase advisor flags the privileged execution despite these internal gates; review their bodies and explicitly accept any residual risk.
+- **Leaked password protection disabled**: Supabase Authentication account setting warning. Not caused by the Winter migration and not remediated in this change. Review in dashboard before public rollout. [Supabase password documentation](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection).
+
+## Release blockers
+
+- [ ] Obtain an independent review of `database/migrations/20261021_winter_readiness_production_schema.sql` including SECURITY DEFINER bodies, permissions, audit immutability, and trigger behavior.
+- [ ] Execute a **fresh real Supabase migration rehearsal** on an appropriately isolated project that supports it. The existing plan declined Supabase branching with `Branching is supported only on the Pro plan or above`; no branch was created. The online Recovery Test has the older working schema, but is not a fresh-install rehearsal for this migration.
+- [ ] Confirm Recovery Test's full 25-table ZIP restore workflow from a verified user-held archive in another empty isolated destination before changing the production backup exporter. Do not restore into production or overwrite populated test records.
+- [ ] Browser/device acceptance checks for 10-button layout, hive changes, MFA session refresh, iframe isolation, accessibility, winter closures and snapshots, and download/verification of a private archive.
+- [ ] Obtain explicit owner approval before **executing production schema changes**. Take/verify a fresh separate production data-and-receipts backup, and document safe rollback of a schema deployment before applying it.
+- [ ] Only after above, separately obtain explicit owner approval before **merging** Draft PR #27 and publishing. Verify production data counts, alerts and receipt scheduler after deployment.
+
+## Production safety rules
+
+- No live records are copied to the disposable GitHub fixture.
+- Never run Recovery Test importer or owner-remapping routines in the production project.
+- Never delete historical snapshots or audit data to make a rollback work.
+- Never put production receipts, private ZIPs, passwords, OTPs or secret/service-role keys in GitHub.
+- Keep Draft PR #27 unmerged until every release blocker is satisfied.
