@@ -429,7 +429,7 @@ async function renderExisting(col){
  ['Last feeding','Hive_Feedings','feed_date','feed_type','quantity'],
  ['Last treatment','Hive_Treatments','treatment_date','product','follow_up_date']];
  for(const d of defs){
-  const r=await client.from(d[1]).select('*').eq('colony_id',col.id).order(d[2],{ascending:false}).limit(1);
+  const r=await client.from(d[1]).select('*').eq('colony_id',col.id).eq('hive_id',col.hive_id).order(d[2],{ascending:false}).limit(1);
   const data=requireResult(r);
   const rec=data?.[0];
   host.append(node('p',d[0]+': '+(rec?(rec[d[2]]+' · '+(rec[d[3]]??'Not specified')+(rec[d[4]]!=null?' · '+rec[d[4]]:'')):'Not recorded for this colony')));
