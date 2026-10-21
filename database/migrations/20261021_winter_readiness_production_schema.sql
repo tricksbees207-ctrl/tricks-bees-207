@@ -599,59 +599,73 @@ CREATE POLICY "winter_snapshots_mfa" ON public."Winter_Snapshots" AS RESTRICTIVE
 
 CREATE POLICY "winter_snapshots_read" ON public."Winter_Snapshots" AS PERMISSIVE FOR SELECT TO authenticated USING ((user_id = ( SELECT auth.uid() AS uid)));
 
-REVOKE ALL ON TABLE public."Winter_Seasons" FROM PUBLIC, anon;
+REVOKE ALL ON TABLE public."Winter_Seasons" FROM PUBLIC, anon, authenticated;
 
 GRANT SELECT, INSERT ON TABLE public."Winter_Seasons" TO authenticated;
 
 GRANT ALL ON TABLE public."Winter_Seasons" TO service_role;
 
+REVOKE ALL ON SEQUENCE public."Winter_Seasons_id_seq" FROM PUBLIC, anon, authenticated;
+
 GRANT USAGE, SELECT ON SEQUENCE public."Winter_Seasons_id_seq" TO authenticated, service_role;
 
-REVOKE ALL ON TABLE public."Winter_Participation" FROM PUBLIC, anon;
+REVOKE ALL ON TABLE public."Winter_Participation" FROM PUBLIC, anon, authenticated;
 
 GRANT SELECT, INSERT, UPDATE ON TABLE public."Winter_Participation" TO authenticated;
 
 GRANT ALL ON TABLE public."Winter_Participation" TO service_role;
 
+REVOKE ALL ON SEQUENCE public."Winter_Participation_id_seq" FROM PUBLIC, anon, authenticated;
+
 GRANT USAGE, SELECT ON SEQUENCE public."Winter_Participation_id_seq" TO authenticated, service_role;
 
-REVOKE ALL ON TABLE public."Winter_Checklist_Items" FROM PUBLIC, anon;
+REVOKE ALL ON TABLE public."Winter_Checklist_Items" FROM PUBLIC, anon, authenticated;
 
 GRANT SELECT, INSERT, UPDATE ON TABLE public."Winter_Checklist_Items" TO authenticated;
 
 GRANT ALL ON TABLE public."Winter_Checklist_Items" TO service_role;
 
+REVOKE ALL ON SEQUENCE public."Winter_Checklist_Items_id_seq" FROM PUBLIC, anon, authenticated;
+
 GRANT USAGE, SELECT ON SEQUENCE public."Winter_Checklist_Items_id_seq" TO authenticated, service_role;
 
-REVOKE ALL ON TABLE public."Winter_Observations" FROM PUBLIC, anon;
+REVOKE ALL ON TABLE public."Winter_Observations" FROM PUBLIC, anon, authenticated;
 
 GRANT SELECT, INSERT, UPDATE ON TABLE public."Winter_Observations" TO authenticated;
 
 GRANT ALL ON TABLE public."Winter_Observations" TO service_role;
 
+REVOKE ALL ON SEQUENCE public."Winter_Observations_id_seq" FROM PUBLIC, anon, authenticated;
+
 GRANT USAGE, SELECT ON SEQUENCE public."Winter_Observations_id_seq" TO authenticated, service_role;
 
-REVOKE ALL ON TABLE public."Winter_Outcomes" FROM PUBLIC, anon;
+REVOKE ALL ON TABLE public."Winter_Outcomes" FROM PUBLIC, anon, authenticated;
 
 GRANT SELECT, INSERT, UPDATE ON TABLE public."Winter_Outcomes" TO authenticated;
 
 GRANT ALL ON TABLE public."Winter_Outcomes" TO service_role;
 
+REVOKE ALL ON SEQUENCE public."Winter_Outcomes_id_seq" FROM PUBLIC, anon, authenticated;
+
 GRANT USAGE, SELECT ON SEQUENCE public."Winter_Outcomes_id_seq" TO authenticated, service_role;
 
-REVOKE ALL ON TABLE public."Winter_Audit_History" FROM PUBLIC, anon;
+REVOKE ALL ON TABLE public."Winter_Audit_History" FROM PUBLIC, anon, authenticated;
 
 GRANT SELECT ON TABLE public."Winter_Audit_History" TO authenticated;
 
 GRANT ALL ON TABLE public."Winter_Audit_History" TO service_role;
 
+REVOKE ALL ON SEQUENCE public."Winter_Audit_History_id_seq" FROM PUBLIC, anon, authenticated;
+
 GRANT USAGE, SELECT ON SEQUENCE public."Winter_Audit_History_id_seq" TO service_role;
 
-REVOKE ALL ON TABLE public."Winter_Snapshots" FROM PUBLIC, anon;
+REVOKE ALL ON TABLE public."Winter_Snapshots" FROM PUBLIC, anon, authenticated;
 
 GRANT SELECT ON TABLE public."Winter_Snapshots" TO authenticated;
 
 GRANT ALL ON TABLE public."Winter_Snapshots" TO service_role;
+
+REVOKE ALL ON SEQUENCE public."Winter_Snapshots_id_seq" FROM PUBLIC, anon, authenticated;
 
 GRANT USAGE, SELECT ON SEQUENCE public."Winter_Snapshots_id_seq" TO service_role;
 
