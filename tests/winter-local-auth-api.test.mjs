@@ -80,8 +80,8 @@ async function verifyMfa(acct,label){
 function seedColony(userId,number){
  assert(/^[0-9a-f-]{36}$/i.test(userId),'Bad synthetic user UUID');
  execFileSync('psql',['-X','-v','ON_ERROR_STOP=1','-c',
-   `INSERT INTO public."Hive_Colonies"(hive_id,user_id,colony_name,colony_status)
-    VALUES (1,'${userId}'::uuid,'Synthetic API colony ${number}','active');`],{stdio:'pipe'});
+   `INSERT INTO public."Hive_Colonies"(id,hive_id,user_id,colony_name,colony_status)
+    VALUES (${200+number},1,'${userId}'::uuid,'Synthetic API colony ${number}','active');`],{stdio:'pipe'});
 }
 const a=await signup('A');
 const b=await signup('B');
