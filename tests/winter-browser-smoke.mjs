@@ -30,7 +30,7 @@ try {
  await page.setContent(safeHtml,{waitUntil:'domcontentloaded'});
  await page.addScriptTag({content:navigation});
  await page.evaluate(()=>document.dispatchEvent(new Event('DOMContentLoaded')));
- await page.addScriptTag({content:'let selectedHiveId=null;'+controller+
+ await page.addScriptTag({content:'const $=id=>document.getElementById(id);let selectedHiveId=null;'+controller+
    'window.__hiveTest={select(id){selectedHiveId=id;syncWinterFrame();},logout(){selectedHiveId=null;syncWinterFrame();}};'});
  // Authentication is deliberately not executed. Reveal the protected dashboard with
  // dummy browser state so computed grid layout reflects what a signed-in user sees.
