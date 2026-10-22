@@ -9,6 +9,17 @@
 - Test account should have fictional hives/colonies, MFA enabled, and no sensitive production data. The user's existing populated online Recovery Test must not be reset or overwritten. Network exposure of any local Mac preview requires separate security planning; do not expose the Mac's private Docker API or service-role keys to the Internet.
 - Record device/browser version, viewport/zoom, date, tester and environment URL. **Do not publish credentials, MFA codes, tokens, screenshot account data, real receipts or backup contents** in GitHub issues.
 
+## Separate fictional phone-layout preview (owner-reported October 22, 2026)
+
+**Status: BASIC PREVIEW PASS; real application acceptance remains NOT RUN.** The owner used a Samsung phone on the same trusted Wi-Fi as their Mac to open a small local HTTP preview served from a folder containing only fictional markup and records, **not the staged authenticated Apiary Log or Winter Readiness application**.
+
+- **Connectivity:** Connection-success page loaded on the phone from the Mac's local Python HTTP server.
+- **Layout and navigation:** Owner reported all ten Hive section buttons displayed in two columns; Feedings and Winter buttons responded.
+- **Hive switching:** Fictional Sample Colony 1 and Sample Colony 2 appeared in the correct corresponding Hive 1/Hive 2 views.
+- **Rotation and zoom:** Portrait/landscape rotation, pinch zoom, scrolling and button usage were reported usable.
+- **Sample form:** Notes input worked. Initially the required HTML date field could not be filled by typing digits, and browser validation blocked submission. Using Samsung Chrome's native **calendar picker** to choose the date succeeded; the **Test Save Button** displayed the expected *Sample form works* success message. No real data was stored or transmitted.
+- **Limits:** The fake preview did **not** test real login/MFA, production-equivalent app layout/forms, actual Winter database/receipt access, real backup ZIPs, or server-side save operations. It does not satisfy any P01–P11 authenticated-app acceptance case. Do not mark the physical-phone release gate complete on this basis.
+
 ## Manual checks on a physical phone
 
 Mark each case PASS / FAIL / NOT RUN; attach only redacted screenshots or synthetic examples.
