@@ -413,7 +413,9 @@ function renderClosedColony(selectedVersion=null){
  if(!latest){host.append(node('p','The historical snapshot is missing; edits remain locked.'));return;}
  if(snapshots.length>1){
   const label=node('label','Historical closure version');
-  const select=makeSelect(snapshots.map(v=>[String(v.version),'Version '+v.version+' · '+new Date(v.created_at).toLocaleString()]),String(latest.version));
+  // Keep native-select options short on phones; the full closure timestamp is shown below.
+  const select=makeSelect(snapshots.map(v=>[String(v.version),'Version '+v.version]),String(latest.version));
+  select.id='winterHistoricalVersion';label.htmlFor=select.id;
   select.addEventListener('change',()=>renderClosedColony(Number(select.value)));
   host.append(label,select);
  }
