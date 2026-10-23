@@ -55,6 +55,16 @@ window.__winterTest={
  selectWrongHive(){
   return selectColony(participations.find(p=>p.colony_id===102));
  },
+ queueDelayedRefresh(){
+  let release;
+  const delayed=new Promise(resolve=>{release=resolve;});
+  window.__syntheticWinterClient.from=table=>{
+   if(table==='Winter_Seasons')return {select:()=>({eq:()=>({maybeSingle:()=>delayed})})};
+   return {select:()=>({data:[],error:null})};
+  };
+  window.__finishDelayedWinterRead=()=>release({data:null,error:null});
+  window.__pendingWinterRead=refresh();
+ },
  getState(){return {verified:!!verified,season:!!season,current:!!current,
   participants:participations.length,snapshots:snapshots.length,items:items.length,
   observations:observations.length,outcomes:seasonOutcomes.length,hasCurrentOutcome:!!currentOutcome
@@ -137,6 +147,16 @@ window.__syntheticWinterClient={
  assert.deepEqual(await page.evaluate(()=>window.__winterTest.getState()),
   {verified:false,season:false,current:false,participants:0,snapshots:0,items:0,
    observations:0,outcomes:0,hasCurrentOutcome:false});
+ // A response issued before sign-out must not restore either data or UI afterward.
+ await page.evaluate(()=>{window.__winterTest.fakeLogin();window.__winterTest.queueDelayedRefresh();});
+ await page.evaluate(()=>window.__authCallback('SIGNED_OUT',null));
+ await page.evaluate(async()=>{window.__finishDelayedWinterRead();await window.__pendingWinterRead;});
+ assert.equal(await page.locator('#seasonSummary').textContent(),'',
+  'A stale season read must not redraw private content after logout');
+ assert.deepEqual(await page.evaluate(()=>window.__winterTest.getState()),
+  {verified:false,season:false,current:false,participants:0,snapshots:0,items:0,
+   observations:0,outcomes:0,hasCurrentOutcome:false},
+  'Stale reads must not repopulate signed-out application state');
  await page.evaluate(()=>window.__winterTest.fakeLogin());
  await page.locator('#signOut').click();
  assert.equal(await page.locator('#workspace').isVisible(),false,'Winter explicit sign-out also hides private workspace');
