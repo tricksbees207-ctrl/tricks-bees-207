@@ -138,6 +138,8 @@ const scopedHive=route.has('hive')?route.get('hive'):null;
 const validScope=scopedHive===null||/^[1-9][0-9]*$/.test(scopedHive);
 const belongsToHive=c=>!!c&&validScope&&(scopedHive===null||String(c.hive_id)===scopedHive);
 if(embedded){
+ // The main Apiary Log already provides Sign Out. Keep this control on the standalone page.
+ $('signOut').hidden=true;
  // The archive covers every apiary record. Do not suggest it is hive-scoped
  // by showing that download inside a single-hive tab.
  document.getElementById('winterBackupSection').hidden=true;
