@@ -1,0 +1,74 @@
+name: Disposable Winter Auth and REST acceptance
+
+on:
+  pull_request:
+    paths:
+      - 'database/migrations/20261021_winter_readiness_production_schema.sql'
+      - 'tests/winter-migration-fixture.sql'
+      - 'tests/prepare-winter-supabase-fixture.mjs'
+      - 'tests/enable-winter-local-mfa.mjs'
+      - 'tests/winter-local-auth-api.test.mjs'
+      - 'tests/winter-local-browser-auth.test.mjs'
+      - 'apiary-log.html'
+      - 'winter-readiness.html'
+      - '.github/workflows/winter-local-auth-api-rehearsal.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  native-auth-rest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 54322
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+      WINTER_LOCAL_SUPABASE_URL: http://127.0.0.1:54321
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.84.2
+      - name: Discover local Supabase services and enable disposable MFA
+        run: |
+          supabase --version
+          supabase start --help
+          mkdir -p "$RUNNER_TEMP/winter-auth-api"
+          cd "$RUNNER_TEMP/winter-auth-api"
+          supabase init
+          node "$GITHUB_WORKSPACE/tests/enable-winter-local-mfa.mjs" "$PWD/supabase/config.toml"
+      - name: Start native local Auth and PostgREST services
+        run: |
+          cd "$RUNNER_TEMP/winter-auth-api"
+          supabase start --exclude realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+          supabase status --output json > "$RUNNER_TEMP/winter-supabase-services.json"
+          curl --fail --silent --output /dev/null http://127.0.0.1:54321/auth/v1/health
+      - name: Read ephemeral local-only publishable key
+        run: |
+          cd "$RUNNER_TEMP/winter-auth-api"
+          local_env="$(supabase status -o env)"
+          anon="$(printf '%s\n' "$local_env" | grep '^ANON_KEY=' | head -1 | cut -d= -f2- | tr -d '\"')"
+          if [ -z "$anon" ]; then echo 'Local anonymous key unavailable'; exit 1; fi
+          echo "::add-mask::$anon"
+          printf 'ANON_KEY=%s\n' "$anon" >> "$GITHUB_ENV"
+      - name: Install production-shaped synthetic schema and proposed Winter migration
+        run: |
+          node tests/prepare-winter-supabase-fixture.mjs "$RUNNER_TEMP/winter-supabase-fixture.sql"
+          psql -X -v ON_ERROR_STOP=1 -f "$RUNNER_TEMP/winter-supabase-fixture.sql"
+          psql -X -v ON_ERROR_STOP=1 -f database/migrations/20261021_winter_readiness_production_schema.sql
+      - name: Exercise local email sessions, real TOTP MFA and REST ownership controls
+        run: node tests/winter-local-auth-api.test.mjs
+      - name: Install pinned browser test dependencies
+        run: npm install --no-save --no-package-lock @supabase/supabase-js@2.118.0 esbuild@0.25.10 playwright@1.56.1
+      - name: Run actual staged parent and Winter iframe through Chrome with local MFA
+        run: node tests/winter-local-browser-auth.test.mjs
+      - name: Dispose ephemeral Supabase containers
+        if: always()
+        run: |
+          if [ -d "$RUNNER_TEMP/winter-auth-api/supabase" ]; then
+            cd "$RUNNER_TEMP/winter-auth-api"
+            supabase stop || true
+          fi
