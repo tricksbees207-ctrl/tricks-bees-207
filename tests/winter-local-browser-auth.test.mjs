@@ -162,8 +162,10 @@ try{
   assert(child.width>=250,`Embedded mobile frame should be usable at ${width}px`);
   assert(child.full<=child.width+2,
    `Embedded Winter should not require horizontal scrolling at ${width}px (${child.full} > ${child.width})`);
-  assert(child.signOutVisible&&child.colonyVisible,
-   'Signed-in mobile view must retain sign-out and scoped colony content');
+  assert(!child.signOutVisible&&child.colonyVisible,
+   'Embedded Winter must hide duplicate Sign Out while retaining scoped colony content');
+  assert.equal(await page.locator('#logout').isVisible(),true,
+   'Parent Apiary Log must retain its shared Sign Out control');
   assert.equal(await frame.locator('#colonyList').getByText('Genuine Browser Colony').count(),1);
  }
  await page.setViewportSize({width:1200,height:900});
