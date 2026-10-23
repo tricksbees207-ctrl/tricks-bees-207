@@ -43,3 +43,22 @@ Reviewer should give their independent identity/affiliation or reviewer handle, 
 **Other outstanding gates:** hosted/manual phone accessibility and sign-out across windows; real hosted configuration where safe; fresh production data-and-receipts backup; explicit separate owner approvals for (1) production schema changes and (2) merging/publishing Draft PR #27.
 
 **Safety rule:** Keep PR #27 in DRAFT and do not change production or the populated online Recovery Test until each gate is separately met.
+
+## October 23 security-review handoff addendum
+
+**Review baseline:** [commit `bf3ba8140503f6485b7d714e420357cb0b3525a1`](https://github.com/tricksbees207-ctrl/tricks-bees-207/commit/bf3ba8140503f6485b7d714e420357cb0b3525a1), with six passing disposable CI workflows. The reviewer must state the exact PR commit reviewed and recheck any later code changes. No independent reviewer or submitted review was listed on PR #27 when this packet was checked.
+
+**Latest successful workflow runs:**
+
+- [Code and browser checks](https://github.com/tricksbees207-ctrl/tricks-bees-207/actions/runs/39962662162)
+- [Isolated PostgreSQL migration](https://github.com/tricksbees207-ctrl/tricks-bees-207/actions/runs/39962662013)
+- [Native disposable Supabase installation](https://github.com/tricksbees207-ctrl/tricks-bees-207/actions/runs/39962661990)
+- [Disposable Supabase Auth and REST](https://github.com/tricksbees207-ctrl/tricks-bees-207/actions/runs/39962662170)
+- [Fictional 25-table recovery](https://github.com/tricksbees207-ctrl/tricks-bees-207/actions/runs/39962662037)
+- [Backup ZIP integrity](https://github.com/tricksbees207-ctrl/tricks-bees-207/actions/runs/39962662054)
+
+**Phone evidence:** The owner's October 23 Samsung USB test passed four hive-specific Winter views, Feedings-to-Winter navigation and signout/Back privacy behavior in the Mac-local Recovery Lab. The [P01–P11 device plan](winter-readiness-phone-acceptance.md) is only partially complete; Android accessibility, remaining cases and retesting the corrected short historical-version label remain open.
+
+**Requested reviewer reply:** For each of the nine sections above, mark PASS / FAIL / NEEDS FOLLOW-UP, cite code lines and any negative tests, identify blocking findings and retest criteria, and end with APPROVED / CHANGES REQUIRED / NOT REVIEWED. Record reviewer handle, date and reviewed commit. Do not attach credentials, tokens, receipts or private ZIP files.
+
+This addendum is documentation only. It neither grants security approval nor authorizes a production migration or merge.
