@@ -133,6 +133,7 @@ try{
  const frame=page.frameLocator('#winterFrame');
  await frame.locator('#workspace').waitFor({state:'visible',timeout:35000});
  assert.equal(await frame.locator('#signInPanel').isVisible(),false,'Child must share MFA session');
+ assert.equal(await frame.locator('#auth').isVisible(),false,'Verified child must hide its redundant sign-in card');
  await frame.locator('#colonyList').getByText('Genuine Browser Colony')
   .waitFor({state:'visible',timeout:25000});
  assert.equal(await frame.locator('#winterBackupSection').isVisible(),false);
@@ -195,6 +196,8 @@ try{
  await secondTab.locator('#workspace').waitFor({state:'hidden',timeout:30000});
  assert.equal(await secondTab.locator('#signInPanel').isVisible(),true,
   'Sign-out in parent tab must display login in second tab');
+ assert.equal(await secondTab.locator('#auth').isVisible(),true,
+  'Signed-out child must show required sign-in controls');
  assert.equal(await secondTab.locator('#sessionLabel').textContent(),'',
   'Clear private account identity in second tab');
  assert.equal(await secondTab.locator('#colonyList').textContent(),'',

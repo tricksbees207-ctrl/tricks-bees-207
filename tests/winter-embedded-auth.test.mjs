@@ -104,6 +104,7 @@ window.__syntheticWinterClient={
  assert.equal(await page.locator('#downloadWinterBackup').isVisible(),false,'Private ZIP is hidden while logged out');
  await page.evaluate(()=>window.__winterTest.fakeLogin());
  assert.equal(await page.locator('#workspace').isVisible(),true,'Authenticated workspace visible in synthetic state');
+ assert.equal(await page.locator('#auth').isVisible(),false,'Verified embedded Winter hides the redundant sign-in card');
  assert.equal(await page.locator('#winterBackupSection').isVisible(),false,'Whole-apiary backup is not shown in a selected hive tab');
  assert.equal(await page.locator('#winterDetail').isVisible(),true,'Synthetic winter detail visible');
  assert.equal(await page.locator('#sessionLabel').innerText(),'Synthetic private data');
@@ -139,6 +140,7 @@ window.__syntheticWinterClient={
   'Must reject direct opening of a colony from another hive');
  await page.evaluate(()=>window.__authCallback('SIGNED_OUT',null));
  assert.equal(await page.locator('#workspace').isVisible(),false,'Cross-tab sign-out hides the private workspace');
+ assert.equal(await page.locator('#auth').isVisible(),true,'Embedded Winter restores sign-in after shared session expires');
  assert.equal(await page.locator('#winterDetail').isVisible(),false,'Cross-tab sign-out hides old hive detail');
  assert.equal(await page.locator('#sessionLabel').innerText(),'','Clear prior account info');
  assert.equal(await page.locator('#colonyList').textContent(),'',
@@ -169,6 +171,7 @@ window.__syntheticWinterClient={
  await page.evaluate(()=>window.__winterTest.fakeLogin());
  assert.equal(await page.locator('#signOut').isVisible(),true,
   'Standalone Winter retains its own Sign Out button');
+ assert.equal(await page.locator('#auth').isVisible(),true,'Standalone Winter retains authentication status');
  await page.locator('#signOut').click();
  assert.equal(await page.locator('#workspace').isVisible(),false,
   'Standalone Winter explicit sign-out hides private workspace');
