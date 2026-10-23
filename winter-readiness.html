@@ -150,12 +150,17 @@ const say=(message)=>{$('appStatus').textContent=message;};
 const errorMessage=e=>e?.message||String(e);
 const requireResult=r=>{if(r.error)throw r.error;return r.data;};
 let verified=null,season=null,colonies=[],hives=[],participations=[],current=null,items=[],observations=[],seasonOutcomes=[],snapshots=[],currentOutcome=null,lastSavedChecklistId=null;
+// Reject asynchronous results from a session, year, or hive view that is no longer active.
+let sessionRevision=0,refreshRevision=0,detailRevision=0;
 const latestObservationDate=()=>new Date().toLocaleDateString('en-CA');
 function setSections(mode){$('signInPanel').hidden=mode!=='login';$('mfaPanel').hidden=mode!=='mfa';$('signedInPanel').hidden=mode!=='signed';$('workspace').hidden=mode!=='signed';}
 async function authenticated(){
+ const revision=sessionRevision;
  const info=requireResult(await client.auth.mfa.getAuthenticatorAssuranceLevel());
+ if(revision!==sessionRevision)return;
  if(info.currentLevel==='aal2'){
    const result=requireResult(await client.auth.getUser());
+   if(revision!==sessionRevision)return;
    verified=result.user;setSections('signed');$('sessionLabel').textContent='MFA verified: '+verified.email;
    await refresh();
  }else{
@@ -186,6 +191,7 @@ $('mfaForm').addEventListener('submit',async e=>{
 // The embedded page shares a Supabase browser session with the main Apiary Log.
 // Clear any displayed private Winter state if the owner signs out in either view.
 function clearWinterSession(){
+ sessionRevision++;refreshRevision++;detailRevision++;
  verified=null;season=null;current=null;
  colonies=[];hives=[];participations=[];snapshots=[];items=[];observations=[];seasonOutcomes=[];currentOutcome=null;
  // Hiding a page is not enough on a shared device: erase previously rendered private content.
@@ -198,6 +204,7 @@ function clearWinterSession(){
   if(input.type==='checkbox'||input.type==='radio')input.checked=false;
   else input.value='';
  }
+ for(const select of document.querySelectorAll('#workspace select'))select.selectedIndex=0;
  $('colonyHeading').textContent='Winter preparation';
  $('colonySection').hidden=true;
  $('winterDetail').hidden=true;
@@ -221,6 +228,8 @@ $('downloadWinterBackup').addEventListener('click',()=>{
 });
 $('seasonYear').addEventListener('change',()=>refresh().catch(err=>say(errorMessage(err))));
 async function refresh(){
+ const revision=sessionRevision,request=++refreshRevision;
+ const usable=()=>!!verified&&revision===sessionRevision&&request===refreshRevision;
  if(!verified)return;
  if(!validScope||(embedded&&scopedHive===null))throw new Error('Invalid hive link. Return to the Apiary Log and select a hive.');
  const [s,c,h]=await Promise.all([
@@ -228,22 +237,31 @@ async function refresh(){
    client.from('Hive_Colonies').select('*'),
    client.from('Hives').select('id,hive_number,hive_name')
  ]);
- season=requireResult(s);colonies=requireResult(c)||[];hives=requireResult(h)||[];
- participations=season?requireResult(await client.from('Winter_Participation').select('*').eq('season_id',season.id)):[];
- const ids=participations.map(p=>p.id);
- seasonOutcomes=ids.length?requireResult(await client.from('Winter_Outcomes').select('*').in('participation_id',ids)):[];
- snapshots=season?requireResult(await client.from('Winter_Snapshots').select('*').eq('season_id',season.id).order('version',{ascending:false})):[];
+ if(!usable())return;
+ const nextSeason=requireResult(s),nextColonies=requireResult(c)||[],nextHives=requireResult(h)||[];
+ const nextParticipations=nextSeason?requireResult(await client.from('Winter_Participation').select('*').eq('season_id',nextSeason.id)):[];
+ if(!usable())return;
+ const ids=nextParticipations.map(p=>p.id);
+ const [outcomeResult,snapshotResult]=await Promise.all([
+   ids.length?client.from('Winter_Outcomes').select('*').in('participation_id',ids):Promise.resolve({data:[],error:null}),
+   nextSeason?client.from('Winter_Snapshots').select('*').eq('season_id',nextSeason.id).order('version',{ascending:false}):Promise.resolve({data:[],error:null})
+ ]);
+ if(!usable())return;
+ season=nextSeason;colonies=nextColonies;hives=nextHives;
+ participations=nextParticipations;seasonOutcomes=requireResult(outcomeResult)||[];
+ snapshots=requireResult(snapshotResult)||[];
  renderSeason();renderColonies();
  if(scopedHive!==null&&!current){
    const candidates=participations.filter(p=>p.participation==='included'&&belongsToHive(colonies.find(c=>c.id===p.colony_id)));
    if(candidates.length===1)current=candidates[0];
  }
  if(current){
-  const p=participations.find(x=>x.colony_id===current.colony_id);
-  if(p&&p.participation==='included'&&belongsToHive(colonies.find(c=>c.id===p.colony_id)))await selectColony(p);
-  else{$('winterDetail').hidden=true;current=null;}
+   const p=participations.find(x=>x.colony_id===current.colony_id);
+   if(p&&p.participation==='included'&&belongsToHive(colonies.find(c=>c.id===p.colony_id)))await selectColony(p);
+   else{$('winterDetail').hidden=true;current=null;}
  }
 }
+
 function hiveName(c){
  const h=hives.find(h=>String(h.id)===String(c.hive_id));
  return 'Hive '+(h?.hive_number??'?')+' · '+(h?.hive_name||'Unnamed')+' · '+c.colony_name;
@@ -389,21 +407,28 @@ async function selectColony(p){
  $('colonyHeading').textContent='❄️ '+hiveName(col)+' · Winter '+season.start_year+'–'+(season.start_year+1);
  $('winterDetail').hidden=false;
  await refreshColony();
- if(!embedded)$('winterDetail').scrollIntoView({behavior:'smooth',block:'start'});
+ if(!embedded&&verified&&current?.id===p.id)$('winterDetail').scrollIntoView({behavior:'smooth',block:'start'});
 }
 async function refreshColony(){
- if(!current)return;
+ if(!current||!verified)return;
+ const revision=sessionRevision,request=++detailRevision,participationId=current.id;
+ const usable=()=>!!verified&&revision===sessionRevision&&request===detailRevision&&current?.id===participationId;
  if(season?.status==='closed'){renderClosedColony();return;}
  $('editingView').hidden=false;$('closedView').hidden=true;
  const col=colonies.find(c=>c.id===current.colony_id);
  const [ir,or,ar]=await Promise.all([
-  client.from('Winter_Checklist_Items').select('*').eq('participation_id',current.id).order('id'),
-  client.from('Winter_Observations').select('*').eq('participation_id',current.id).is('deleted_at',null).order('observed_on',{ascending:false}),
-  client.from('Winter_Audit_History').select('*').order('recorded_at',{ascending:false}).limit(1000)
+   client.from('Winter_Checklist_Items').select('*').eq('participation_id',participationId).order('id'),
+   client.from('Winter_Observations').select('*').eq('participation_id',participationId).is('deleted_at',null).order('observed_on',{ascending:false}),
+   client.from('Winter_Audit_History').select('*').order('recorded_at',{ascending:false}).limit(1000)
  ]);
+ if(!usable())return;
  items=requireResult(ir)||[];observations=requireResult(or)||[];const events=requireResult(ar)||[];
  renderAssessment();renderChecklist(events);renderObservations();
- await renderExisting(col);await renderSpring(col);renderHistory(events);
+ await renderExisting(col,usable);
+ if(!usable())return;
+ await renderSpring(col,usable);
+ if(!usable())return;
+ renderHistory(events);
 }
 
 function renderClosedColony(selectedVersion=null){
@@ -440,13 +465,15 @@ function renderClosedColony(selectedVersion=null){
  host.append(node('small','The displayed values are a saved snapshot, unaffected by later inspections or changes.'));
 }
 
-async function renderExisting(col){
+async function renderExisting(col,isCurrent){
  const host=$('existingRecords');host.replaceChildren();host.append(node('strong','Latest existing Apiary Log records (read-only)'));
  const defs=[['Last inspection','Hive_Inspections','inspection_date','colony_strength','honey_stores'],
  ['Last feeding','Hive_Feedings','feed_date','feed_type','quantity'],
  ['Last treatment','Hive_Treatments','treatment_date','product','follow_up_date']];
  for(const d of defs){
+  if(!isCurrent())return;
   const r=await client.from(d[1]).select('*').eq('colony_id',col.id).eq('hive_id',col.hive_id).order(d[2],{ascending:false}).limit(1);
+  if(!isCurrent())return;
   const data=requireResult(r);
   const rec=data?.[0];
   host.append(node('p',d[0]+': '+(rec?(rec[d[2]]+' · '+(rec[d[3]]??'Not specified')+(rec[d[4]]!=null?' · '+rec[d[4]]:'')):'Not recorded for this colony')));
@@ -619,12 +646,13 @@ $('outcomeChoice').addEventListener('change',()=>{
  $('lossLinkWrap').hidden=$('outcomeChoice').value!=='winter_loss';
  $('outcomeDate').required=$('outcomeChoice').value!=='not_assessed';
 });
-async function renderSpring(col){
+async function renderSpring(col,isCurrent){
  const target=$('springInspections');target.replaceChildren();
  const year=season.start_year+1;
  const spring=requireResult(await client.from('Hive_Inspections').select('*')
   .eq('colony_id',col.id).gte('inspection_date',year+'-01-01')
   .lte('inspection_date',year+'-06-30').order('inspection_date',{ascending:true}))||[];
+ if(!isCurrent())return;
  target.append(node('p','Existing January–June '+year+' inspections for this colony: '+spring.length+'.'));
  for(const i of spring){
   const p=node('p',i.inspection_date+' · Queen: '+(i.queen_seen===null?'Not recorded':i.queen_seen?'Seen':'Not seen')+
@@ -633,7 +661,9 @@ async function renderSpring(col){
     ' · Stores: '+(i.honey_stores||'Not recorded'));
   target.append(p);
  }
- currentOutcome=requireResult(await client.from('Winter_Outcomes').select('*').eq('participation_id',current.id).maybeSingle());
+ const nextOutcome=requireResult(await client.from('Winter_Outcomes').select('*').eq('participation_id',current.id).maybeSingle());
+ if(!isCurrent())return;
+ currentOutcome=nextOutcome;
  $('outcomeChoice').value=currentOutcome?.outcome||'not_assessed';
  $('outcomeDate').value=currentOutcome?.confirmed_on||'';
  $('outcomeNotes').value=currentOutcome?.notes||'';
@@ -642,6 +672,7 @@ async function renderSpring(col){
  const loss=$('outcomeLoss');loss.replaceChildren(new Option('Not linked',''));
  const existing=requireResult(await client.from('Hive_Losses').select('id,loss_date,suspected_cause')
   .eq('colony_id',col.id).order('loss_date',{ascending:false}))||[];
+ if(!isCurrent())return;
  for(const item of existing)loss.append(new Option(item.loss_date+' · '+(item.suspected_cause||'Loss')+' (#'+item.id+')',String(item.id)));
  loss.value=currentOutcome?.loss_record_id?String(currentOutcome.loss_record_id):'';
 }
