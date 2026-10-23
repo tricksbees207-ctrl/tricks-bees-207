@@ -87,7 +87,7 @@ await page.route('**/*',route=>{
 });
 try {
  await page.goto('https://'+isolatedHost+'/winter-readiness.html?embedded=1&hive=42',{waitUntil:'domcontentloaded'});
- await page.addScriptTag({content:`
+ const syntheticClientScript=`
 window.__authCallback=null;
 window.__syntheticWinterClient={
  auth:{
@@ -95,7 +95,8 @@ window.__syntheticWinterClient={
   getSession:async()=>({data:{session:null},error:null}),
   signOut:async()=>({error:null})
  }
-};`});
+};`;
+ await page.addScriptTag({content:syntheticClientScript});
  await page.addScriptTag({type:'module',content:script});
  await page.waitForFunction(()=>window.__winterTest&&window.__authCallback);
  assert.equal(await page.locator('#signInPanel').isVisible(),true,'First screen is sign-in');
@@ -158,11 +159,22 @@ window.__syntheticWinterClient={
    observations:0,outcomes:0,hasCurrentOutcome:false},
   'Stale reads must not repopulate signed-out application state');
  await page.evaluate(()=>window.__winterTest.fakeLogin());
+ assert.equal(await page.locator('#signOut').isVisible(),false,
+  'Embedded Winter hides its duplicate Sign Out; the main Apiary Log has the visible control');
+ // Standalone Winter must still offer and honor its own Sign Out.
+ await page.goto('https://'+isolatedHost+'/winter-readiness.html',{waitUntil:'domcontentloaded'});
+ await page.addScriptTag({content:syntheticClientScript});
+ await page.addScriptTag({type:'module',content:script});
+ await page.waitForFunction(()=>window.__winterTest&&window.__authCallback);
+ await page.evaluate(()=>window.__winterTest.fakeLogin());
+ assert.equal(await page.locator('#signOut').isVisible(),true,
+  'Standalone Winter retains its own Sign Out button');
  await page.locator('#signOut').click();
- assert.equal(await page.locator('#workspace').isVisible(),false,'Winter explicit sign-out also hides private workspace');
+ assert.equal(await page.locator('#workspace').isVisible(),false,
+  'Standalone Winter explicit sign-out hides private workspace');
  assert.equal(await page.locator('#sessionLabel').innerText(),'');
  assert.deepEqual(errors,[],'No browser errors');
- console.log('PASS Chrome: embedded Winter scopes two synthetic hives, denies cross-hive selection, hides global season controls, and clears records on both forms of sign-out.');
+ console.log('PASS Chrome: embedded Winter hides redundant Sign Out, retains cross-tab sign-out clearing and standalone Winter Sign Out.');
 }finally{
  await context.close();await browser.close();
 }
