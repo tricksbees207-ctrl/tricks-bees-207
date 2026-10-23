@@ -1,6 +1,6 @@
 # Winter Readiness: physical-phone acceptance plan
 
-**Status: NOT EXECUTED.** Preparing checks is not a result. An automated mobile viewport test is separate from a real Android/iOS device test. This is a gate for Draft PR #27, not authorization to deploy.
+**Status: PARTIALLY EXECUTED (October 23, 2026).** An actual Samsung phone completed the limited authenticated read-only checks recorded below. The full P01–P11 plan is **not complete**; this is not authorization to deploy.
 
 ## Safe test prerequisites
 
@@ -37,6 +37,32 @@ Mark each case PASS / FAIL / NOT RUN; attach only redacted screenshots or synthe
 | P09 | Retry a malformed field, empty exclusion reason and invalid hive link | Visible error, no unexpected write or route into another hive |
 | P10 | Download a **fictional** complete backup through the standalone Winter page | ZIP verifies locally, only if explicitly configured for fictional test data; do not upload ZIP to GitHub |
 | P11 | Navigate using Android accessibility tools (TalkBack optional), external keyboard if available | Focus order and labels make sign-in, tabs, forms and sign-out operable |
+
+## Actual authenticated Samsung test (owner-reported October 23, 2026)
+
+**Environment:** Samsung Galaxy S21 Ultra 5G, Chrome in portrait orientation; separate staged Apiary Log copy on the owner's Mac at `http://127.0.0.1:8767/apiary-log.html` with `http://127.0.0.1:54321` local Supabase Auth/API. Two `adb reverse` connections carried only the webpage and API over a trusted USB data cable. This was the isolated Mac Recovery Lab with owner-authorized recovered test records, **not fictional-only data**; no receipt or ZIP contents were transmitted to GitHub. The hosted production app and online Recovery Test were unchanged. Phone screenshots were reviewed privately and **not committed**.
+
+**Observed checks (do not infer unperformed actions):**
+
+| Case | Outcome | Actual observation or limitation |
+| --- | --- | --- |
+| P01 | PARTIAL | The local sign-in screen loaded and the owner reported successful sign-in and a populated hive list. The phone's six-digit MFA challenge was not separately recorded as evidence in this session. |
+| P02 | PARTIAL | Winter opened in Hive 1 portrait mode and the selected colony/history were readable. The exact full ten-button grid was not separately documented in these phone screenshots. |
+| P03 | NOT RUN | No rotation, zoom or text-scaling check against the authenticated real application. The October 22 fictional layout preview is separate. |
+| P04 | PARTIAL | Closed historical details and collapsed checklist/observation summaries were visible. The read-only accordions were not opened or the active observation/outcome forms exercised. |
+| P05 | PASS (visual) | Four separate hive selections displayed the corresponding Hive 1–4 colony names and 2026–2027 winter history. Hive 1 showed complete preparation and one observation; Hives 2–4 showed unassessed and zero observations. No cross-hive data was visible. |
+| P06 | PASS (owner report) | Hive 4 Feedings → Winter returned to the correct Hive 4 winter history without losing the selected hive. |
+| P07 | PARTIAL | Embedded closed-season snapshot Version 3 dated October 20 was labeled read-only. Standalone administration/reopen controls were not exercised on this phone. |
+| P08 | PARTIAL | Mobile Apiary Log Sign Out returned to sign-in, and Android Back did not reveal private records. Simultaneous two-tab automatic sign-out was previously tested on desktop, **not** on the Samsung. |
+| P09 | NOT RUN | No malformed/invalid-field or cross-hive-link negative device test. |
+| P10 | NOT RUN | No private ZIP download on the phone; the independent Mac-local full recovery/receipt audit remains separate and passed. |
+| P11 | NOT RUN | No TalkBack/external keyboard accessibility walkthrough of the authenticated app. |
+
+**Observed mobile presentation:** Colony cards and historical sections fitted portrait width. The native **Historical closure version** selector visibly truncated a long version+timestamp option on the Samsung. The staged display correction shortens option labels to `Version N`, leaving the full selected closure date in the read-only text underneath; automated regression remains required and this phone has **not** retested the corrected build. One Hive 3 screenshot showed `Unresolved explanation: tes`; the captured text alone does **not** establish whether that is the saved value or a display truncation, so no data or label change is justified without a read-only source comparison.
+
+**Post-test security cleanup:** Owner confirmed USB debugging OFF, wireless debugging OFF, Samsung Auto Blocker ON, USB cable disconnected and the localhost preview server stopped. The ADB cleanup commands reported no device because the phone was no longer connected; do not claim those specific commands removed a live tunnel.
+
+**Release gate remains open.** P03, remaining P04/P07/P08, P09–P11, a corrected-build retest and any required hosted checks need explicit evidence. The real-phone smoke checks are valuable, but must not be converted into a blanket physical-device acceptance sign-off.
 
 ## Documentation and release decision
 
