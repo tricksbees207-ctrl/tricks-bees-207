@@ -28,6 +28,18 @@ window.__winterTest={
   $('winterDetail').dataset.syntheticSecret='private-should-clear';
   setSections('signed');
  },
+ showClosedHistory(){
+  season={id:1,status:'closed',start_year:2026};
+  current={id:44};
+  snapshots=[3,2].map(version=>({
+   version,created_at:'2026-10-20T19:15:53Z',
+   snapshot:{participants:[{participation:{id:44,prep_assessment:'unassessed'},
+    outcome:{outcome:'not_assessed'},unresolved_reason:'test only',
+    checklist:[],observations:[],spring_inspections:[]}]}
+  }));
+  $('winterDetail').hidden=false;
+  renderClosedColony();
+ },
  scopeTwoHives(){
   season={id:1,status:'open',start_year:2026,started_at:'2026-10-21T12:00:00Z'};
   current=null;
@@ -84,6 +96,25 @@ window.__syntheticWinterClient={
  assert.equal(await page.locator('#winterBackupSection').isVisible(),false,'Whole-apiary backup is not shown in a selected hive tab');
  assert.equal(await page.locator('#winterDetail').isVisible(),true,'Synthetic winter detail visible');
  assert.equal(await page.locator('#sessionLabel').innerText(),'Synthetic private data');
+
+// Historical snapshot selector must stay legible at real phone widths.
+// Version timestamps remain visible in the read-only details below the selector.
+ await page.evaluate(()=>window.__winterTest.showClosedHistory());
+ const versionSelect=page.locator('#closedView select');
+ assert.deepEqual(await versionSelect.locator('option').allTextContents(),['Version 3','Version 2'],
+  'Short labels prevent phone selector timestamp truncation');
+ assert.equal(await versionSelect.getAttribute('id'),'winterHistoricalVersion');
+ assert.equal(await page.locator('#closedView label').getAttribute('for'),'winterHistoricalVersion',
+  'Version selector needs an accessible associated label');
+ assert.match(await page.locator('#closedView').innerText(),/Closed .*read-only/,
+  'Full closure date remains visible outside the selector');
+ await page.setViewportSize({width:390,height:860});
+ assert(await versionSelect.evaluate(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth;}),
+  'History selector must fit within a 390px viewport');
+ await versionSelect.selectOption('2');
+ assert.match(await page.locator('#closedView h3').innerText(),/Version 2/,
+  'Choosing an earlier version must render that historical snapshot');
+
  await page.evaluate(()=>window.__winterTest.scopeTwoHives());
  const visibleColonies=await page.locator('#colonyList').innerText();
  assert.match(visibleColonies,/North Colony/,'The selected hive colony must show');
