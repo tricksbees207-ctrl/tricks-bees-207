@@ -75,8 +75,10 @@ Mark each case PASS / FAIL / NOT RUN; attach only redacted screenshots or synthe
 | Parent sign-out and Android Back | **PASS (owner report)** | With Winter information open, signing out returned to sign-in and Android Back did not reveal private Winter records. |
 | Cross-tab automatic sign-out (P08) | **PASS (owner report)** | A second regular Samsung Chrome tab opened standalone Winter and displayed the shared test session. Signing out in the first Apiary Log tab removed private Winter content from the second tab without a manual refresh and required sign-in again. |
 | Delayed-response sign-out race | **PASS (automated only)** | Browser regression on code commit `99b6b359` covered a deliberately delayed query; this precise race was not forced manually on the phone. |
+| Authenticated mobile rotation, zoom and scrolling (P03) | **PASS (owner report)** | Owner reported that rotation, pinch zoom and scrolling kept the corrected embedded Winter layout readable and usable. No screenshots, measurements or screen-reader results were collected. |
+| Closed-history accordions (partial P04) | **PASS (owner report for available sections)** | Checklist and Winter observations expanded, collapsed and displayed readable saved records. No existing spring inspections were present, so that content could not be evaluated. Active-season forms were not exercised because the test season is closed. |
 
-**Still outstanding:** full real-app portrait/landscape and zoom check (P03), form accessibility and safe test submissions (P04), standalone close/reopen administration (remaining P07), invalid-input negative cases (P09), explicitly approved fictional-only phone ZIP backup if desired (P10), and Android accessibility/TalkBack review (P11). Nothing above constitutes production deployment or independent security approval.
+**Still outstanding:** active-season form accessibility and safe test submissions (remaining P04), standalone close/reopen administration (remaining P07), invalid-input negative cases (P09), explicitly approved fictional-only phone ZIP backup if desired (P10), and Android accessibility/TalkBack review (P11). Nothing above constitutes production deployment or independent security approval.
 
 ## Documentation and release decision
 
