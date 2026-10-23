@@ -138,6 +138,8 @@ const scopedHive=route.has('hive')?route.get('hive'):null;
 const validScope=scopedHive===null||/^[1-9][0-9]*$/.test(scopedHive);
 const belongsToHive=c=>!!c&&validScope&&(scopedHive===null||String(c.hive_id)===scopedHive);
 if(embedded){
+ // Avoid a flash of the extra sign-in card while the shared session is being checked.
+ $('auth').hidden=true;
  // The main Apiary Log already provides Sign Out. Keep this control on the standalone page.
  $('signOut').hidden=true;
  // The archive covers every apiary record. Do not suggest it is hive-scoped
@@ -155,7 +157,15 @@ let verified=null,season=null,colonies=[],hives=[],participations=[],current=nul
 // Reject asynchronous results from a session, year, or hive view that is no longer active.
 let sessionRevision=0,refreshRevision=0,detailRevision=0;
 const latestObservationDate=()=>new Date().toLocaleDateString('en-CA');
-function setSections(mode){$('signInPanel').hidden=mode!=='login';$('mfaPanel').hidden=mode!=='mfa';$('signedInPanel').hidden=mode!=='signed';$('workspace').hidden=mode!=='signed';}
+function setSections(mode){
+ $('signInPanel').hidden=mode!=='login';
+ $('mfaPanel').hidden=mode!=='mfa';
+ $('signedInPanel').hidden=mode!=='signed';
+ $('workspace').hidden=mode!=='signed';
+ // The parent Apiary Log already shows authentication controls when signed in.
+ // Keep sign-in and MFA accessible if the embedded session needs re-verification.
+ $('auth').hidden=embedded&&mode==='signed';
+}
 async function authenticated(){
  const revision=sessionRevision;
  const info=requireResult(await client.auth.mfa.getAuthenticatorAssuranceLevel());
