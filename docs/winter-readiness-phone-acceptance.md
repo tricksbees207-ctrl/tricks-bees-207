@@ -64,6 +64,20 @@ Mark each case PASS / FAIL / NOT RUN; attach only redacted screenshots or synthe
 
 **Release gate remains open.** P03, remaining P04/P07/P08, P09–P11, a corrected-build retest and any required hosted checks need explicit evidence. The real-phone smoke checks are valuable, but must not be converted into a blanket physical-device acceptance sign-off.
 
+## Corrected-draft Samsung USB retest (October 23, 2026)
+
+**Owner-reported manual results; local test only.** The corrected `winter-readiness.html` from Draft PR #27 was copied into a separate Mac preview folder, preserving the existing isolated Supabase Auth/API endpoint `http://127.0.0.1:54321`. The page was served at `http://127.0.0.1:8767` and reached from the Samsung Galaxy S21 Ultra through temporary USB `adb reverse` connections. The original Mac preview, hosted production, and hosted Recovery Test were untouched.
+
+| Check | Owner result | Evidence and limitation |
+| --- | --- | --- |
+| Local corrected build load and hive Winter view | **PASS (owner report)** | Samsung displayed the Apiary Log sign-in, user signed into the test account, hive buttons appeared, and the selected hive's Winter records opened. MFA challenge was not separately documented. |
+| Embedded historical closure selector | **PASS (owner report)** | All `Version N` dropdown labels were fully readable; selecting Version 2 and then Version 3 displayed corresponding read-only historical information. No records were edited. |
+| Parent sign-out and Android Back | **PASS (owner report)** | With Winter information open, signing out returned to sign-in and Android Back did not reveal private Winter records. |
+| Cross-tab automatic sign-out (P08) | **PASS (owner report)** | A second regular Samsung Chrome tab opened standalone Winter and displayed the shared test session. Signing out in the first Apiary Log tab removed private Winter content from the second tab without a manual refresh and required sign-in again. |
+| Delayed-response sign-out race | **PASS (automated only)** | Browser regression on code commit `99b6b359` covered a deliberately delayed query; this precise race was not forced manually on the phone. |
+
+**Still outstanding:** full real-app portrait/landscape and zoom check (P03), form accessibility and safe test submissions (P04), standalone close/reopen administration (remaining P07), invalid-input negative cases (P09), explicitly approved fictional-only phone ZIP backup if desired (P10), and Android accessibility/TalkBack review (P11). Nothing above constitutes production deployment or independent security approval.
+
 ## Documentation and release decision
 
 Record: reviewer, date, device/browser, each case result, any specific issues, and resolved/retested evidence. **Do not** check the manual-device release gate until required tests were performed by a person on a physical device using a safe nonproduction build.
