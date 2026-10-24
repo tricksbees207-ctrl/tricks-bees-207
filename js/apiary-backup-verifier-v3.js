@@ -1,4 +1,4 @@
-// Winter-aware private backup format v3. Full isolated recovery certification completed 2026-10-21.
+// Private Apiary Log backup ZIP verification, including historical archive compatibility.
 // Private in-browser integrity check for Tricks Bees 207 backup ZIP files.
 // This module reads only the ZIP chosen by the user. No API calls or writes.
 const dec = new TextDecoder('utf-8', {fatal:true});
@@ -98,10 +98,10 @@ export async function verifyApiaryBackup(file){
   demand(file&&file.size>0&&file.size<=300*1024*1024,'Choose a backup ZIP smaller than 300 MB.');
   const files=unzipStore(await file.arrayBuffer());
   const manifest=json(files,'manifest.json'),data=json(files,'apiary-data.json');
-  demand(manifest.format==='tricks-bees-207-records-and-receipts'&&(manifest.version===1||manifest.version===2||manifest.version===3),'This is not a supported receipt-backup ZIP.');
-  demand(data.format==='tricks-bees-207-apiary-backup'&&data.version===(manifest.version===1?2:manifest.version===2?3:4),'The database backup format is unexpected.');
+  demand(manifest.format==='tricks-bees-207-records-and-receipts'&&(manifest.version===1||manifest.version===2||manifest.version===3||manifest.version===4),'This is not a supported receipt-backup ZIP.');
+  demand(data.format==='tricks-bees-207-apiary-backup'&&data.version===(manifest.version===1?2:manifest.version===2?3:manifest.version===3?4:5),'The database backup format is unexpected.');
   const expectedTables=manifest.version===3?[...tables,'Apiary_Recurring_Expenses',...winterTables]:
-    manifest.version===2?[...tables,'Apiary_Recurring_Expenses']:tables;
+    manifest.version>=2?[...tables,'Apiary_Recurring_Expenses']:tables;
   demand(manifest.exported_at===data.exported_at,'Backup dates disagree.');
   demand(data.tables&&typeof data.tables==='object'&&!Array.isArray(data.tables),'The tables section is invalid.');
   demand(manifest.table_counts&&typeof manifest.table_counts==='object','Manifest table counts are missing.');
@@ -249,7 +249,7 @@ export async function verifyApiaryBackupOnPage(file,status){
     status.textContent='ZIP INTEGRITY PASSED: '+result.records+' records across '+result.tables+
       ' tables; '+result.receipts+' receipt files; '+result.expenses+' expenses and '+result.income+
       ' income entries. ZIP checksums, receipt hashes and database relationships match. '+
-      'No data was uploaded or changed. Complete winter-record restoration requires the updated Recovery Test importer.';
+      'No data was uploaded or changed. New backups exclude retired Winter Readiness records.';
   }catch(error){
     status.textContent='ZIP VERIFICATION FAILED: '+(error?.message||String(error))+
       '. No data was uploaded or changed.';
@@ -259,8 +259,7 @@ export async function verifyApiaryBackupOnPage(file,status){
 
 /**
  * Returns parsed contents ONLY after the same full integrity checks used by
- * the live Backup tab have passed. Used by the Winter Readiness-aware private Apiary Log
- * utility. Never sends the file to any server.
+ * the live Backup tab have passed. Never sends the file to any server.
  */
 export async function readVerifiedApiaryZip(file) {
   const summary=await verifyApiaryBackup(file);
