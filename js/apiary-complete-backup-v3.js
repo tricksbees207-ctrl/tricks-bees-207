@@ -1,4 +1,4 @@
-// Winter-aware private backup format v3. Full isolated recovery certification completed 2026-10-21.
+// Private Apiary Log backup; retired Winter Readiness tables are excluded.
 // Download a private, read-only snapshot of Apiary Log records and uploaded receipts.
 // This is an archive tool, not a restore operation. No data is sent to a ZIP service.
 const TABLES = [
@@ -9,11 +9,7 @@ const TABLES = [
   ['Apiary_Activities','id'], ['Apiary_Expenses','id'], ['Apiary_Income','id'],
   ['Apiary_Expense_Receipts','id'], ['Apiary_Income_Receipts','id'],
   ['Apiary_Recurring_Expenses','id'],
-  ['varroa_watch_results','inspection_id'],
-  ['Winter_Seasons','id'],['Winter_Participation','id'],
-  ['Winter_Checklist_Items','id'],['Winter_Observations','id'],
-  ['Winter_Outcomes','id'],['Winter_Audit_History','id'],
-  ['Winter_Snapshots','id']
+  ['varroa_watch_results','inspection_id']
 ];
 const RECEIPT_SOURCES = [
   {table:'Apiary_Expense_Receipts',bucket:'apiary-receipts'},
@@ -143,25 +139,18 @@ export async function downloadCompleteBackup({supabase,button,message}) {
       if(signature(current) !== signature(tables[source.table]))
         throw new Error('Receipt records changed during backup. Retry to get a consistent ZIP.');
     }
-    // Winter statuses are mutable and audit events are append-only. Ensure the
-    // winter history and closure snapshots didn't change while receipts were read.
-    for(const table of ['Winter_Audit_History','Winter_Snapshots']) {
-      const current = await readTable(supabase,table,'id');
-      if(JSON.stringify(current)!==JSON.stringify(tables[table]))
-        throw new Error(table+': records changed while assembling the backup. Retry for a consistent winter history.');
-    }
     const {data:{user:stillUser},error:lastAuthError} = await supabase.auth.getUser();
     if(lastAuthError || stillUser?.id !== user.id)
       throw new Error('Sign-in changed during backup. No ZIP created.');
     const exportedAt = new Date().toISOString();
     const manifest = {
-      format:'tricks-bees-207-records-and-receipts',version:3,exported_at:exportedAt,
+      format:'tricks-bees-207-records-and-receipts',version:4,exported_at:exportedAt,
       table_counts:Object.fromEntries(TABLES.map(([name])=>[name,tables[name].length])),
       receipt_count:fileRecords.length,receipt_bytes:totalBytes,receipt_files:fileRecords
     };
-    const data = {format:'tricks-bees-207-apiary-backup',version:4,
+    const data = {format:'tricks-bees-207-apiary-backup',version:5,
       exported_at:exportedAt,tables};
-    const readme = `TRICKS BEES 207 PRIVATE RECORDS & RECEIPTS BACKUP\n\nCreated: ${exportedAt}\n\napiary-data.json contains records from 25 public-schema tables, including winter preparation, all winter change history, versioned historical snapshots, recurring payment schedules and receipt metadata.\nmanifest.json maps ${fileRecords.length} receipt files to their Supabase paths with SHA-256 hashes.\nstorage/ contains the corresponding original receipt bytes.\n\nKEEP PRIVATE: This ZIP contains business records and receipts. Do not upload it to a public repository.\nThis is a best-effort snapshot, not a transactionally consistent database export.\nIt does not include auth accounts, MFA secrets, database schema, functions or RLS policies. Restoring recurring schedules and winter histories requires the destination schema and updated recovery importer. Winter audit records and historical snapshots are private and must be preserved with full integrity.\nThe live website does NOT offer an automatic restore from ZIP.\nTest recovery in an isolated project before touching production.\nLegacy backup ZIP versions 1 and 2 remain readable by the recovery verifier. A version 3 backup requires the Winter Readiness-aware recovery importer.\n`;
+    const readme = `TRICKS BEES 207 PRIVATE RECORDS & RECEIPTS BACKUP\n\nCreated: ${exportedAt}\n\napiary-data.json contains records from 18 active public-schema tables, including recurring payment schedules and receipt metadata.\nmanifest.json maps ${fileRecords.length} receipt files to their Supabase paths with SHA-256 hashes.\nstorage/ contains the corresponding original receipt bytes.\n\nKEEP PRIVATE: This ZIP contains business records and receipts. Do not upload it to a public repository.\nThis is a best-effort snapshot, not a transactionally consistent database export.\nIt does not include auth accounts, MFA secrets, database schema, functions or RLS policies.\nThe live website does NOT offer an automatic restore from ZIP.\nTest recovery in an isolated project before touching production.\nLegacy backup ZIP versions 1 through 3 remain readable by the backup verifier.\n`;
     report('Assembling the ZIP locally...');
     const zip = await makeZip([
       {name:'README.txt',body:readme},
