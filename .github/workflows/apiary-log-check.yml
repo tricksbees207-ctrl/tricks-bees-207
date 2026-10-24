@@ -4,16 +4,9 @@ on:
   pull_request:
     paths:
       - 'apiary-log.html'
-      - 'winter-readiness.html'
+      - 'tests/apiary-current-backup.test.mjs'
       - 'js/apiary-complete-backup-v3.js'
       - 'js/apiary-backup-verifier-v3.js'
-      - 'tests/winter-live-integration.test.mjs'
-      - 'tests/winter-actual-dom.test.mjs'
-      - 'tests/winter-browser-smoke.mjs'
-      - 'tests/winter-embedded-auth.test.mjs'
-      - 'tests/winter-migration-fixture.sql'
-      - 'tests/winter-migration-smoke.sql'
-      - 'database/migrations/20261021_winter_readiness_production_schema.sql'
       - 'recovery-test.html'
       - 'js/recurring-expenses.js'
       - 'database/migrations/20261018_automatic_recurring_core.sql'
@@ -27,16 +20,9 @@ on:
   push:
     paths:
       - 'apiary-log.html'
-      - 'winter-readiness.html'
+      - 'tests/apiary-current-backup.test.mjs'
       - 'js/apiary-complete-backup-v3.js'
       - 'js/apiary-backup-verifier-v3.js'
-      - 'tests/winter-live-integration.test.mjs'
-      - 'tests/winter-actual-dom.test.mjs'
-      - 'tests/winter-browser-smoke.mjs'
-      - 'tests/winter-embedded-auth.test.mjs'
-      - 'tests/winter-migration-fixture.sql'
-      - 'tests/winter-migration-smoke.sql'
-      - 'database/migrations/20261021_winter_readiness_production_schema.sql'
       - 'recovery-test.html'
       - 'js/recurring-expenses.js'
       - 'database/migrations/20261018_automatic_recurring_core.sql'
@@ -124,69 +110,15 @@ jobs:
           assert.match(verifier, /manifest\.version===1\|\|manifest\.version===2/);
           console.log('Recurring and recovery static safety checks passed.');
           NODE
-      - name: Check staged Winter Readiness integration
+      - name: Check current ZIP backup compatibility
         run: |
           node --input-type=module --check < js/apiary-complete-backup-v3.js
           node --input-type=module --check < js/apiary-backup-verifier-v3.js
-          node tests/winter-live-integration.test.mjs
-      - name: Check Winter page module syntax
-        run: |
-          node <<'NODE'
-          const fs=require('node:fs');
-          const cp=require('node:child_process');
-          const os=require('node:os');
-          const path=require('node:path');
-          const html=fs.readFileSync('winter-readiness.html','utf8');
-          const start=html.indexOf('<script type="module">');
-          const end=html.indexOf('</script>',start);
-          if(start<0||end<=start)throw Error('Winter app module script missing');
-          const code=html.slice(start+'<script type="module">'.length,end);
-
-          const file=path.join(os.tmpdir(),'tricks-bees-winter-module.mjs');
-          fs.writeFileSync(file,code);
-          cp.execFileSync(process.execPath,['--check',file],{stdio:'inherit'});
-          console.log('Winter page module syntax passed.');
-          NODE
+          node tests/apiary-current-backup.test.mjs
       - name: Install DOM test dependency
         run: npm install --no-save --no-package-lock --ignore-scripts jsdom@26 playwright@1.56.1
-      - name: Render Winter hive navigation in disposable DOM
-        run: node tests/winter-actual-dom.test.mjs
-      - name: Test Winter navigation in headless Chrome without network
-        run: node tests/winter-browser-smoke.mjs
-      - name: Test embedded Winter shared-session sign-out in Chrome
-        run: node tests/winter-embedded-auth.test.mjs
       - name: Test automatic recurring entries and backup compatibility
         run: node --test tests/recurring-ui.test.mjs tests/recurring-backup.test.mjs
       - name: Test recurring UI in headless Chrome browser
         run: node tests/recurring-browser-smoke.mjs
 
-  winter-database-smoke:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      PGHOST: localhost
-      PGPORT: 5432
-      PGUSER: postgres
-      PGPASSWORD: postgres
-      PGDATABASE: postgres
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install fake auth and hive dependencies in disposable DB
-        run: psql -X -v ON_ERROR_STOP=1 -f tests/winter-migration-fixture.sql
-      - name: Execute Winter schema migration in disposable DB
-        run: psql -X -v ON_ERROR_STOP=1 -f database/migrations/20261021_winter_readiness_production_schema.sql
-      - name: Test live Winter SQL routines and access controls
-        run: psql -X -v ON_ERROR_STOP=1 -f tests/winter-migration-smoke.sql
