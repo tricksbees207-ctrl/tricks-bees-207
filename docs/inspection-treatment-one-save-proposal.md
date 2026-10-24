@@ -1,6 +1,6 @@
 # Proposal: one-save treatment entry from Hive Inspections (draft, not deployed)
 
-Status: design approved for a test implementation on 2026-10-24; **no production database migration or website publication is authorized by this draft**.
+Status: design approved and test-only code staged in Draft PR #31 on 2026-10-24. **Not deployed or tested against a database. No production migration, merge or website publication is authorized.**
 
 ## Current behavior (verified against `apiary-log.html` and production schema)
 
@@ -31,6 +31,14 @@ Status: design approved for a test implementation on 2026-10-24; **no production
 - Save a link once, then update by that link on later edits (idempotent editing).
 - Existing history/editor functions must recognize both independent and inspection-linked treatment records without duplicating display or changing unrelated data.
 - Create the actual Supabase migration with the Supabase CLI before committing migration SQL, as required by the project workflow. Do **not** apply it to production until approved.
+
+## Implementation currently staged on the draft branch
+
+- `apiary-log.html` has an inline Treatment Applied editor. Inspection-only saves continue using the prior direct table path; checked new/linked saves call `save_inspection_with_treatment`.
+- `docs/inspection-treatment-atomic-rpc-draft.sql` is **not** an installed migration. Generate a Supabase CLI migration and review that SQL in an isolated test project first.
+- `js/apiary-backup-verifier-v3.js` and the read-only recovery audit recognize optional linked inspection IDs. Legacy ZIPs lacking that nullable field remain valid.
+- Static browser-script syntax checks pass. Database transaction tests, responsive visual QA, and rollback/permission validation have **not** yet been run.
+- The connected production project is the only currently active Supabase cloud project. The separate `Tricks Bees 207 Recovery Test` project is inactive; the prior Mac-local Supabase recovery lab is not accessible from this workspace. Do not use the production project to test.
 
 ## Acceptance tests in a separate test environment
 
