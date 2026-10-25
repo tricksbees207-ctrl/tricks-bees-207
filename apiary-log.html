@@ -91,6 +91,9 @@
   flex:none;
   accent-color:#765b22;
 }
+#inspectionTreatmentFields { padding:14px; margin:10px 0; border:1px solid #e8dcbf; background:#fff8ea; border-radius:8px; }
+#inspectionTreatmentFields .two-col { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); column-gap:14px; }
+@media(max-width:540px) { #inspectionTreatmentFields .two-col { grid-template-columns:minmax(0,1fr); } }
     .summary-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(145px,1fr)); gap:12px; margin:16px 0; }
     .summary-tile { padding:15px; background:#fff6da; border:1px solid #e8dcbf; border-radius:10px; }
     .summary-tile strong { display:block; font-size:1.6rem; }
@@ -442,7 +445,7 @@
     <div id="colonyHistoryForHive" aria-live="polite">Select a hive to view colony history.</div>
   </section>
   <p id="inspectionEntry">Record an inspection for the selected hive.</p>
-  <p class="muted">Enter treatment products, application details, and follow-up dates in the dedicated Treatments tab.</p>
+  <p class="muted">If you applied a treatment during this inspection, check Treatment applied to record its details in one save. You can still add a separate treatment in the Treatments tab.</p>
   
 <label for="inspectionDate">Inspection Date</label>
 <input type="date" id="inspectionDate" required>
@@ -532,9 +535,19 @@
   <input type="checkbox" id="treatmentAppliedCheck">
   Treatment applied
 </label>
-<p id="inspectionTreatmentHint" class="muted" hidden>
-  See the <a href="#treatmentSection" id="openTreatmentFromInspection">Treatments tab</a> to record the product, dose, and follow-up date. Save this inspection separately; checking this box does not create a treatment record.
-</p>
+<p id="inspectionTreatmentHint" class="muted" hidden>Both the inspection and treatment will be saved together. Follow the product label for application and honey-super restrictions.</p>
+<div id="inspectionTreatmentFields" hidden>
+  <div class="two-col">
+    <div><label for="inspectionTreatmentDate">Treatment Date</label><input type="date" id="inspectionTreatmentDate" disabled></div>
+    <div><label for="inspectionTreatmentProduct">Product / Treatment (required)</label><select id="inspectionTreatmentProduct" disabled><option value="">Select treatment</option><option>Apivar</option><option>Formic Pro</option><option>Oxalic acid</option><option>HopGuard</option><option>Thymol-based treatment</option><option>Norroa (verify product label)</option><option>Other</option></select></div>
+    <div><label for="inspectionTreatmentAmount">Dose / Application Details</label><input id="inspectionTreatmentAmount" placeholder="As recorded from product label" disabled></div>
+    <div><label for="inspectionTreatmentFollowUp">Follow-Up Date</label><input type="date" id="inspectionTreatmentFollowUp" disabled></div>
+  </div>
+  <label for="inspectionTreatmentNotes">Treatment Notes (optional)</label>
+  <textarea id="inspectionTreatmentNotes" placeholder="Application, removal date, observed results, etc." disabled></textarea>
+</div>
+<p id="inspectionTreatmentLegacyNotice" class="muted" hidden>This older inspection has a historical treatment note but no linked Treatment Log record. Its note will be preserved; editing this inspection will not create a duplicate treatment. Continue managing any existing standalone treatment in the Treatments tab.</p>
+<p id="inspectionTreatmentLinkedNotice" class="muted" hidden>This inspection has a linked treatment. Edit its details above; to remove the treatment, deliberately delete it in the Treatments tab. The checkbox is locked to protect treatment history.</p>
 <label for="inspectionNotes">Inspection Notes</label>
 <textarea id="inspectionNotes" rows="5"
   placeholder="Record observations, concerns, and work needed..."></textarea>
@@ -1036,7 +1049,7 @@
         Hive_Profiles:[['hive_id','Hives'],['colony_id','Hive_Colonies']],
         Hive_Inspections:[['hive_id','Hives'],['colony_id','Hive_Colonies']],
         Hive_Feedings:[['hive_id','Hives'],['colony_id','Hive_Colonies']],
-        Hive_Treatments:[['hive_id','Hives'],['colony_id','Hive_Colonies']],
+        Hive_Treatments:[['hive_id','Hives'],['colony_id','Hive_Colonies'],['inspection_id','Hive_Inspections']],
         Hive_Harvests:[['hive_id','Hives'],['colony_id','Hive_Colonies']],
         Hive_Queen_Replacements:[['hive_id','Hives'],['colony_id','Hive_Colonies']],
         Hive_Splits:[['hive_id','Hives'],['daughter_hive_id','Hives'],['colony_id','Hive_Colonies']],
@@ -1094,6 +1107,7 @@
       checkUnique('Hives',row=>row.hive_number==null?null:String(row.hive_number),'hive number');
       checkUnique('Hive_Profiles',row=>row.hive_id==null||row.user_id==null?null:String(row.hive_id)+'|'+row.user_id,'hive profile ownership');
       checkUnique('Hive_Colonies',row=>row.colony_status==='active'&&row.hive_id!=null?String(row.hive_id):null,'active colony occupying the same hive');
+      checkUnique('Hive_Treatments',row=>row.inspection_id==null?null:String(row.inspection_id),'treatment linked to the same inspection');
       const mismatched=[];
       for(const table of backupTables){
         const existing=new Map((liveRowsByTable.get(table)||[]).map(r=>[String(r.id),r]));
@@ -1339,24 +1353,52 @@
         throw new Error("Bees in Sample must be a whole number between 1 and 10,000.");
       return {mite_count:count,mite_test_method:method,mite_sample_size:sample};
     }
-    // Older inspection treatment notes remain available in history and are preserved
-    // when the checkbox stays checked during edits. Future details belong in Hive_Treatments.
+    // Linked treatments are queried when editing; older free-text notes are not
+    // converted into treatment rows automatically (that could duplicate history).
     let originalInspectionTreatmentNote = null;
-    const updateInspectionTreatmentHint = () => {
-      $("inspectionTreatmentHint").hidden = !$("treatmentAppliedCheck").checked;
-    };
+    let editingInspectionLinkedTreatment = null;
+    let editingInspectionLegacyNote = false;
+    let inspectionTreatmentLinkRequest = 0;
+    const inspectionTreatmentFieldIds = ["inspectionTreatmentDate","inspectionTreatmentProduct","inspectionTreatmentAmount","inspectionTreatmentFollowUp","inspectionTreatmentNotes"];
+    function updateInspectionTreatmentHint(){
+      const treated=$("treatmentAppliedCheck").checked;
+      const showFields=treated&&!editingInspectionLegacyNote;
+      $("inspectionTreatmentHint").hidden=!showFields;
+      $("inspectionTreatmentFields").hidden=!showFields;
+      $("inspectionTreatmentLegacyNotice").hidden=!treated||!editingInspectionLegacyNote;
+      $("inspectionTreatmentLinkedNotice").hidden=!editingInspectionLinkedTreatment;
+      for(const id of inspectionTreatmentFieldIds)$(id).disabled=!showFields;
+      if(showFields&&!value("inspectionTreatmentDate"))$("inspectionTreatmentDate").value=value("inspectionDate");
+    }
     $("treatmentAppliedCheck").addEventListener("change",updateInspectionTreatmentHint);
-    $("openTreatmentFromInspection").addEventListener("click",event=>{
-      event.preventDefault();
-      const tab=document.querySelector('[role="tab"][aria-controls="treatmentSection"]');
-      if(tab){tab.click();tab.scrollIntoView({behavior:"smooth",block:"center"});}
+    $("inspectionDate").addEventListener("change",()=>{
+      if($("treatmentAppliedCheck").checked&&!value("inspectionTreatmentDate"))
+        $("inspectionTreatmentDate").value=value("inspectionDate");
     });
+    function inspectionTreatmentValues(){
+      const treatment_date=value("inspectionTreatmentDate");
+      const product=value("inspectionTreatmentProduct");
+      const follow_up_date=value("inspectionTreatmentFollowUp")||null;
+      if(!treatment_date)throw new Error("Enter the treatment date.");
+      if(!product)throw new Error("Select the treatment product before saving.");
+      if(follow_up_date&&follow_up_date<treatment_date)
+        throw new Error("Treatment follow-up cannot be earlier than the treatment date.");
+      return {
+        treatment_date,product,application_details:value("inspectionTreatmentAmount").trim()||null,
+        follow_up_date,notes:value("inspectionTreatmentNotes").trim()||null
+      };
+    }
     function resetInspectionForm(){
       editingInspectionId=null;
       editingInspectionColonyId=null;
+      inspectionTreatmentLinkRequest++;
       originalInspectionTreatmentNote=null;
+      editingInspectionLinkedTreatment=null;
+      editingInspectionLegacyNote=false;
       for(const id of inspectionFormFields) $(id).value="";
+      for(const id of inspectionTreatmentFieldIds) $(id).value="";
       $("treatmentAppliedCheck").checked=false;
+      $("treatmentAppliedCheck").disabled=false;
       updateInspectionTreatmentHint();
       $("miteSampleSize").value="300";
       updateMiteSampleFields();
@@ -1364,23 +1406,54 @@
       $("saveInspection").textContent="Save Inspection";
       $("cancelInspectionEdit").hidden=true;
     }
-    function startInspectionEdit(inspection){
+    async function startInspectionEdit(inspection){
       if(String(selectedHiveId)!==String(inspection.hive_id))return;
+      const request=++inspectionTreatmentLinkRequest;
       editingInspectionId=inspection.id;
       editingInspectionColonyId=inspection.colony_id??null;
       originalInspectionTreatmentNote=inspection.treatment_applied||null;
+      editingInspectionLinkedTreatment=null;
+      editingInspectionLegacyNote=false;
       for(const [id,key] of Object.entries(inspectionEditMap)){
         const data=inspection[key];
         $(id).value=typeof data==="boolean"?String(data):data??"";
       }
+      for(const id of inspectionTreatmentFieldIds)$(id).value="";
       $("treatmentAppliedCheck").checked=Boolean(originalInspectionTreatmentNote);
-      updateInspectionTreatmentHint();
-      updateMiteSampleFields();
+      $("treatmentAppliedCheck").disabled=true;
+      $("saveInspection").disabled=true;
+      $("inspectionMessage").textContent="Checking for a linked treatment before editing...";
       $("saveInspection").textContent="Save Changes";
       $("cancelInspectionEdit").hidden=false;
-      $("inspectionMessage").textContent=`Editing inspection from ${formatDate(inspection.inspection_date)}. Make changes, then click Save Changes, or Cancel Edit.`;
+      updateMiteSampleFields();
+      updateInspectionTreatmentHint();
       $("inspectionEntry").scrollIntoView({behavior:"smooth",block:"start"});
-      $("inspectionDate").focus({preventScroll:true});
+      try{
+        const {data,error}=await supabase.from("Hive_Treatments")
+          .select("id,treatment_date,product,application_details,follow_up_date,notes")
+          .eq("inspection_id",inspection.id).eq("hive_id",inspection.hive_id).maybeSingle();
+        if(request!==inspectionTreatmentLinkRequest||
+           String(selectedHiveId)!==String(inspection.hive_id))return;
+        if(error)throw error;
+        editingInspectionLinkedTreatment=data||null;
+        editingInspectionLegacyNote=!data&&Boolean(originalInspectionTreatmentNote);
+        $("treatmentAppliedCheck").checked=Boolean(data||originalInspectionTreatmentNote);
+        $("treatmentAppliedCheck").disabled=Boolean(data);
+        if(data){
+          $("inspectionTreatmentDate").value=data.treatment_date||"";
+          $("inspectionTreatmentProduct").value=data.product||"";
+          $("inspectionTreatmentAmount").value=data.application_details||"";
+          $("inspectionTreatmentFollowUp").value=data.follow_up_date||"";
+          $("inspectionTreatmentNotes").value=data.notes||"";
+        }
+        updateInspectionTreatmentHint();
+        $("saveInspection").disabled=false;
+        $("inspectionMessage").textContent="Editing inspection from "+formatDate(inspection.inspection_date)+". Save Changes or Cancel Edit.";
+      }catch(error){
+        if(request!==inspectionTreatmentLinkRequest)return;
+        // Never save while linkage could not be verified: this avoids duplicates.
+        $("inspectionMessage").textContent="Could not check treatment linkage: "+error.message+". No changes saved. Cancel Edit and try again.";
+      }
     }
     $("cancelInspectionEdit").addEventListener("click",()=>{
       resetInspectionForm();
@@ -1391,7 +1464,7 @@
       if(String(hiveId)!==String(inspection.hive_id))return;
       const hive=hives.find(h=>String(h.id)===String(hiveId));
       const label=hive?`Hive ${hive.hive_number}`:"this hive";
-      if(!confirm(`Permanently delete the inspection for ${label} on ${formatDate(inspection.inspection_date)}?\n\nThis cannot be undone. Other inspections and the colony record will be preserved.`))return;
+      if(!confirm(`Permanently delete the inspection for ${label} on ${formatDate(inspection.inspection_date)}?\n\nThis cannot be undone. Any linked treatment remains in the Treatments Log as independent history. Other inspections and the colony record will be preserved.`))return;
       const msg=$("inspectionMessage");msg.textContent="Deleting inspection...";
       try{
         const {data:{user},error:authError}=await supabase.auth.getUser();
@@ -2838,16 +2911,30 @@ function incomeReceiptControls(record){
         };
         const {data:{user},error:authError}=await supabase.auth.getUser();
         if(authError||!user)throw new Error("Please sign in again.");
+        if(editingInspectionLinkedTreatment&&!treated)
+          throw new Error("Linked treatment history cannot be removed from the inspection. Edit or delete the treatment explicitly in the Treatments tab.");
+        const saveCombinedTreatment=treated&&!editingInspectionLegacyNote;
         let savedInspectionId;
-        if(editId===null){
+        if(saveCombinedTreatment){
+          const treatment=inspectionTreatmentValues();
+          // The SECURITY INVOKER RPC is one database transaction: inspection and
+          // linked treatment both commit or both roll back. No client-side two-step save.
+          const {data,error}=await supabase.rpc("save_inspection_with_treatment",{
+            p_hive_id:hiveId,p_inspection_id:editId,
+            p_colony_id:editId===null?selectedRecordColony("inspection"):editingInspectionColonyId,
+            p_inspection:payload,p_treatment:treatment
+          });
+          if(error)throw error;
+          if(!Number.isSafeInteger(Number(data)))throw new Error("The combined save did not return an inspection ID.");
+          savedInspectionId=Number(data);
+        }else if(editId===null){
           const {data,error}=await supabase.from("Hive_Inspections").insert({
             ...payload,hive_id:hiveId,colony_id:selectedRecordColony("inspection")
           }).select("id").single();
           if(error)throw error;
           savedInspectionId=data.id;
         }else{
-          // Preserve the inspection's original colony association and completed follow-up details.
-          // RLS checks the signed-in owner; both hive and record ID must match.
+          // Preserve this inspection's original colony and historical follow-up details.
           const {data,error}=await supabase.from("Hive_Inspections").update(payload)
             .eq("id",editId).eq("hive_id",hiveId).select("id");
           if(error)throw error;
@@ -2862,8 +2949,10 @@ function incomeReceiptControls(record){
         }
         if(String(selectedHiveId)===String(hiveId)){
           resetInspectionForm();
-          message.textContent=(editId===null?"Inspection saved successfully!":"Inspection updated successfully!")+publicChartWarning;
+          message.textContent=(editId===null?"Inspection saved successfully!":"Inspection updated successfully!")
+            +(saveCombinedTreatment?" Linked treatment saved in Treatments.":"")+publicChartWarning;
           await loadInspectionHistory(hiveId);
+          if(saveCombinedTreatment)await loadManagement(hiveId);
         }
         await Promise.all([loadDashboardData(),refreshStats()]);
       }catch(error){if(String(selectedHiveId)===String(hiveId))message.textContent="Save failed: "+error.message;}
@@ -2946,7 +3035,10 @@ function incomeReceiptControls(record){
       for(const id of ["feedDate","treatDate","harvestDate","queenReplaceDate","splitDate","lossDate"]) if(c.fields[id]) $(id).value=localToday();
     }
     async function deleteRecord(table,record) {
-      if(!window.confirm("Permanently delete this record? This cannot be undone."))return;
+      const deleteWarning=table==="Hive_Treatments"&&record.inspection_id!=null
+        ?"Permanently delete this linked treatment? The inspection and its original treatment note will remain. This cannot be undone."
+        :"Permanently delete this record? This cannot be undone.";
+      if(!window.confirm(deleteWarning))return;
       const c=editConfig[table],msg=$(c.message),hiveId=selectedHiveId;
       msg.textContent="Deleting...";
       try {
@@ -3067,7 +3159,7 @@ function incomeReceiptControls(record){
       if(feed.error) $("feedHistory").textContent="Feeding records unavailable: "+feed.error.message;
       else showRecords("feedHistory",feed.data?.sort((a,b)=>b.feed_date.localeCompare(a.feed_date)),[["Date","feed_date"],["Type","feed_type"],["Quantity","quantity"],["Unit","unit"],["Notes","notes"]],"Hive_Feedings");
       if(treat.error) $("treatHistory").textContent="Treatments unavailable: "+treat.error.message;
-      else showRecords("treatHistory",treat.data?.sort((a,b)=>b.treatment_date.localeCompare(a.treatment_date)),[["Date","treatment_date"],["Product","product"],["Application","application_details"],["Follow-up","follow_up_date"],["Completed","follow_up_completed"],["Completion date","follow_up_completed_date"],["Follow-up results","follow_up_notes"],["Notes","notes"]],"Hive_Treatments");
+      else showRecords("treatHistory",treat.data?.sort((a,b)=>b.treatment_date.localeCompare(a.treatment_date)),[["Date","treatment_date"],["Product","product"],["Application","application_details"],["Follow-up","follow_up_date"],["Completed","follow_up_completed"],["Completion date","follow_up_completed_date"],["Follow-up results","follow_up_notes"],["Notes","notes"],["Linked inspection ID","inspection_id"]],"Hive_Treatments");
       if(queen.error) $("queenHistory").textContent="Queen history unavailable: "+queen.error.message;
       else showRecords("queenHistory",(queen.data||[]).sort((a,b)=>b.replacement_date.localeCompare(a.replacement_date)),[["Replacement date","replacement_date"],["Reason","reason"],["Origin","queen_origin"],["Mark","queen_mark_color"],["Introduction","introduction_method"],["Acceptance","acceptance_status"],["First eggs","first_eggs_date"],["Notes","notes"]],"Hive_Queen_Replacements");
       if(splits.error){
