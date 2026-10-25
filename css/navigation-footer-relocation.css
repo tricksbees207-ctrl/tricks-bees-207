@@ -209,3 +209,17 @@
 /* The intro text inherited an 18px bottom margin, so its visible bottom
    gap looked larger even with equal 40px section padding. */
 .nav-footer-move .hero p { margin-bottom:0; }
+
+/* Match the approved compact introduction's roughly 40px visible framing
+   on the remaining informational sections, without touching internal cards. */
+.nav-footer-move main > #dashboard,
+.nav-footer-move main > #inside-our-honey,
+.nav-footer-move main > #now,
+.nav-footer-move main > #apiary-now,
+.nav-footer-move main > #varroa {
+  padding-top:40px;
+  padding-bottom:40px;
+}
+/* Hive Data ends with a toolbar that otherwise adds 20px of extra green/cream
+   space below it despite symmetrical section padding. */
+.nav-footer-move #dashboard > .toolbar:last-child { margin-bottom:0; }
