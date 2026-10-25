@@ -194,3 +194,10 @@
 @media (max-width:420px) {
   .nav-footer-move .hero {padding-top:28px;padding-bottom:28px;}
 }
+
+/* Match the approved banner's 30px vertical breathing room at the
+   beginning and end of the complete live-camera section. */
+.nav-footer-move #live.live-cameras {
+  padding-top:30px;
+  padding-bottom:30px;
+}
