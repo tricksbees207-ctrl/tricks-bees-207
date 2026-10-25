@@ -118,3 +118,41 @@
 @media(prefers-reduced-motion:reduce) {
   .nav-footer-move .banner-nav-shell nav a { scroll-behavior:auto; }
 }
+/* Keep the site's existing centered footer copy and links, but anchor
+   the circular logo at the left edge, matching its old header position. */
+.nav-footer-move .site-footer {
+  position:relative;
+  min-height:205px;
+  padding:30px 6%;
+}
+.nav-footer-move .site-footer .footer-brand {
+  display:block;
+  text-align:center;
+}
+.nav-footer-move .site-footer .footer-brand-copy { text-align:center; }
+.nav-footer-move .site-footer .footer-logo {
+  position:absolute;
+  left:6%;
+  top:50%;
+  width:145px;
+  height:145px;
+  transform:translateY(-50%);
+}
+@media(max-width:700px) {
+  .nav-footer-move .site-footer {
+    min-height:0;
+    padding:26px 6%;
+  }
+  .nav-footer-move .site-footer .footer-brand {
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .nav-footer-move .site-footer .footer-logo {
+    position:static;
+    width:108px;
+    height:108px;
+    transform:none;
+    flex:0 0 auto;
+  }
+}
