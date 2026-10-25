@@ -192,28 +192,19 @@
   transform:translateY(-12%);
 }
 
-/* Keep the approved banner layout; reduce only the cream introduction's
-   empty vertical space above and below its heading, text, and bee. */
+/* Keep a uniform 40px vertical frame above and below the introduction. */
 .nav-footer-move .hero {
   padding-top:40px;
   padding-bottom:40px;
 }
-@media (max-width:800px) {
-  .nav-footer-move .hero {padding-top:32px;padding-bottom:32px;}
-}
-@media (max-width:420px) {
-  .nav-footer-move .hero {padding-top:28px;padding-bottom:28px;}
-}
-
-/* Match the approved banner's 30px vertical breathing room at the
-   beginning and end of the complete live-camera section. */
+/* Match the 40px vertical frame of every main content section. */
 .nav-footer-move #live.live-cameras {
-  padding-top:30px;
-  padding-bottom:30px;
+  padding-top:40px;
+  padding-bottom:40px;
 }
 
-/* The section heading has a browser-default top margin; remove it so the
-   visible edge-to-text gap is truly 30px, not 30px plus ~20px. */
+/* Remove the heading's default margin so the visible edge-to-text gap
+   matches the other sections. */
 .nav-footer-move #live.live-cameras > h2 { margin-top:0; }
 
 /* The intro text inherited an 18px bottom margin, so its visible bottom
