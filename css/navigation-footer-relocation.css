@@ -181,3 +181,16 @@
   object-fit:contain !important;
   transform:translateY(-12%);
 }
+
+/* Keep the approved banner layout; reduce only the cream introduction's
+   empty vertical space above and below its heading, text, and bee. */
+.nav-footer-move .hero {
+  padding-top:40px;
+  padding-bottom:40px;
+}
+@media (max-width:800px) {
+  .nav-footer-move .hero {padding-top:32px;padding-bottom:32px;}
+}
+@media (max-width:420px) {
+  .nav-footer-move .hero {padding-top:28px;padding-bottom:28px;}
+}
