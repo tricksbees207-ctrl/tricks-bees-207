@@ -166,3 +166,28 @@
     flex:0 0 auto;
   }
 }
+
+/* The source banner PNG contains its own broad green top/bottom margins.
+   Frame the artwork to reveal equal ~30px green gaps around links and below
+   the visible banner, without editing/cropping the source image file. */
+.nav-footer-move .brand-hero .banner-image-window {
+  position:relative;
+  display:block;
+  width:100%;
+  max-width:1800px;
+  aspect-ratio:2056 / 557;
+  overflow:hidden;
+  margin:0 auto;
+}
+.nav-footer-move .brand-hero .banner-image-window > img {
+  position:absolute;
+  display:block;
+  inset:0 auto auto 0;
+  width:100% !important;
+  max-width:100% !important;
+  max-height:none !important;
+  min-height:0 !important;
+  height:auto !important;
+  object-fit:contain !important;
+  transform:translateY(-12%);
+}
