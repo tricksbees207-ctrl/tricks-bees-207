@@ -133,7 +133,7 @@ async function loadWeather(){
   if(isDark){
     badge.className="flight-badge poor";
     badge.textContent="🌙 NO FLIGHT";
-    document.getElementById("flight-title").textContent="After sunset";
+    document.getElementById("flight-title").textContent=now < sunriseTime ? "Before sunrise" : "After sunset";
     document.getElementById("flight-reason").textContent=
       "Bees are normally not flying after dark. Weather conditions will be evaluated again during daylight.";
   } else {
