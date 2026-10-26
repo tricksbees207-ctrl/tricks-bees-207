@@ -103,6 +103,14 @@ function flightSummary(result){
   return (selected.length===1?"Main limit: ":"Main limits: ")+selected.join("; ")+".";
 }
 function cTime(value){return typeof value==="string" ? value : "";}
+function formatMaineTime(value){
+  // Open-Meteo provides local Maine times in YYYY-MM-DDTHH:mm form.
+  const hhmm=typeof value==="string"?value.slice(11,16):"";
+  if(hhmm.length!==5||hhmm[2]!==":"||Number.isNaN(Number(hhmm.slice(0,2)))||Number.isNaN(Number(hhmm.slice(3,5)))) return "";
+  const hour=Number(hhmm.slice(0,2));
+  return (hour%12||12)+":"+hhmm.slice(3,5)+(hour>=12?" PM":" AM");
+}
+
 
 async function loadWeather(){
  try{
@@ -167,6 +175,8 @@ async function loadWeather(){
     visibility<1000?Math.round(visibility)+" m":(visibility/1609.344).toFixed(1)+" mi");
   setFlightFactor("flight-daylight",beforeSunrise?"Before sunrise":afterSunset?"After sunset":
     sunrise&&sunset?"Daytime":"Unavailable");
+  const riseLabel=formatMaineTime(sunrise),setLabel=formatMaineTime(sunset);
+  setFlightFactor("flight-sun-times",riseLabel&&setLabel?riseLabel+" / "+setLabel:"Unavailable");
 
   if(isDark){
     badge.className="flight-badge poor";
@@ -230,7 +240,7 @@ async function loadWeather(){
   document.getElementById("flight-title").textContent="Bee flight guide unavailable";
   document.getElementById("flight-reason").textContent=
     "The live weather service could not be reached. The page will try again automatically.";
-  ["flight-gusts","flight-clouds","flight-visibility","flight-daylight"].forEach(
+  ["flight-gusts","flight-clouds","flight-visibility","flight-daylight","flight-sun-times"].forEach(
     id=>{const el=document.getElementById(id);if(el)el.textContent="Unavailable";}
   );
  }
