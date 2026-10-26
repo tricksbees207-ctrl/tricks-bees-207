@@ -22,9 +22,19 @@ footer{background:#172119;color:#ccd3cd;padding:35px 7%;display:flex;justify-con
 .weather-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
 .weather-big{display:flex;align-items:center;gap:16px;margin:18px 0 4px}.weather-big span{font-size:54px}.weather-big strong{font-size:48px}
 .weather-details{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:20px}.weather-details div{background:#f7f3e8;padding:12px;border-radius:6px}.weather-details b,.weather-details span{display:block}.weather-details b{font-size:10px;letter-spacing:.08em;color:#777}.weather-details span{font-size:16px;font-weight:bold;margin-top:3px}
-.flight-badge{display:inline-block;margin:18px 0 6px;padding:9px 13px;border-radius:20px;font-weight:bold;font-size:13px}.flight-badge.good{background:#dcebd9;color:#244b29}.flight-badge.limited{background:#f5e9b9;color:#69540e}.flight-badge.poor{background:#efd4cf;color:#6c2c22}.flight-card small{color:#777}
-.flight-factors{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:18px 0 12px}.flight-factor{background:#f7f3e8;border-radius:6px;padding:10px 12px;min-width:0}.flight-factor b,.flight-factor span{display:block}.flight-factor b{font-size:10px;letter-spacing:.06em;color:#777}.flight-factor span{font-size:14px;font-weight:bold;margin-top:3px;overflow-wrap:anywhere}
-@media(max-width:420px){.flight-factors{grid-template-columns:1fr 1fr}.flight-factor{padding:9px}}
+.flight-badge{display:inline-block;margin:18px 0 6px;padding:9px 13px;border-radius:20px;font-weight:bold;font-size:13px}.flight-badge.good{background:#dcebd9;color:#244b29}.flight-badge.limited{background:#f5e9b9;color:#69540e}.flight-badge.poor{background:#efd4cf;color:#6c2c22}.weather-combined{width:100%}
+.weather-overview{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:28px;align-items:start}
+.weather-current-summary .weather-big{margin:12px 0 2px}.weather-current-summary h3{margin:4px 0 2px}
+.weather-feels{margin:5px 0 0;color:#646b61;font-size:14px}.weather-feels strong{color:#263229}
+.weather-flight-summary{padding-left:28px;border-left:1px solid #e4ddcd}
+.weather-flight-summary .flight-badge{margin:12px 0 5px}
+.weather-flight-summary h3{margin:8px 0}.weather-flight-summary p{margin:10px 0 0;max-width:430px;line-height:1.5}
+.weather-facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:22px;padding-top:20px;border-top:1px solid #e4ddcd}
+.weather-facts div{background:#f7f3e8;border-radius:6px;padding:12px;min-width:0}
+.weather-facts b,.weather-facts span{display:block}.weather-facts b{font-size:10px;letter-spacing:.06em;color:#777}
+.weather-facts span{font-size:15px;font-weight:bold;margin-top:4px;overflow-wrap:anywhere}
+.weather-disclaimer{display:block;color:#777;margin-top:15px}
+@media(max-width:800px){.weather-overview{grid-template-columns:1fr;gap:17px}.weather-flight-summary{padding:17px 0 0;border-left:0;border-top:1px solid #e4ddcd}.weather-facts{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:17px;padding-top:17px}}
 .forecast-panel{background:#fff;border:1px solid #ddd5c1;border-radius:8px;padding:24px;margin-top:20px}.forecast-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:15px}.forecast-day{background:#f7f3e8;border-radius:7px;padding:15px;text-align:center}.forecast-day b,.forecast-day span{display:block}.forecast-day .fi{font-size:28px;margin:7px 0}.forecast-day .temps{font-weight:bold}.forecast-day small{color:#777}.weather-credit{font-size:10px;color:#888;margin:14px 0 0}
 @media(max-width:800px){.weather-grid{grid-template-columns:1fr}.forecast-grid{grid-template-columns:1fr 1fr}.forecast-day:last-child{grid-column:1/-1}}
 
