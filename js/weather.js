@@ -1,6 +1,6 @@
 const API_HEADERS={headers:{"Accept":"application/geo+json"}};
 const POINTS_URL="https:"+"//"+"api.weather.gov"+"/points/44.5434,-68.4195";
-const OPEN_METEO_URL="https:"+"//"+"api.open-meteo.com/v1/forecast?latitude=44.5434&longitude=-68.4195&current=temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,weather_code,wind_speed_10m,wind_direction_10m&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&daily=sunrise,sunset&forecast_days=2&timezone=America%2FNew_York";
+const OPEN_METEO_URL="https:"+"//"+"api.open-meteo.com/v1/forecast?latitude=44.5434&longitude=-68.4195&current=temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,cloud_cover,visibility&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&daily=sunrise,sunset&forecast_days=2&timezone=America%2FNew_York";
 
 function iconFor(text){
   text=(text||"").toLowerCase();
@@ -54,15 +54,25 @@ function degreesToCompass(deg){
   return dirs[Math.round(deg/22.5)%16];
 }
 
-function flight(temp,wind,condition){
+function flight(temp,wind,condition,{gust,cloud,humidity,visibility}={}){
   let state="good",reasons=[],t=(condition||"").toLowerCase();
+  const limit=()=>{if(state==="good") state="limited";};
   if(temp!=null&&temp<50){state="poor";reasons.push("cold temperature")}
-  else if(temp!=null&&temp<57){state="limited";reasons.push("cool temperature")}
-  if(wind!=null&&wind>=20){state="poor";reasons.push("strong wind")}
-  else if(wind!=null&&wind>=12&&state!=="poor"){state="limited";reasons.push("breezy conditions")}
-  if(/rain|snow|sleet|thunder|shower|drizzle/.test(t)){state="poor";reasons.push("precipitation")}
-  if(!reasons.length) reasons.push("mild temperature, manageable wind and no significant precipitation");
-  return {state,reasons}
+  else if(temp!=null&&temp<57){limit();reasons.push("cool temperature")}
+  if(wind!=null&&wind>=20){state="poor";reasons.push("strong sustained wind")}
+  else if(wind!=null&&wind>=12){limit();reasons.push("breezy conditions")}
+  if(gust!=null&&gust>=25){state="poor";reasons.push("strong wind gusts")}
+  else if(gust!=null&&gust>=18){limit();reasons.push("gusty winds")}
+  if(/thunder/.test(t)){state="poor";reasons.push("thunderstorms")}
+  else if(/rain|snow|sleet|shower|drizzle/.test(t)){state="poor";reasons.push("precipitation")}
+  if(/fog/.test(t)||(visibility!=null&&visibility<1000)){limit();reasons.push("fog or reduced visibility")}
+  if(cloud!=null&&cloud>=85&&temp!=null&&temp<65){limit();reasons.push("heavy cloud cover in cool weather")}
+  if(humidity!=null&&humidity>=90&&cloud!=null&&cloud>=75&&temp!=null&&temp<65){
+    limit();reasons.push("high humidity with cool, overcast conditions");
+  }
+  if(temp!=null&&temp>=95){limit();reasons.push("extreme heat")}
+  if(!reasons.length) reasons.push("temperature, wind and sky conditions generally support flight");
+  return {state,reasons};
 }
 
 async function getNWS(url){
@@ -76,6 +86,8 @@ async function getOpenMeteo(){
   if(!r.ok) throw new Error("Open-Meteo request failed ("+r.status+")");
   return r.json();
 }
+
+function cTime(value){return typeof value==="string" ? value : "";}
 
 async function loadWeather(){
  try{
@@ -93,18 +105,21 @@ async function loadWeather(){
   const c=live.current||{};
   const sunrise=live.daily?.sunrise?.[0];
   const sunset=live.daily?.sunset?.[0];
-  const now=new Date();
-  const sunriseTime=sunrise ? new Date(sunrise) : null;
-  const sunsetTime=sunset ? new Date(sunset) : null;
-  const isDark=(sunriseTime && sunsetTime)
-    ? (now < sunriseTime || now >= sunsetTime)
-    : false;
+  // Open-Meteo returns these times in Ellsworth local time. Compare local ISO strings
+  // directly so a visitor's computer timezone cannot change the flight estimate.
+  const localTime=cTime(live.current?.time);
+  const beforeSunrise=Boolean(localTime&&sunrise&&localTime<sunrise);
+  const afterSunset=Boolean(localTime&&sunset&&localTime>=sunset);
+  const isDark=beforeSunrise||afterSunset;
 
   const temp=c.temperature_2m;
   const feels=c.apparent_temperature;
   const hum=c.relative_humidity_2m;
   const wind=c.wind_speed_10m;
   const windDir=degreesToCompass(c.wind_direction_10m);
+  const gust=c.wind_gusts_10m;
+  const cloud=c.cloud_cover;
+  const visibility=c.visibility;
   const cond=weatherCodeText(c.weather_code);
 
   let observationTime=c.time ? new Date(c.time) : null;
@@ -128,14 +143,24 @@ async function loadWeather(){
   document.getElementById("wx-precip").textContent=
     pop==null?"Unavailable":Math.round(pop)+"% chance";
 
-  const f=flight(temp,wind,cond),badge=document.getElementById("flight-badge");
+  const f=flight(temp,wind,cond,{gust,cloud,humidity:hum,visibility});
+  const badge=document.getElementById("flight-badge");
+  const setFlightFactor=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value;};
+  setFlightFactor("flight-temp",temp==null?"Unavailable":Math.round(temp)+"°F");
+  setFlightFactor("flight-gusts",gust==null?"Unavailable":Math.round(gust)+" mph");
+  setFlightFactor("flight-clouds",cloud==null?"Unavailable":Math.round(cloud)+"%");
+  setFlightFactor("flight-humidity",hum==null?"Unavailable":Math.round(hum)+"%");
+  setFlightFactor("flight-visibility",visibility==null?"Unavailable":
+    visibility<1000?Math.round(visibility)+" m":(visibility/1609.344).toFixed(1)+" mi");
+  setFlightFactor("flight-daylight",beforeSunrise?"Before sunrise":afterSunset?"After sunset":
+    sunrise&&sunset?"Daytime":"Unavailable");
 
   if(isDark){
     badge.className="flight-badge poor";
     badge.textContent="🌙 NO FLIGHT";
-    document.getElementById("flight-title").textContent=now < sunriseTime ? "Before sunrise" : "After sunset";
+    document.getElementById("flight-title").textContent=beforeSunrise ? "Before sunrise" : "After sunset";
     document.getElementById("flight-reason").textContent=
-      "Bees are normally not flying after dark. Weather conditions will be evaluated again during daylight.";
+      "Bees generally remain in the hive during darkness. Weather conditions will be evaluated again during daylight.";
   } else {
     badge.className="flight-badge "+f.state;
     badge.textContent=f.state==="good"?"🟢 GOOD":f.state==="limited"?"🟡 LIMITED":"🔴 POOR";
@@ -192,6 +217,9 @@ async function loadWeather(){
   document.getElementById("flight-title").textContent="Bee flight guide unavailable";
   document.getElementById("flight-reason").textContent=
     "The live weather service could not be reached. The page will try again automatically.";
+  ["flight-temp","flight-gusts","flight-clouds","flight-humidity","flight-visibility","flight-daylight"].forEach(
+    id=>{const el=document.getElementById(id);if(el)el.textContent="Unavailable";}
+  );
  }
 }
 
