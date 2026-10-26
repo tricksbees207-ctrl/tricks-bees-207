@@ -137,34 +137,32 @@
 <section id="now">
 <div class="eyebrow">ELLSWORTH, MAINE</div><h2>Apiary weather</h2>
 <div id="weather-status" class="weather-status">Loading live weather…</div>
-<div class="weather-grid">
-  <article class="panel weather-current">
-    <div class="eyebrow">CURRENT CONDITIONS</div>
-    <div class="weather-big"><span id="wx-icon">🌤️</span><strong id="wx-temp">--°F</strong></div>
-    <h3 id="wx-condition">Loading…</h3>
-    <div class="weather-details">
-      <div><b>Feels like</b><span id="wx-feels">--°F</span></div>
-      <div><b>Humidity</b><span id="wx-humidity">--%</span></div>
-      <div><b>Wind</b><span id="wx-wind">-- mph</span></div>
-      <div><b>Precipitation</b><span id="wx-precip">-- in</span></div>
+<article class="panel weather-combined">
+  <div class="weather-overview">
+    <div class="weather-current-summary">
+      <div class="eyebrow">CURRENT CONDITIONS</div>
+      <div class="weather-big"><span id="wx-icon">🌤️</span><strong id="wx-temp">--°F</strong></div>
+      <h3 id="wx-condition">Loading…</h3>
+      <p class="weather-feels">Feels like <strong id="wx-feels">--°F</strong></p>
     </div>
-  </article>
-  <article class="panel flight-card">
-    <div class="eyebrow">BEE FLIGHT CONDITIONS</div>
-    <div id="flight-badge" class="flight-badge limited">🟡 LIMITED</div>
-    <h3 id="flight-title">Checking conditions…</h3>
-    <p id="flight-reason">Temperature, wind and precipitation are being checked.</p>
-    <div class="flight-factors" aria-label="Conditions affecting bee flight">
-      <div class="flight-factor"><b>Temperature</b><span id="flight-temp">Checking…</span></div>
-      <div class="flight-factor"><b>Wind gusts</b><span id="flight-gusts">Checking…</span></div>
-      <div class="flight-factor"><b>Cloud cover</b><span id="flight-clouds">Checking…</span></div>
-      <div class="flight-factor"><b>Humidity</b><span id="flight-humidity">Checking…</span></div>
-      <div class="flight-factor"><b>Visibility</b><span id="flight-visibility">Checking…</span></div>
-      <div class="flight-factor"><b>Daylight</b><span id="flight-daylight">Checking…</span></div>
+    <div class="weather-flight-summary">
+      <div class="eyebrow">BEE FLIGHT CONDITIONS</div>
+      <div id="flight-badge" class="flight-badge limited">🟡 LIMITED</div>
+      <h3 id="flight-title">Checking conditions…</h3>
+      <p id="flight-reason">Checking conditions that affect bee flight…</p>
     </div>
-    <small>This is a weather-based guide, not a measurement of actual bee activity.</small>
-  </article>
-</div>
+  </div>
+  <div class="weather-facts" aria-label="Current apiary weather details">
+    <div><b>Humidity</b><span id="wx-humidity">--%</span></div>
+    <div><b>Wind</b><span id="wx-wind">-- mph</span></div>
+    <div><b>Wind gusts</b><span id="flight-gusts">-- mph</span></div>
+    <div><b>Cloud cover</b><span id="flight-clouds">--%</span></div>
+    <div><b>Visibility</b><span id="flight-visibility">-- mi</span></div>
+    <div><b>Rain chance</b><span id="wx-precip">--%</span></div>
+    <div><b>Daylight</b><span id="flight-daylight">Checking…</span></div>
+  </div>
+  <small class="weather-disclaimer">The flight rating is a weather-based guide, not a measurement of actual bee activity.</small>
+</article>
 <div class="forecast-panel">
   <div class="eyebrow">NEXT 5 DAYS</div>
   <div id="forecast" class="forecast-grid"></div>
