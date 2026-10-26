@@ -87,6 +87,21 @@ async function getOpenMeteo(){
   return r.json();
 }
 
+function flightSummary(result){
+  if(result.state==="good") return "Conditions generally support bee flight.";
+  const priority=[
+    "thunderstorms","precipitation","cold temperature","strong sustained wind",
+    "strong wind gusts","cool temperature","gusty winds","breezy conditions",
+    "fog or reduced visibility","extreme heat","heavy cloud cover in cool weather",
+    "high humidity with cool, overcast conditions"
+  ];
+  const severe=new Set(priority.slice(0,5));
+  const ranked=priority.filter(reason=>result.reasons.includes(reason));
+  const candidates=(result.state==="poor"?ranked.filter(reason=>severe.has(reason)):ranked).filter(reason=>
+    reason!=="high humidity with cool, overcast conditions"||!ranked.includes("heavy cloud cover in cool weather"));
+  const selected=(candidates.length?candidates:ranked).slice(0,2);
+  return (selected.length===1?"Main limit: ":"Main limits: ")+selected.join("; ")+".";
+}
 function cTime(value){return typeof value==="string" ? value : "";}
 
 async function loadWeather(){
@@ -146,10 +161,8 @@ async function loadWeather(){
   const f=flight(temp,wind,cond,{gust,cloud,humidity:hum,visibility});
   const badge=document.getElementById("flight-badge");
   const setFlightFactor=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value;};
-  setFlightFactor("flight-temp",temp==null?"Unavailable":Math.round(temp)+"°F");
   setFlightFactor("flight-gusts",gust==null?"Unavailable":Math.round(gust)+" mph");
   setFlightFactor("flight-clouds",cloud==null?"Unavailable":Math.round(cloud)+"%");
-  setFlightFactor("flight-humidity",hum==null?"Unavailable":Math.round(hum)+"%");
   setFlightFactor("flight-visibility",visibility==null?"Unavailable":
     visibility<1000?Math.round(visibility)+" m":(visibility/1609.344).toFixed(1)+" mi");
   setFlightFactor("flight-daylight",beforeSunrise?"Before sunrise":afterSunset?"After sunset":
@@ -160,7 +173,7 @@ async function loadWeather(){
     badge.textContent="🌙 NO FLIGHT";
     document.getElementById("flight-title").textContent=beforeSunrise ? "Before sunrise" : "After sunset";
     document.getElementById("flight-reason").textContent=
-      "Bees generally remain in the hive during darkness. Weather conditions will be evaluated again during daylight.";
+      "Normal foraging is unlikely until daylight.";
   } else {
     badge.className="flight-badge "+f.state;
     badge.textContent=f.state==="good"?"🟢 GOOD":f.state==="limited"?"🟡 LIMITED":"🔴 POOR";
@@ -171,7 +184,7 @@ async function loadWeather(){
       "Weather is unfavorable for flight";
 
     document.getElementById("flight-reason").textContent=
-      "Based on "+f.reasons.join(", ")+".";
+      flightSummary(f);
   }
 
   const fc=document.getElementById("forecast");
@@ -217,7 +230,7 @@ async function loadWeather(){
   document.getElementById("flight-title").textContent="Bee flight guide unavailable";
   document.getElementById("flight-reason").textContent=
     "The live weather service could not be reached. The page will try again automatically.";
-  ["flight-temp","flight-gusts","flight-clouds","flight-humidity","flight-visibility","flight-daylight"].forEach(
+  ["flight-gusts","flight-clouds","flight-visibility","flight-daylight"].forEach(
     id=>{const el=document.getElementById(id);if(el)el.textContent="Unavailable";}
   );
  }
