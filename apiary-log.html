@@ -401,6 +401,7 @@
   <h4>Income History</h4><div id="incomeHistory">Loading...</div>
 </section>
 
+<section id="mileageSection" class="management" aria-label="Mileage Log"></section>
 <section id="manageLocationsSection" class="management" aria-labelledby="manageLocationsHeading">
  <h3 id="manageLocationsHeading">Manage Colonies</h3>
  <p class="muted">Type your hive number and name. Existing vacant hive numbers are reused with their history; new hive numbers are created automatically when you register a colony.</p>
@@ -753,6 +754,7 @@
       ['Profit & Loss', document.getElementById('financialSection')],
       ['Expenses', document.getElementById('expensesSection')],
       ['Income', document.getElementById('incomeSection')],
+      ['Mileage', document.getElementById('mileageSection')],
       ['Backup', backupSection]
     ].filter(([,el]) => !!el);
 
@@ -836,8 +838,10 @@
     import { downloadCompleteBackup } from "./js/apiary-complete-backup-v3.js";
     import { verifyApiaryBackupOnPage } from "./js/apiary-backup-verifier-v3.js";
     import { setupRecurringExpenses } from "./js/recurring-expenses.js";
+    import { setupMileageLog } from "./js/apiary-mileage.js";
     const supabase = createClient("https://mkypanucvttinkjggxzv.supabase.co", "sb_publishable_-mN1hBm5z7YCjBzg_LDU4g_5C3N8ejJ");
     const $ = id => document.getElementById(id);
+    const mileageLog = setupMileageLog({supabase});
     const value = id => $(id).value;
     const backupTables=[
       "Hives","Hive_Colonies","Colony_Transfers","Hive_Profiles",
@@ -2755,6 +2759,7 @@ function incomeReceiptControls(record){
       refreshSplitDaughterOptions();
       await Promise.all([loadDashboardData(),refreshStats(),refreshLocations()]);
       await recurringManager.refresh();
+      await mileageLog.refresh();
       await cleanupPendingReceipts();
     }
     async function loadInspectionHistory(hiveId) {
