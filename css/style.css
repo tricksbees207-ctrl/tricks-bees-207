@@ -600,3 +600,7 @@ html{scroll-behavior:smooth}.big-icon{font-size:32px}.varroa-section{background:
 .study-summary .result-row small { color:#505b54; }
 .study-summary .paper-box .research-label { color:#745600; }
 .study-summary .study-grid h2 { font-size:1.17em; font-family:Georgia,serif; font-weight:700; }
+
+/* About page: accessible gold labels on dark and light backgrounds. */
+body#top .study-header > .eyebrow { color:#e8bd3f; }
+.bio-page .research-label { color:#745600; }
