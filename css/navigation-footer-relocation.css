@@ -157,29 +157,29 @@
   }
 }
 
-/* The source banner PNG contains its own broad green top/bottom margins.
-   Frame the artwork to reveal equal ~30px green gaps around links and below
-   the visible banner, without editing/cropping the source image file. */
+/* Crop the green margins embedded in the WebP at display time.
+   The original file remains intact, and the artwork fills the banner window. */
 .nav-footer-move .brand-hero .banner-image-window {
   position:relative;
   display:block;
   width:100%;
   max-width:1800px;
-  aspect-ratio:2056 / 557;
+  aspect-ratio:1882 / 538;
   overflow:hidden;
   margin:0 auto;
 }
 .nav-footer-move .brand-hero .banner-image-window > img {
   position:absolute;
   display:block;
-  inset:0 auto auto 0;
-  width:100% !important;
-  max-width:100% !important;
+  top:0;
+  left:0;
+  width:108.82% !important;
+  max-width:none !important;
   max-height:none !important;
   min-height:0 !important;
   height:auto !important;
   object-fit:contain !important;
-  transform:translateY(-12%);
+  transform:translate(-4.2%,-14.83%);
 }
 
 /* Keep a uniform 40px vertical frame above and below the introduction. */
