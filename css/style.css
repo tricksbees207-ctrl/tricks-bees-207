@@ -594,3 +594,9 @@ html{scroll-behavior:smooth}.big-icon{font-size:32px}.varroa-section{background:
 /* Lighthouse contrast improvements: text only, preserve existing backgrounds and layout. */
 #dashboard .eyebrow,#now .eyebrow,.honey-dna-section .eyebrow,.season-section .eyebrow{color:#664b10}
 .weather-status,.weather-disclaimer,.weather-facts b,.forecast-day small,.weather-credit,.apiary-updated,.mite-chart-note{color:#595959}
+
+/* Research study accessibility: improve light-surface text contrast only. */
+.study-summary .results-sub,
+.study-summary .result-row small { color:#505b54; }
+.study-summary .paper-box .research-label { color:#745600; }
+.study-summary .study-grid h2 { font-size:inherit; font-family:Georgia,serif; font-weight:700; }
