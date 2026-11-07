@@ -18,7 +18,7 @@ const relationships = {
   Hive_Profiles:[['hive_id','Hives'],['colony_id','Hive_Colonies']],
   Hive_Inspections:[['hive_id','Hives'],['colony_id','Hive_Colonies']],
   Hive_Feedings:[['hive_id','Hives'],['colony_id','Hive_Colonies']],
-  Hive_Treatments:[['hive_id','Hives'],['colony_id','Hive_Colonies']],
+  Hive_Treatments:[['hive_id','Hives'],['colony_id','Hive_Colonies'],['inspection_id','Hive_Inspections']],
   Hive_Harvests:[['hive_id','Hives'],['colony_id','Hive_Colonies']],
   Hive_Queen_Replacements:[['hive_id','Hives'],['colony_id','Hive_Colonies']],
   Hive_Splits:[['hive_id','Hives'],['daughter_hive_id','Hives'],['colony_id','Hive_Colonies'],['daughter_colony_id','Hive_Colonies']],
@@ -129,6 +129,19 @@ export async function verifyApiaryBackup(file){
         demand(row[key]==null||ids[parent].has(String(row[key])),table+' has a missing '+parent+' reference.');
       }
     }
+  }
+  // Linked treatments are optional for historic archives, but any new link
+  // must point to one inspection in the same hive and cannot be duplicated.
+  const inspectionsById=new Map(data.tables.Hive_Inspections.map(i=>[String(i.id),i]));
+  const linkedInspectionIds=new Set();
+  for(const treatment of data.tables.Hive_Treatments){
+    if(treatment.inspection_id==null)continue;
+    const id=String(treatment.inspection_id);
+    demand(!linkedInspectionIds.has(id),'Multiple treatments reference one inspection.');
+    linkedInspectionIds.add(id);
+    const inspection=inspectionsById.get(id);
+    demand(inspection&&String(inspection.hive_id)===String(treatment.hive_id),
+      'Linked treatment belongs to a different hive than its inspection.');
   }
 
   if(manifest.version===3){
