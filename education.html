@@ -36,13 +36,12 @@
 .edu-section-head h2{font-family:Georgia,serif;color:#263a2a;font-size:clamp(28px,3.6vw,39px);line-height:1.16;margin:0 0 14px}
 .edu-section-head p{max-width:920px;line-height:1.7;color:#425346;margin:0}
 .edu-blueprint-layout{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(300px,.8fr);gap:23px;margin-top:28px;align-items:stretch}
-.edu-master-panel{background:#0b2a67;border:1px solid #6a91cc;border-radius:13px;min-height:390px;position:relative;overflow:hidden;box-shadow:0 9px 24px #122e5c28}
-.edu-master-panel::before{content:"";position:absolute;inset:0;background-image:radial-gradient(#aed0ff 1px,transparent 1px);background-size:22px 22px;opacity:.42;pointer-events:none}
-.edu-master-content{position:relative;z-index:1;min-height:390px;padding:30px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;color:#f0f5ff}
-.edu-master-content .edu-kicker{color:#c2d5f6}
-.edu-master-content strong{font-family:Georgia,serif;font-size:clamp(24px,3vw,34px);line-height:1.19;max-width:500px;margin:0 0 15px}
-.edu-master-content p{max-width:490px;line-height:1.7;color:#e0eafa;margin:0}
-.edu-master-content small{display:block;max-width:500px;line-height:1.55;color:#d9e4fa;padding-top:16px;margin-top:23px;border-top:1px solid #98b9f47d}
+.edu-master-panel{background:#0b2a67;border:1px solid #6a91cc;border-radius:13px;min-width:0;margin:0;overflow:hidden;box-shadow:0 9px 24px #122e5c28}
+.edu-master-preview{display:block;position:relative;line-height:0;cursor:zoom-in}
+.edu-master-preview img{display:block;width:100%;height:auto;max-width:none;object-fit:contain}
+.edu-master-preview:focus-visible{outline:4px solid #e8bd3f;outline-offset:-4px}
+.edu-master-caption{background:#10316a;color:#e9effb;padding:17px 20px;line-height:1.55;font-size:14px}
+.edu-master-caption a{color:#ffe4a1;font-weight:800;text-underline-offset:3px;white-space:normal}
 .edu-process{background:#fffdf7;border:1px solid #d7d0c2;border-radius:12px;padding:28px}
 .edu-process h3{font-family:Georgia,serif;font-size:25px;color:#263a2a;margin:0 0 14px}
 .edu-process ol{padding-left:22px;margin:0;color:#344a3b;line-height:1.7}
@@ -88,11 +87,14 @@
     <div class="edu-meta"><span>10 planned weekly lessons</span><span>Original blueprint series</span><span>From our Maine apiary</span></div>
   </section>
   <section class="edu-blueprint" aria-labelledby="blueprint-title">
-    <div class="edu-section-head"><div class="edu-kicker">The master diagram</div><h2 id="blueprint-title">One bee. Ten closer looks.</h2><p>The worker bee blueprint anchors this series. We are preserving the approved master artwork and its ten numbered spaces so that each week builds on the same illustration rather than redrawing it.</p></div>
+    <div class="edu-section-head"><div class="edu-kicker">The master diagram</div><h2 id="blueprint-title">One bee. Ten closer looks.</h2><p>The approved Version 17 blueprint is displayed below, with the original bee illustration, anatomy labels, and all ten empty lesson boxes intact. Select the diagram to open the full-size PDF.</p></div>
     <div class="edu-blueprint-layout">
-      <div class="edu-master-panel" role="note" aria-label="Worker bee blueprint publication notice">
-        <div class="edu-master-content"><div class="edu-kicker">Original artwork preserved</div><strong>Worker Honey Bee Anatomy Blueprint</strong><p>Our approved master is being prepared for its website edition. The original labeled diagram and empty Week 1–10 boxes will be displayed here, without altering the artwork.</p><small>The original master is not replaced by a simulated or newly generated bee diagram.</small></div>
-      </div>
+      <figure class="edu-master-panel">
+        <a class="edu-master-preview" href="assets/education/worker-bee-anatomy-v17.pdf" target="_blank" rel="noopener" aria-label="Open the original worker honey bee anatomy blueprint as a full-size PDF">
+          <img src="assets/education/worker-bee-anatomy-v17.webp" width="2100" height="1932" alt="Original Tricks Bees 207 worker honey bee anatomy blueprint: labeled bee on blue grid with ten empty boxes numbered Week 1 through Week 10" loading="lazy" decoding="async">
+        </a>
+        <figcaption class="edu-master-caption">Approved Version 17 master illustration. The anatomical drawing, labels, and ten numbered weekly boxes are unchanged. <a href="assets/education/worker-bee-anatomy-v17.pdf" target="_blank" rel="noopener">View or save the original full-size PDF</a>.</figcaption>
+      </figure>
       <aside class="edu-process" aria-labelledby="how-it-works">
         <h3 id="how-it-works">How each weekly lesson works</h3>
         <ol>
