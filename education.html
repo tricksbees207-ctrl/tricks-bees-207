@@ -87,6 +87,31 @@
 .edu-lesson--published{border-color:#d4a33a;box-shadow:0 3px 18px #c3a1553c}
 .edu-lesson-read{display:block;margin-top:auto;background:#264632;color:#fff!important;border-radius:7px;text-align:center;font-size:13px;font-weight:800;text-decoration:none;padding:11px 8px}
 .edu-lesson-read:hover{background:#3d6142}
+
+/* Interactive topic boxes sit in the exact ten original blueprint slots.
+   The approved V18 image and printable master remain unchanged. */
+.edu-page .edu-blueprint-layout{max-width:1280px}
+.edu-page .edu-interactive-blueprint{position:relative;line-height:0;background:#0b2a67}
+.edu-page .edu-interactive-blueprint__image{display:block;width:100%;height:auto;max-width:none}
+.edu-page .edu-blueprint-week-grid{position:absolute;top:61.85%;right:2.95%;bottom:4.93%;left:2.95%;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));column-gap:1.12%;row-gap:7.85%;line-height:1.4}
+.edu-page .edu-week-card{min-width:0;min-height:0;overflow:hidden;display:flex;flex-direction:column;padding:clamp(9px,1.1vw,16px);background:#fffcf4;border:2px solid #decba4;border-radius:6px;text-decoration:none;color:#263a2a;box-shadow:0 2px 10px #0002}
+.edu-page .edu-week-card--published{border-color:#e6b54a}
+.edu-page .edu-week-card--published:hover{background:#fff3d6;border-color:#c58b1d;box-shadow:0 4px 14px #0004}
+.edu-page .edu-week-card__number{font:800 clamp(10px,.83vw,12px)/1.2 Arial,sans-serif;letter-spacing:.08em;color:#815b13}
+.edu-page .edu-week-card__name{font:700 clamp(15px,1.28vw,20px)/1.13 Georgia,serif;margin:9px 0 7px;overflow-wrap:anywhere}
+.edu-page .edu-week-card__summary{font:400 clamp(11px,.86vw,13px)/1.36 Arial,sans-serif;color:#445447}
+.edu-page .edu-week-card__status{margin-top:auto;padding-top:7px;border-top:1px solid #e5dbc8;font:800 clamp(10px,.82vw,12px)/1.25 Arial,sans-serif;color:#5b725e;letter-spacing:.015em}
+.edu-page .edu-week-card--published .edu-week-card__status{color:#173c70}
+.edu-page .edu-week-card--published:focus-visible{outline:4px solid #f3c94d;outline-offset:3px;z-index:2}
+@media(max-width:1080px){
+  .edu-page .edu-interactive-blueprint__art{aspect-ratio:2250 / 1280;overflow:hidden}
+  .edu-page .edu-blueprint-week-grid{position:relative;top:auto;right:auto;bottom:auto;left:auto;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:none;gap:12px;padding:18px;background-color:#0b2a67;background-image:radial-gradient(#7f9ac3 1px,transparent 1px);background-size:15px 15px}
+  .edu-page .edu-week-card{min-height:152px;padding:15px}
+  .edu-page .edu-week-card__name{font-size:20px}
+  .edu-page .edu-week-card__summary{font-size:14px}
+  .edu-page .edu-week-card__number,.edu-page .edu-week-card__status{font-size:12px}
+}
+@media(max-width:380px){.edu-page .edu-blueprint-week-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body id="top" class="nav-footer-move edu-page">
@@ -116,29 +141,82 @@
     </div>
   </section>
   <section class="edu-blueprint" aria-labelledby="blueprint-title">
-    <div class="edu-section-head"><div class="edu-kicker">Honey bee anatomy</div><h2 id="blueprint-title">One bee. Ten closer looks.</h2><p>Explore the anatomy of a honey bee. Select the blueprint to view the illustration in full size.</p></div>
+    <div class="edu-section-head">
+      <div class="edu-kicker">Honey bee anatomy</div>
+      <h2 id="blueprint-title">One bee. Ten closer looks.</h2>
+      <p>Explore our honey bee blueprint and its weekly tidbits. Select a published topic below to open the full educational page.</p>
+    </div>
     <div class="edu-blueprint-layout">
       <figure class="edu-master-panel">
-        <a class="edu-master-preview" href="assets/education/worker-bee-anatomy-v18-week01.pdf" target="_blank" rel="noopener" aria-label="Open the original worker honey bee anatomy blueprint as a full-size PDF">
-          <img src="assets/education/worker-bee-anatomy-v18-week01.webp" width="2100" height="1932" alt="Tricks Bees 207 worker honey bee anatomy blueprint with the complete Week 01 Antennae lesson scaled into the first box and nine remaining boxes awaiting future weekly tidbits" loading="lazy" decoding="async">
-        </a>
-        <figcaption class="edu-master-caption"><a href="assets/education/worker-bee-anatomy-v18-week01.pdf" target="_blank" rel="noopener">View full-size blueprint (PDF)</a></figcaption>
+        <div class="edu-interactive-blueprint" role="group" aria-label="Honey bee anatomy blueprint and ten weekly tidbit topics">
+          <div class="edu-interactive-blueprint__art">
+            <img class="edu-interactive-blueprint__image" src="assets/education/worker-bee-anatomy-v18-week01.webp" width="2250" height="2070" alt="Tricks Bees 207 worker honey bee blueprint with the original labeled bee illustration. The weekly topics are shown as interactive boxes within this panel." loading="lazy" decoding="async">
+          </div>
+          <div class="edu-blueprint-week-grid" aria-label="Weekly honey bee anatomy tidbits">
+<a class="edu-week-card edu-week-card--published" href="education/antennae.html" aria-label="Open Week 1 Antennae tidbit in full size">
+  <span class="edu-week-card__number">WEEK 01</span>
+  <strong class="edu-week-card__name">Antennae</strong>
+  <span class="edu-week-card__summary">Sensing odors, touch, and cues from the environment.</span>
+  <span class="edu-week-card__status">OPEN FULL TIDBIT ↗</span>
+</a>
+<div class="edu-week-card" role="group" aria-label="Week 2: Ocelli. Coming soon">
+  <span class="edu-week-card__number">WEEK 02</span>
+  <strong class="edu-week-card__name">Ocelli</strong>
+  <span class="edu-week-card__summary">Three simple eyes that help sense light and orientation.</span>
+  <span class="edu-week-card__status">COMING SOON</span>
+</div>
+<div class="edu-week-card" role="group" aria-label="Week 3: Compound eyes. Coming soon">
+  <span class="edu-week-card__number">WEEK 03</span>
+  <strong class="edu-week-card__name">Compound eyes</strong>
+  <span class="edu-week-card__summary">Thousands of tiny visual units working together.</span>
+  <span class="edu-week-card__status">COMING SOON</span>
+</div>
+<div class="edu-week-card" role="group" aria-label="Week 4: Head. Coming soon">
+  <span class="edu-week-card__number">WEEK 04</span>
+  <strong class="edu-week-card__name">Head</strong>
+  <span class="edu-week-card__summary">Sensory structures, mouthparts, and feeding.</span>
+  <span class="edu-week-card__status">COMING SOON</span>
+</div>
+<div class="edu-week-card" role="group" aria-label="Week 5: Thorax. Coming soon">
+  <span class="edu-week-card__number">WEEK 05</span>
+  <strong class="edu-week-card__name">Thorax</strong>
+  <span class="edu-week-card__summary">The muscles and body structures that power movement.</span>
+  <span class="edu-week-card__status">COMING SOON</span>
+</div>
+<div class="edu-week-card" role="group" aria-label="Week 6: Forewings & hindwings. Coming soon">
+  <span class="edu-week-card__number">WEEK 06</span>
+  <strong class="edu-week-card__name">Forewings &amp; hindwings</strong>
+  <span class="edu-week-card__summary">Two pairs of wings that work together in flight.</span>
+  <span class="edu-week-card__status">COMING SOON</span>
+</div>
+<div class="edu-week-card" role="group" aria-label="Week 7: Forelegs. Coming soon">
+  <span class="edu-week-card__number">WEEK 07</span>
+  <strong class="edu-week-card__name">Forelegs</strong>
+  <span class="edu-week-card__summary">Walking, grooming, and cleaning the antennae.</span>
+  <span class="edu-week-card__status">COMING SOON</span>
+</div>
+<div class="edu-week-card" role="group" aria-label="Week 8: Midlegs. Coming soon">
+  <span class="edu-week-card__number">WEEK 08</span>
+  <strong class="edu-week-card__name">Midlegs</strong>
+  <span class="edu-week-card__summary">Movement and body grooming.</span>
+  <span class="edu-week-card__status">COMING SOON</span>
+</div>
+<div class="edu-week-card" role="group" aria-label="Week 9: Hindlegs. Coming soon">
+  <span class="edu-week-card__number">WEEK 09</span>
+  <strong class="edu-week-card__name">Hindlegs</strong>
+  <span class="edu-week-card__summary">Collecting, packing, and carrying pollen.</span>
+  <span class="edu-week-card__status">COMING SOON</span>
+</div>
+<div class="edu-week-card" role="group" aria-label="Week 10: Abdomen & stinger. Coming soon">
+  <span class="edu-week-card__number">WEEK 10</span>
+  <strong class="edu-week-card__name">Abdomen &amp; stinger</strong>
+  <span class="edu-week-card__summary">The rear body region, important organs, and defense.</span>
+  <span class="edu-week-card__status">COMING SOON</span>
+</div>
+          </div>
+        </div>
+        <figcaption class="edu-master-caption"><a href="assets/education/worker-bee-anatomy-v18-week01.pdf" target="_blank" rel="noopener">View the full-size printable blueprint (PDF)</a></figcaption>
       </figure>
-      </div>
-  </section>
-  <section class="edu-lessons" aria-labelledby="lessons-title">
-    <div class="edu-section-head"><div class="edu-kicker">Weekly honey bee tidbits</div><h2 id="lessons-title">Weekly Honey Bee Tidbits</h2><p>Discover a new honey bee tidbit each week, beginning with <strong>Antennae</strong>.</p></div>
-    <div class="edu-lesson-grid">
-<article class="edu-lesson edu-lesson--published" aria-labelledby="week-1"><div class="edu-lesson-index">WEEK 01</div><h3 id="week-1">Antennae</h3><p>Sensing odors, touch, and cues from the environment.</p><a class="edu-lesson-read" href="education/antennae.html">Explore this tidbit</a></article>
-<article class="edu-lesson" aria-labelledby="week-2"><div class="edu-lesson-index">WEEK 02</div><h3 id="week-2">Ocelli</h3><p>Three simple eyes that help sense light and orientation.</p><span class="edu-lesson-state">Tidbit coming soon</span></article>
-<article class="edu-lesson" aria-labelledby="week-3"><div class="edu-lesson-index">WEEK 03</div><h3 id="week-3">Compound eyes</h3><p>Thousands of tiny visual units working together.</p><span class="edu-lesson-state">Tidbit coming soon</span></article>
-<article class="edu-lesson" aria-labelledby="week-4"><div class="edu-lesson-index">WEEK 04</div><h3 id="week-4">Head</h3><p>Sensory structures, mouthparts, and feeding.</p><span class="edu-lesson-state">Tidbit coming soon</span></article>
-<article class="edu-lesson" aria-labelledby="week-5"><div class="edu-lesson-index">WEEK 05</div><h3 id="week-5">Thorax</h3><p>The muscles and body structures that power movement.</p><span class="edu-lesson-state">Tidbit coming soon</span></article>
-<article class="edu-lesson" aria-labelledby="week-6"><div class="edu-lesson-index">WEEK 06</div><h3 id="week-6">Forewings &amp; hindwings</h3><p>Two pairs of wings that work together in flight.</p><span class="edu-lesson-state">Tidbit coming soon</span></article>
-<article class="edu-lesson" aria-labelledby="week-7"><div class="edu-lesson-index">WEEK 07</div><h3 id="week-7">Forelegs</h3><p>Walking, grooming, and cleaning the antennae.</p><span class="edu-lesson-state">Tidbit coming soon</span></article>
-<article class="edu-lesson" aria-labelledby="week-8"><div class="edu-lesson-index">WEEK 08</div><h3 id="week-8">Midlegs</h3><p>Movement and body grooming.</p><span class="edu-lesson-state">Tidbit coming soon</span></article>
-<article class="edu-lesson" aria-labelledby="week-9"><div class="edu-lesson-index">WEEK 09</div><h3 id="week-9">Hindlegs</h3><p>Collecting, packing, and carrying pollen.</p><span class="edu-lesson-state">Tidbit coming soon</span></article>
-<article class="edu-lesson" aria-labelledby="week-10"><div class="edu-lesson-index">WEEK 10</div><h3 id="week-10">Abdomen &amp; stinger</h3><p>The rear body region, important organs, and defense.</p><span class="edu-lesson-state">Tidbit coming soon</span></article>
     </div>
   </section>
   <section class="edu-next" aria-labelledby="next-title">
