@@ -35,18 +35,18 @@
 .edu-section-head .edu-kicker{color:#795710}
 .edu-section-head h2{font-family:Georgia,serif;color:#263a2a;font-size:clamp(28px,3.6vw,39px);line-height:1.16;margin:0 0 14px}
 .edu-section-head p{max-width:920px;line-height:1.7;color:#425346;margin:0}
-.edu-blueprint-layout{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(300px,.8fr);gap:23px;margin-top:28px;align-items:stretch}
+.edu-blueprint-layout{display:block;max-width:900px;margin:28px auto 0}
 .edu-master-panel{background:#0b2a67;border:1px solid #6a91cc;border-radius:13px;min-width:0;margin:0;overflow:hidden;box-shadow:0 9px 24px #122e5c28}
 .edu-master-preview{display:block;position:relative;line-height:0;cursor:zoom-in}
 .edu-master-preview img{display:block;width:100%;height:auto;max-width:none;object-fit:contain}
 .edu-master-preview:focus-visible{outline:4px solid #e8bd3f;outline-offset:-4px}
-.edu-master-caption{background:#10316a;color:#e9effb;padding:17px 20px;line-height:1.55;font-size:14px}
+.edu-master-caption{background:#10316a;color:#e9effb;padding:16px 20px;line-height:1.55;font-size:14px;text-align:center}
 .edu-master-caption a{color:#ffe4a1;font-weight:800;text-underline-offset:3px;white-space:normal}
-.edu-process{background:#fffdf7;border:1px solid #d7d0c2;border-radius:12px;padding:28px}
-.edu-process h3{font-family:Georgia,serif;font-size:25px;color:#263a2a;margin:0 0 14px}
-.edu-process ol{padding-left:22px;margin:0;color:#344a3b;line-height:1.7}
-.edu-process li+li{margin-top:11px}
-.edu-process p{color:#475a49;line-height:1.65;font-size:14px;padding-top:16px;margin:20px 0 0;border-top:1px solid #ddd5c4}
+
+
+
+
+
 .edu-lessons{background:#eee8d9;border-top:1px solid #d6cdb8}
 .edu-lessons .edu-section-head p{max-width:960px}
 .edu-lesson-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-top:29px}
@@ -61,8 +61,8 @@
 .edu-next a{color:#f6d47c;text-decoration:underline;text-underline-offset:3px}
 .edu-page a:focus-visible,.edu-page button:focus-visible{outline:3px solid #f3c94d;outline-offset:3px}
 @media(max-width:1040px){.edu-lesson-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media(max-width:780px){.edu-blueprint-layout{grid-template-columns:1fr}.edu-page .brand-hero .banner-image-window img{max-height:260px}}
-@media(max-width:550px){.edu-lesson-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.edu-lesson{min-height:223px}.edu-master-content{padding:24px}.edu-process{padding:23px}}
+@media(max-width:780px){.edu-page .brand-hero .banner-image-window img{max-height:260px}}
+@media(max-width:550px){.edu-lesson-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.edu-lesson{min-height:223px}.edu-master-content{padding:24px}}
 @media(max-width:360px){.edu-lesson-grid{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){.edu-page *{scroll-behavior:auto}}
 </style>
@@ -83,32 +83,22 @@
   <section class="edu-intro" aria-labelledby="education-title">
     <div class="edu-kicker">Tricks Bees 207 • Bee Education</div>
     <h1 id="education-title">The Anatomy of a Worker Honey Bee</h1>
-    <p>Get to know the remarkable structures that keep a worker honey bee flying, foraging, communicating, and caring for its colony. This dedicated education series will pair detailed weekly lessons with our original blueprint-style worker bee anatomy illustration.</p>
+    <p>Discover the remarkable structures that help a worker honey bee fly, forage, sense its surroundings, and care for its colony. Explore the blueprint and follow along with our weekly anatomy lessons.</p>
     <div class="edu-meta"><span>10 planned weekly lessons</span><span>Original blueprint series</span><span>From our Maine apiary</span></div>
   </section>
   <section class="edu-blueprint" aria-labelledby="blueprint-title">
-    <div class="edu-section-head"><div class="edu-kicker">The master diagram</div><h2 id="blueprint-title">One bee. Ten closer looks.</h2><p>The approved Version 17 blueprint is displayed below, with the original bee illustration, anatomy labels, and all ten empty lesson boxes intact. Select the diagram to open the full-size PDF.</p></div>
+    <div class="edu-section-head"><div class="edu-kicker">Worker bee anatomy</div><h2 id="blueprint-title">One bee. Ten closer looks.</h2><p>Explore the anatomy of a worker honey bee. Select the blueprint to view the illustration in full size.</p></div>
     <div class="edu-blueprint-layout">
       <figure class="edu-master-panel">
         <a class="edu-master-preview" href="assets/education/worker-bee-anatomy-v17.pdf" target="_blank" rel="noopener" aria-label="Open the original worker honey bee anatomy blueprint as a full-size PDF">
           <img src="assets/education/worker-bee-anatomy-v17.webp" width="2100" height="1932" alt="Original Tricks Bees 207 worker honey bee anatomy blueprint: labeled bee on blue grid with ten empty boxes numbered Week 1 through Week 10" loading="lazy" decoding="async">
         </a>
-        <figcaption class="edu-master-caption">Approved Version 17 master illustration. The anatomical drawing, labels, and ten numbered weekly boxes are unchanged. <a href="assets/education/worker-bee-anatomy-v17.pdf" target="_blank" rel="noopener">View or save the original full-size PDF</a>.</figcaption>
+        <figcaption class="edu-master-caption"><a href="assets/education/worker-bee-anatomy-v17.pdf" target="_blank" rel="noopener">View full-size blueprint (PDF)</a></figcaption>
       </figure>
-      <aside class="edu-process" aria-labelledby="how-it-works">
-        <h3 id="how-it-works">How each weekly lesson works</h3>
-        <ol>
-          <li>Publish a full-page illustrated lesson covering one anatomy topic.</li>
-          <li>Keep that exact, complete lesson page available for readers to open and study.</li>
-          <li>After publication, place a scaled-down copy of the same complete page into its numbered box on the master blueprint.</li>
-          <li>Keep earlier weeks accessible as the ten-box diagram fills in.</li>
-        </ol>
-        <p>New lesson artwork and miniature pages are separate additions. They do not overwrite the approved bee illustration or the underlying editable layers.</p>
-      </aside>
-    </div>
+      </div>
   </section>
   <section class="edu-lessons" aria-labelledby="lessons-title">
-    <div class="edu-section-head"><div class="edu-kicker">Weekly anatomy lessons</div><h2 id="lessons-title">The ten-week study series</h2><p>We begin with <strong>Antennae</strong>. The remaining topics below are planned study areas covering the labeled anatomy. Each lesson will be linked here when its full-page teaching artwork is ready and published.</p></div>
+    <div class="edu-section-head"><div class="edu-kicker">Weekly anatomy lessons</div><h2 id="lessons-title">The ten-week study series</h2><p>Discover a different part of worker bee anatomy each week, beginning with <strong>Antennae</strong>.</p></div>
     <div class="edu-lesson-grid">
 <article class="edu-lesson" aria-labelledby="week-1"><div class="edu-lesson-index">WEEK 01</div><h3 id="week-1">Antennae</h3><p>Sensing odors, touch, and cues from the environment.</p><span class="edu-lesson-state">Lesson coming soon</span></article>
 <article class="edu-lesson" aria-labelledby="week-2"><div class="edu-lesson-index">WEEK 02</div><h3 id="week-2">Ocelli</h3><p>Three simple eyes that help sense light and orientation.</p><span class="edu-lesson-state">Lesson coming soon</span></article>
