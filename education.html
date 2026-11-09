@@ -18,6 +18,9 @@
 <style>
 .edu-page{background:#f7f3e8;color:#233329}
 .edu-page .brand-hero{background:#263a2a}
+/* The shared header is a flex row by default. On this full-page layout,
+   stack the navigation above the banner like the public homepage. */
+.edu-page header.brand-hero{display:block!important}
 .edu-page .brand-hero .banner-image-window img{width:100%;height:auto;max-height:390px;object-fit:cover;object-position:center}
 .edu-page #site-nav a[aria-current="page"]{color:#f6d577;border-bottom-color:#f6d577}
 .edu-page .edu-skip{position:fixed;top:10px;left:10px;z-index:1000;padding:12px 15px;border:2px solid #e8bd3f;background:#15271b;color:white;transform:translateY(-180%);text-decoration:none}
@@ -71,10 +74,10 @@
   <div class="banner-nav-shell">
     <button class="mobile-menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Open navigation menu">☰ <span>Menu</span></button>
     <nav id="site-nav" aria-label="Main navigation">
-      <a href="index.html#live">Live Cam</a><a href="index.html#dashboard">Hive Data</a><a href="apiary-log.html">Apiary Log</a><a href="education.html" aria-current="page">Education</a><a href="index.html#now">Weather</a><a href="index.html#apiary-now">Apiary Now</a><a href="index.html#varroa">Varroa</a><a href="https://www.facebook.com/TricksBees207" target="_blank" rel="noopener noreferrer">Facebook</a><a href="https://www.youtube.com/@TricksBeesApiary" target="_blank" rel="noopener noreferrer">YouTube</a><a href="mailto:TricksBees207@gmail.com?subject=Tricks%20Bees%20207%20Website">Contact</a>
+      <a href="index.html">Home</a><a href="index.html#live">Live Cam</a><a href="index.html#dashboard">Hive Data</a><a href="apiary-log.html">Apiary Log</a><a href="education.html" aria-current="page">Education</a><a href="index.html#now">Weather</a><a href="index.html#apiary-now">Apiary Now</a><a href="index.html#varroa">Varroa</a><a href="https://www.facebook.com/TricksBees207" target="_blank" rel="noopener noreferrer">Facebook</a><a href="https://www.youtube.com/@TricksBeesApiary" target="_blank" rel="noopener noreferrer">YouTube</a><a href="mailto:TricksBees207@gmail.com?subject=Tricks%20Bees%20207%20Website">Contact</a>
     </nav>
   </div>
-  <div class="banner-image-window"><a href="index.html" aria-label="Tricks Bees 207 homepage"><img src="assets/tricks-bees-207-hero-optimized.webp" alt="Tricks Bees 207: Real Bees. Real Hives. Real Time."></a></div>
+  <div class="banner-image-window"><img src="assets/tricks-bees-207-hero-optimized.webp" alt="Tricks Bees 207: Real Bees. Real Hives. Real Time."></div>
 </header>
 <div class="beekeeper-credential"><span>Master Beekeeper</span><span class="credential-dot">•</span><a class="credential-name credential-link" href="about-trick.html">Trick Hall</a><span class="credential-dot">•</span><span>Ellsworth, Maine</span></div>
 <main id="main-content" tabindex="-1">
