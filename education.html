@@ -65,6 +65,25 @@
 @media(max-width:550px){.edu-lesson-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.edu-lesson{min-height:223px}.edu-master-content{padding:24px}}
 @media(max-width:360px){.edu-lesson-grid{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){.edu-page *{scroll-behavior:auto}}
+
+/* Approved illustrated education hero. The original typography is part of
+   the desktop artwork; semantic heading and copy remain available to readers. */
+.edu-page main section.edu-intro{padding:0}
+.edu-intro{position:relative;overflow:hidden}
+.edu-approved-hero-banner{display:block;width:100%;height:auto;max-width:none}
+.edu-hero-copy{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);clip-path:inset(50%);white-space:nowrap;border:0}
+.edu-hero-mobile-photo{display:none}
+@media(max-width:780px){
+  .edu-approved-hero-banner{display:none}
+  .edu-hero-copy{position:static;display:block;width:auto;height:auto;margin:0;padding:36px 6% 29px;overflow:visible;clip:auto;clip-path:none;white-space:normal}
+  .edu-intro h1{font-size:clamp(32px,7.7vw,46px);line-height:1.07}
+  .edu-intro p{font-size:16px}
+  .edu-meta{margin-top:22px}
+  .edu-hero-mobile-photo{display:block;position:relative;overflow:hidden}
+  .edu-hero-mobile-photo img{display:block;width:100%;height:auto;max-height:390px;object-fit:cover;object-position:center 36%}
+  .edu-hero-hello{position:absolute;top:7%;left:6%;padding:10px 17px;border:3px solid #ffc249;border-radius:50%;background:#fffbf2;color:#092b67;font-size:clamp(20px,6vw,30px);font-family:cursive;font-weight:900;line-height:1.15;transform:rotate(-7deg);box-shadow:0 3px 9px #1b243748}
+  .edu-hero-hello::after{content:"";position:absolute;bottom:-12px;right:19%;width:17px;height:17px;background:#fffbf2;border-right:3px solid #ffc249;border-bottom:3px solid #ffc249;transform:rotate(34deg)}
+}
 </style>
 </head>
 <body id="top" class="nav-footer-move edu-page">
@@ -81,10 +100,17 @@
 <div class="beekeeper-credential"><span>Master Beekeeper</span><span class="credential-dot">•</span><a class="credential-name credential-link" href="about-trick.html">Trick Hall</a><span class="credential-dot">•</span><span>Ellsworth, Maine</span></div>
 <main id="main-content" tabindex="-1">
   <section class="edu-intro" aria-labelledby="education-title">
-    <div class="edu-kicker">Tricks Bees 207 • Bee Education</div>
-    <h1 id="education-title">The Anatomy of a Worker Honey Bee</h1>
-    <p>Discover the remarkable structures that help a worker honey bee fly, forage, sense its surroundings, and care for its colony. Explore the blueprint and follow along with our weekly anatomy lessons.</p>
-    <div class="edu-meta"><span>10 planned weekly lessons</span><span>Original blueprint series</span><span>From our Maine apiary</span></div>
+    <img class="edu-approved-hero-banner" src="assets/education/education-hero-approved.webp" width="2170" height="644" alt="" loading="eager" fetchpriority="high">
+    <div class="edu-hero-copy">
+      <div class="edu-kicker">Tricks Bees 207 • Bee Education</div>
+      <h1 id="education-title">The Anatomy of a Worker Honey Bee</h1>
+      <p>Discover the remarkable structures that help a worker honey bee fly, forage, sense its surroundings, and care for its colony. Explore the blueprint and follow along with our weekly anatomy lessons.</p>
+      <div class="edu-meta"><span>10 planned weekly lessons</span><span>Original blueprint series</span><span>From our Maine apiary</span></div>
+    </div>
+    <div class="edu-hero-mobile-photo">
+      <img src="assets/education/education-bee-original-mobile.webp" width="841" height="880" alt="A honey bee photographed at our Maine apiary, climbing along a terracotta surface." loading="eager">
+      <span class="edu-hero-hello" aria-hidden="true">Hii there!</span>
+    </div>
   </section>
   <section class="edu-blueprint" aria-labelledby="blueprint-title">
     <div class="edu-section-head"><div class="edu-kicker">Worker bee anatomy</div><h2 id="blueprint-title">One bee. Ten closer looks.</h2><p>Explore the anatomy of a worker honey bee. Select the blueprint to view the illustration in full size.</p></div>
