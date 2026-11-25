@@ -226,7 +226,7 @@
         <div class="mite-gridline g0"><span>0%</span></div>
 
         <div class="mite-empty" id="varroa-empty" role="status">
-          <strong>No sample results entered yet</strong>
+          <strong>Alcohol-wash results load when this section is approached</strong>
           <span>Alcohol-wash results from the Tricks Bees 207 apiary will appear here as colonies are sampled.</span>
         </div>
         <div id="varroa-chart-container" hidden style="position:absolute;inset:0;z-index:3;background:#fff;min-width:0">
@@ -281,7 +281,6 @@
   });
 })();
 </script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
 <script>
 (() => {
   "use strict";
@@ -292,8 +291,30 @@
   const status=document.getElementById("varroa-status");
   const colors=["#b97712","#276d8a","#45803c","#9c4b65","#795a9e","#008577","#a34d23","#637087"];
   let chart=null;
+  let chartLibraryPromise=null;
+  let started=false;
+  let refreshing=false;
+  function loadChartLibrary(){
+    if(typeof Chart!=="undefined")return Promise.resolve();
+    if(!chartLibraryPromise){
+      chartLibraryPromise=new Promise((resolve,reject)=>{
+        const script=document.createElement("script");
+        script.src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js";
+        script.async=true;
+        script.onload=()=>{
+          if(typeof Chart!=="undefined")resolve();
+          else{script.remove();reject(new Error("Chart library did not load."));}
+        };
+        script.onerror=()=>{script.remove();reject(new Error("Chart library did not load."));};
+        document.head.appendChild(script);
+      }).catch(error=>{chartLibraryPromise=null;throw error;});
+    }
+    return chartLibraryPromise;
+  }
   function formatDate(ms){return new Date(ms).toLocaleDateString("en-US",{timeZone:"UTC",month:"short",day:"numeric",year:"numeric"});}
   async function refreshVarroa(){
+    if(refreshing)return;
+    refreshing=true;
     try {
       const response=await fetch(endpoint,{headers:{apikey:apiKey,Accept:"application/json"},cache:"no-store"});
       if(!response.ok)throw new Error("Unable to read public chart data ("+response.status+").");
@@ -305,10 +326,11 @@
         container.hidden=true;
         document.querySelectorAll("#varroa .mite-gridline").forEach(el=>el.hidden=false);
         empty.hidden=false;
+        empty.querySelector("strong").textContent="No sample results entered yet";
         status.textContent="";
         return;
       }
-      if(typeof Chart==="undefined")throw new Error("Chart library did not load.");
+      await loadChartLibrary();
       const hiveNumbers=[...new Set(valid.map(r=>r.hive_number))].sort((a,b)=>a-b);
       const datasets=hiveNumbers.map((number,i)=>({
         label:"Hive "+number,
@@ -337,11 +359,30 @@
       status.textContent=valid.length+" alcohol-wash result"+(valid.length===1?"":"s")+" from "+hiveNumbers.length+" hive"+(hiveNumbers.length===1?"":"s")+". Updates automatically after new inspections; refreshes every five minutes.";
     }catch(error){
       status.textContent="Varroa Watch could not refresh: "+error.message;
-      if(!chart){empty.hidden=false;empty.querySelector("strong").textContent="Chart temporarily unavailable";}
+      if(!chart){container.hidden=true;empty.hidden=false;empty.querySelector("strong").textContent="Chart temporarily unavailable";}
+    }finally{
+      refreshing=false;
     }
   }
-  refreshVarroa();
-  setInterval(refreshVarroa,5*60*1000);
+  function startVarroa(){
+    if(started)return;
+    started=true;
+    empty.querySelector("strong").textContent="Loading sample results...";
+    refreshVarroa();
+    setInterval(refreshVarroa,5*60*1000);
+  }
+  const section=document.getElementById("varroa");
+  if(section && "IntersectionObserver" in window){
+    const observer=new IntersectionObserver(entries=>{
+      if(entries.some(entry=>entry.isIntersecting)){
+        observer.disconnect();
+        startVarroa();
+      }
+    },{rootMargin:"400px 0px"});
+    observer.observe(section);
+  }else{
+    startVarroa();
+  }
 })();
 </script>
 <script src="js/camera-selector.js?v=20261124-silent-recovery"></script>
