@@ -21,7 +21,7 @@
     frame.title = `${name} Live Camera`;
 
     if (channelId || videoId) {
-      const base = "https:" + "//" + "www.youtube.com";
+      const base = "https:" + "//" + "www.youtube-nocookie.com";
       const wanted = channelId
         ? base + "/embed/live_stream?channel=" + encodeURIComponent(channelId) + "&autoplay=1&mute=1"
         : base + "/embed/" + videoId + "?autoplay=1&mute=1";
